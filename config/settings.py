@@ -33,6 +33,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     "apps.core",
+    "apps.accounts",
+    "apps.security",
+    "apps.audit",
 ]
 
 MIDDLEWARE = [
@@ -124,3 +127,17 @@ STATICFILES_DIRS = [
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+# Authentication / identity
+AUTH_USER_MODEL = "accounts.User"
+
+# Session policy
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SECURE = False
+SESSION_COOKIE_SAMESITE = "Lax"
+
+SESSION_COOKIE_AGE = 60 * 60 * 10  # 10 hours absolute timeout
+SESSION_SAVE_EVERY_REQUEST = True
+
+INACTIVITY_TIMEOUT_MINUTES = 30
+ABSOLUTE_SESSION_TIMEOUT_HOURS = 10

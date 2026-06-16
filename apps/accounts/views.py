@@ -3,7 +3,7 @@ from django.contrib.auth import logout
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
-
+from django.utils import timezone
 from apps.audit.models import AuditLog
 from apps.audit.services.audit_service import AuditService
 
@@ -73,6 +73,10 @@ def logout_view(request):
         username_snapshot=username_snapshot,
         metadata={"source": "local_logout"},
     )
+
+    request.session.pop("login_at", None)
+    request.session.pop("last_activity_at", None)
+    request.session.pop("next_url", None)
 
     logout(request)
 

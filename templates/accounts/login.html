@@ -1,0 +1,50 @@
+{% extends "accounts/base_auth.html" %}
+
+{% block title %}Login | Invoice Flow{% endblock %}
+
+{% block content %}
+<div class="text-center mb-4">
+  <div class="avatar avatar-xl mb-3 rounded bg-primary-lt">
+    IF
+  </div>
+  <h1 class="h2 mb-1">Invoice Flow</h1>
+  <p class="text-muted">
+    Plataforma corporativa para gestión de facturas.
+  </p>
+</div>
+
+<div class="card card-md">
+  <div class="card-body">
+    <h2 class="h2 text-center mb-4">Acceso corporativo</h2>
+
+    {% if messages %}
+      <div class="mb-3">
+        {% for message in messages %}
+          <div class="alert alert-{{ message.tags|default:'info' }} mb-2" role="alert">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <p class="text-muted text-center mb-4">
+      Ingresa usando tu identidad corporativa Microsoft.
+    </p>
+
+    <a
+      href="{% url 'accounts:auth_start' %}{% if next %}?next={{ next|urlencode }}{% endif %}"
+      class="btn btn-primary w-100"
+    >
+      Continuar con Microsoft
+    </a>
+
+    <div class="text-muted text-center mt-4 small">
+      La integración real con Microsoft Entra ID será habilitada en una etapa posterior.
+    </div>
+  </div>
+</div>
+
+<div class="text-center text-muted mt-4 small">
+  Invoice Flow · Autenticación corporativa
+</div>
+{% endblock %}

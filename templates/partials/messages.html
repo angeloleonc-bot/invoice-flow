@@ -1,0 +1,9 @@
+{% if messages %}
+  <div class="container-xl mt-3">
+    {% for message in messages %}
+      <div class="alert alert-info">
+        {{ message }}
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}

@@ -47,4 +47,15 @@
 <div class="text-center text-muted mt-4 small">
   Invoice Flow · Autenticación corporativa
 </div>
+
+{% if debug %}
+  <div class="mt-3 text-center">
+    <a
+      href="{% url 'accounts:dev_login' %}{% if next %}?next={{ next|urlencode }}{% endif %}"
+      class="btn btn-outline-secondary btn-sm"
+    >
+      Entrar modo desarrollo
+    </a>
+  </div>
+{% endif %}
 {% endblock %}

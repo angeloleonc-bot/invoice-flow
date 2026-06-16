@@ -32,6 +32,7 @@ class CorporateSessionMiddleware:
     PUBLIC_PATH_PREFIXES = (
         "/auth/login/",
         "/auth/logout/",
+        "/auth/dev-login/",
         "/auth/start/",
         "/auth/callback-placeholder/",
         "/admin/login/",

@@ -13,4 +13,5 @@ urlpatterns = [
         views.callback_placeholder_view,
         name="callback_placeholder",
     ),
+    path("dev-login/", views.dev_login_view, name="dev_login"),
 ]

@@ -1,0 +1,8 @@
+<div class="if-tabs">
+  <a href="{% url 'portfolio:documents_list' %}" class="if-tab {% if active_tab == 'documents' %}is-active{% endif %}">
+    Documentos
+  </a>
+  <a href="{% url 'portfolio:customers_list' %}" class="if-tab {% if active_tab == 'customers' %}is-active{% endif %}">
+    Clientes
+  </a>
+</div>

@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Documentos | Invoice Flow{% endblock %}
+
+{% block content %}
+<div class="if-page-header">
+  <div>
+    <p class="if-eyebrow">Cartera</p>
+    <h1 class="if-page-title">Documentos</h1>
+    <p class="if-page-subtitle">Vista táctica operacional de documentos por cobrar.</p>
+  </div>
+</div>
+
+{% include "portfolio/_portfolio_nav.html" with active_tab="documents" %}
+
+<div class="if-card">
+  <div class="if-card-header">
+    <div>
+      <h2 class="if-card-title">Listado de documentos</h2>
+      <p class="if-card-subtitle">Documentos disponibles desde el modelo de cartera.</p>
+    </div>
+  </div>
+
+  {% if documents %}
+    <div class="if-table-wrapper">
+      <table class="if-table">
+        <thead>
+          <tr>
+            <th>Documento</th>
+            <th>Cliente</th>
+            <th>Estado</th>
+            <th>Subestado</th>
+            <th class="text-end">Saldo</th>
+            <th>Vencimiento</th>
+            <th>Tags</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for document in documents %}
+            <tr>
+              <td>
+                <strong>{{ document.document_number }}</strong>
+                <div class="if-muted">{{ document.get_document_type_display }}</div>
+              </td>
+              <td>{{ document.customer.name }}</td>
+              <td>
+                <span class="if-badge if-badge-primary">{{ document.status.name }}</span>
+              </td>
+              <td>
+                {% if document.sub_status %}
+                  <span class="if-badge">{{ document.sub_status.name }}</span>
+                {% else %}
+                  <span class="if-muted">Sin subestado</span>
+                {% endif %}
+              </td>
+              <td class="text-end">${{ document.balance_amount }}</td>
+              <td>{{ document.due_date|date:"d-m-Y" }}</td>
+              <td>
+                {% for tag in document.tags.all %}
+                  <span class="if-badge if-badge-soft">{{ tag.name }}</span>
+                {% empty %}
+                  <span class="if-muted">Sin tags</span>
+                {% endfor %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="if-empty-state">
+      <h3>No hay documentos registrados</h3>
+      <p>Cuando existan documentos en cartera, aparecerán en este listado operacional.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

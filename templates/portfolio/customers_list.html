@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Clientes | Invoice Flow{% endblock %}
+
+{% block content %}
+<div class="if-page-header">
+  <div>
+    <p class="if-eyebrow">Cartera</p>
+    <h1 class="if-page-title">Clientes</h1>
+    <p class="if-page-subtitle">Vista estratégica consolidada de clientes.</p>
+  </div>
+</div>
+
+{% include "portfolio/_portfolio_nav.html" with active_tab="customers" %}
+
+<div class="if-card">
+  <div class="if-card-header">
+    <div>
+      <h2 class="if-card-title">Listado de clientes</h2>
+      <p class="if-card-subtitle">Resumen consolidado de cartera por cliente.</p>
+    </div>
+  </div>
+
+  {% if customers %}
+    <div class="if-table-wrapper">
+      <table class="if-table">
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th>RUT</th>
+            <th>Cluster</th>
+            <th>Email</th>
+            <th>Teléfono</th>
+            <th class="text-end">Documentos</th>
+            <th class="text-end">Saldo Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for customer in customers %}
+            <tr>
+              <td>
+                <strong>{{ customer.name }}</strong>
+              </td>
+              <td>{{ customer.rut }}</td>
+              <td>
+                {% if customer.cluster %}
+                  <span class="if-badge">{{ customer.cluster }}</span>
+                {% else %}
+                  <span class="if-muted">Sin cluster</span>
+                {% endif %}
+              </td>
+              <td>{{ customer.email|default:"-" }}</td>
+              <td>{{ customer.phone|default:"-" }}</td>
+              <td class="text-end">{{ customer.documents_count }}</td>
+              <td class="text-end">
+                ${{ customer.total_balance|default_if_none:"0" }}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="if-empty-state">
+      <h3>No hay clientes registrados</h3>
+      <p>Cuando existan clientes en cartera, aparecerán en este listado consolidado.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

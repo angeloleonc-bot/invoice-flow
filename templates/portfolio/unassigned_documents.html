@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Documentos sin asignar{% endblock %}
+
+{% block content %}
+<div class="if-page-header">
+  <div>
+    <p class="if-eyebrow">Asignación</p>
+    <h1>Documentos sin asignar</h1>
+    <p class="if-muted">Documentos de cartera que aún no tienen una asignación activa.</p>
+  </div>
+</div>
+
+{% include "portfolio/_assignment_nav.html" %}
+
+<div class="row row-cards mb-4">
+  <div class="col-md-6">
+    <div class="if-card">
+      <div class="if-card-label">Documentos sin asignar</div>
+      <div class="if-card-value">{{ total_documents }}</div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="if-card">
+      <div class="if-card-label">Saldo sin asignar</div>
+      <div class="if-card-value">{{ total_balance }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="if-panel">
+  {% if documents %}
+    <div class="table-responsive">
+      <table class="table table-vcenter">
+        <thead>
+          <tr>
+            <th>Documento</th>
+            <th>Cliente</th>
+            <th>Vencimiento</th>
+            <th>Estado</th>
+            <th class="text-end">Saldo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for document in documents %}
+            <tr>
+              <td>{{ document.document_number }}</td>
+              <td>{{ document.customer.name }}</td>
+              <td>{{ document.due_date }}</td>
+              <td>{{ document.status.name }}</td>
+              <td class="text-end">{{ document.balance_amount }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="if-empty-state">
+      <h3>No hay documentos sin asignar</h3>
+      <p>Toda la cartera disponible tiene una asignación activa.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

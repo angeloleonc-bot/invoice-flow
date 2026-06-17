@@ -4,6 +4,7 @@ from .models import (
     Customer,
     CustomerContact,
     Document,
+    DocumentAssignment,
     DocumentStatus,
     DocumentSubStatus,
     DocumentTag,
@@ -86,3 +87,39 @@ class DocumentAdmin(admin.ModelAdmin):
     readonly_fields = ("created_at", "updated_at")
     filter_horizontal = ("tags",)
     date_hierarchy = "due_date"
+
+@admin.register(DocumentAssignment)
+class DocumentAssignmentAdmin(admin.ModelAdmin):
+    list_display = (
+        "document",
+        "assigned_to",
+        "assigned_by",
+        "assignment_type",
+        "assigned_at",
+        "is_active",
+    )
+
+    list_filter = (
+        "assignment_type",
+        "is_active",
+        "assigned_at",
+    )
+
+    search_fields = (
+        "document__document_number",
+        "document__customer__name",
+        "assigned_to__username",
+        "assigned_by__username",
+    )
+
+    autocomplete_fields = (
+        "document",
+        "assigned_to",
+        "assigned_by",
+    )
+
+    readonly_fields = (
+        "assigned_at",
+    )
+
+    date_hierarchy = "assigned_at"

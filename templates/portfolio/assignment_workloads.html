@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Carga por cobrador{% endblock %}
+
+{% block content %}
+<div class="if-page-header">
+  <div>
+    <p class="if-eyebrow">Asignación</p>
+    <h1>Carga por cobrador</h1>
+    <p class="if-muted">Resumen operativo de documentos activos asignados a cada cobrador.</p>
+  </div>
+</div>
+
+{% include "portfolio/_assignment_nav.html" %}
+
+<div class="row row-cards mb-4">
+  <div class="col-md-6">
+    <div class="if-card">
+      <div class="if-card-label">Documentos sin asignar</div>
+      <div class="if-card-value">{{ unassigned_documents_count }}</div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="if-card">
+      <div class="if-card-label">Saldo sin asignar</div>
+      <div class="if-card-value">{{ unassigned_balance }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="if-panel">
+  {% if collectors %}
+    <div class="table-responsive">
+      <table class="table table-vcenter">
+        <thead>
+          <tr>
+            <th>Cobrador</th>
+            <th class="text-end">Documentos activos</th>
+            <th class="text-end">Saldo asignado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for collector in collectors %}
+            <tr>
+              <td>{{ collector.get_full_name|default:collector.username }}</td>
+              <td class="text-end">{{ collector.active_documents }}</td>
+              <td class="text-end">{{ collector.total_balance|default:0 }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="if-empty-state">
+      <h3>No hay carga asignada</h3>
+      <p>Aún no existen documentos con asignación activa a cobradores.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

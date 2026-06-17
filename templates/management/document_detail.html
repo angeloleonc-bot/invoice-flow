@@ -132,14 +132,99 @@
                 </div>
             </div>
 
-            <div class="card shadow-sm mb-4">
-                <div class="card-header bg-white">
-                    <strong>Timeline</strong>
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white">
+        <strong>Registrar gestión</strong>
+    </div>
+
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+
+            <div class="row g-3">
+
+                <div class="col-md-3">
+                    <label class="form-label">Tipo</label>
+                    {{ form.action_type }}
                 </div>
-                <div class="card-body text-muted">
-                    Placeholder visual para historial de gestiones futuras.
+
+                <div class="col-md-9">
+                    <label class="form-label">Título</label>
+                    {{ form.title }}
                 </div>
+
+                <div class="col-12">
+                    <label class="form-label">Descripción</label>
+                    {{ form.description }}
+                </div>
+
+                <div class="col-12 text-end">
+                    <button type="submit" class="btn btn-primary">
+                        Registrar gestión
+                    </button>
+                </div>
+
             </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white">
+        <strong>Timeline</strong>
+    </div>
+
+    <div class="card-body">
+
+        {% if timeline_actions %}
+
+            {% for action in timeline_actions %}
+
+                <div class="border-bottom pb-3 mb-3">
+
+                    <div class="d-flex justify-content-between">
+                        <strong>{{ action.get_action_type_display }}</strong>
+
+                        <small class="text-muted">
+                            {{ action.action_date|date:"d/m/Y H:i" }}
+                        </small>
+                    </div>
+
+                    <div class="mt-2">
+                        <strong>{{ action.title }}</strong>
+                    </div>
+
+                    {% if action.description %}
+                        <div class="text-muted mt-1">
+                            {{ action.description }}
+                        </div>
+                    {% endif %}
+
+                    <div class="mt-2">
+                        <small class="text-secondary">
+                            Usuario:
+                            {% if action.performed_by %}
+                                {{ action.performed_by }}
+                            {% else %}
+                                Sistema
+                            {% endif %}
+                        </small>
+                    </div>
+
+                </div>
+
+            {% endfor %}
+
+        {% else %}
+
+            <div class="text-muted">
+                No existen gestiones registradas para este documento.
+            </div>
+
+        {% endif %}
+
+    </div>
+</div>
 
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-white">

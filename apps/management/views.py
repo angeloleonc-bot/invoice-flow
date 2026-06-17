@@ -1,10 +1,12 @@
 from datetime import timedelta
 
 from django.db.models import Sum
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from apps.portfolio.models import Document, DocumentAssignment
+from .forms import CollectionActionForm
+from .models import CollectionAction
 
 
 def my_work(request):
@@ -63,9 +65,37 @@ def document_detail(request, id):
         id=id,
     )
 
+    if request.method == "POST":
+        form = CollectionActionForm(request.POST)
+
+        if form.is_valid():
+            action = form.save(commit=False)
+            action.document = document
+            action.customer = document.customer
+
+            if request.user.is_authenticated:
+                action.performed_by = request.user
+
+            action.save()
+
+            return redirect("management:document_detail", id=document.id)
+
+    else:
+        form = CollectionActionForm()
+
+    timeline_actions = CollectionAction.objects.select_related(
+        "document",
+        "customer",
+        "performed_by",
+    ).filter(
+        document=document,
+    )
+
     context = {
         "document": document,
         "customer": document.customer,
+        "form": form,
+        "timeline_actions": timeline_actions,
     }
 
     return render(request, "management/document_detail.html", context)

@@ -6,4 +6,5 @@ urlpatterns = [
     path("", include("apps.core.urls")),
     path("auth/", include("apps.accounts.urls")),
     path("", include("apps.portfolio.urls")),
+    path("management/", include("apps.management.urls")),
 ]

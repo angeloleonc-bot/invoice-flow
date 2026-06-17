@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión | Invoice Flow{% endblock %}
+
+{% block content %}
+<div class="page-header d-print-none">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Gestión operacional</div>
+      <h2 class="page-title">Mi worklist</h2>
+      <div class="text-secondary mt-1">
+        Documentos asignados activamente para gestión diaria.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row row-cards mb-4">
+  <div class="col-sm-6 col-lg-3">
+    <div class="card">
+      <div class="card-body">
+        <div class="subheader">Documentos asignados</div>
+        <div class="h1 mb-0">{{ total_documents }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-sm-6 col-lg-3">
+    <div class="card">
+      <div class="card-body">
+        <div class="subheader">Saldo asignado</div>
+        <div class="h1 mb-0">{{ total_balance|floatformat:0 }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-sm-6 col-lg-3">
+    <div class="card">
+      <div class="card-body">
+        <div class="subheader">Vencidos</div>
+        <div class="h1 mb-0">{{ overdue_documents }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-sm-6 col-lg-3">
+    <div class="card">
+      <div class="card-body">
+        <div class="subheader">Próximos a vencer</div>
+        <div class="h1 mb-0">{{ upcoming_documents }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <div class="btn-list">
+      <a href="{% url 'management:my_work' %}?filter=all"
+         class="btn {% if selected_filter == 'all' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+        Todos
+      </a>
+
+      <a href="{% url 'management:my_work' %}?filter=overdue"
+         class="btn {% if selected_filter == 'overdue' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+        Vencidos
+      </a>
+
+      <a href="{% url 'management:my_work' %}?filter=high_balance"
+         class="btn {% if selected_filter == 'high_balance' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+        Alto saldo
+      </a>
+
+      <a href="{% url 'management:my_work' %}?filter=without_operational_status"
+         class="btn {% if selected_filter == 'without_operational_status' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+        Sin estado operativo
+      </a>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">Documentos para gestionar</h3>
+  </div>
+
+  {% if assignments %}
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr>
+            <th>Documento</th>
+            <th>Cliente</th>
+            <th>Estado</th>
+            <th>Saldo</th>
+            <th>Vencimiento</th>
+            <th>Responsable</th>
+            <th class="w-1"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for assignment in assignments %}
+            <tr>
+              <td>
+                <div class="fw-semibold">{{ assignment.document.document_number }}</div>
+                <div class="text-secondary">{{ assignment.document.get_document_type_display }}</div>
+              </td>
+              <td>{{ assignment.document.customer.name }}</td>
+              <td>
+                <div>{{ assignment.document.status.name }}</div>
+                <div class="text-secondary">
+                  {% if assignment.document.sub_status %}
+                    {{ assignment.document.sub_status.name }}
+                  {% else %}
+                    Sin estado operativo
+                  {% endif %}
+                </div>
+              </td>
+              <td>{{ assignment.document.balance_amount|floatformat:0 }}</td>
+              <td>{{ assignment.document.due_date|date:"d/m/Y" }}</td>
+              <td>{{ assignment.assigned_to.get_username }}</td>
+              <td>
+                <a href="#" class="btn btn-sm btn-outline-primary">Gestionar</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty">
+      <div class="empty-title">No hay documentos para gestionar</div>
+      <p class="empty-subtitle text-secondary">
+        Tu bandeja operacional no tiene documentos activos para el filtro seleccionado.
+      </p>
+      <div class="empty-action">
+        <a href="{% url 'management:my_work' %}" class="btn btn-primary">
+          Ver todos
+        </a>
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

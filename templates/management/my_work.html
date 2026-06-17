@@ -120,7 +120,9 @@
               <td>{{ assignment.document.due_date|date:"d/m/Y" }}</td>
               <td>{{ assignment.assigned_to.get_username }}</td>
               <td>
-                <a href="#" class="btn btn-sm btn-outline-primary">Gestionar</a>
+                <a href="{% url 'management:document_detail' assignment.document.id %}" class="btn btn-sm btn-primary">
+    Gestionar
+</a>
               </td>
             </tr>
           {% endfor %}

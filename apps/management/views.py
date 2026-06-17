@@ -1,10 +1,10 @@
 from datetime import timedelta
 
 from django.db.models import Sum
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 
-from apps.portfolio.models import DocumentAssignment
+from apps.portfolio.models import Document, DocumentAssignment
 
 
 def my_work(request):
@@ -51,3 +51,21 @@ def my_work(request):
     }
 
     return render(request, "management/my_work.html", context)
+
+
+def document_detail(request, id):
+    document = get_object_or_404(
+        Document.objects.select_related(
+            "customer",
+            "status",
+            "sub_status",
+        ).prefetch_related("tags"),
+        id=id,
+    )
+
+    context = {
+        "document": document,
+        "customer": document.customer,
+    }
+
+    return render(request, "management/document_detail.html", context)

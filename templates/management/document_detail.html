@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+
+{% block title %}Detalle Documento | Invoice Flow{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+    <div class="d-flex justify-content-between align-items-start mb-4">
+        <div>
+            <h1 class="h3 mb-1">Detalle Operacional de Documento</h1>
+            <p class="text-muted mb-0">
+                Gestión diaria del documento asignado.
+            </p>
+        </div>
+
+        <a href="{% url 'management:my_work' %}" class="btn btn-outline-secondary">
+            Volver a Gestión
+        </a>
+    </div>
+
+    <div class="row g-3 mb-4">
+
+        <div class="col-md-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Documento</div>
+                    <div class="fw-semibold">
+                        {{ document.document_number }}
+                    </div>
+                    <div class="small text-muted mt-2">
+                        Emisión: {{ document.issue_date|date:"d-m-Y" }}
+                    </div>
+                    <div class="small text-muted">
+                        Vencimiento: {{ document.due_date|date:"d-m-Y" }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Cliente</div>
+                    <div class="fw-semibold">
+                        {{ customer.name }}
+                    </div>
+                    <div class="small text-muted mt-2">
+                        RUT: {{ customer.rut }}
+                    </div>
+                    <div class="small text-muted">
+                        Cluster: {{ customer.cluster|default:"Sin cluster" }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Saldo</div>
+                    <div class="fw-semibold fs-5">
+                        {{ document.balance }}
+                    </div>
+                    <div class="small text-muted mt-2">
+                        Monto pendiente del documento.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Estado</div>
+                    <div class="fw-semibold">
+                        {{ document.status.name|default:"Sin estado" }}
+                    </div>
+                    <div class="small text-muted mt-2">
+                        Subestado: {{ document.sub_status.name|default:"Sin subestado" }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="row g-4">
+
+        <div class="col-lg-8">
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <strong>Información del Documento</strong>
+                </div>
+                <div class="card-body">
+                    <div class="row gy-3">
+                        <div class="col-md-6">
+                            <div class="text-muted small">Número</div>
+                            <div>{{ document.document_number }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="text-muted small">Cliente</div>
+                            <div>{{ customer.name }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="text-muted small">Estado</div>
+                            <div>{{ document.status.name|default:"Sin estado" }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="text-muted small">Subestado</div>
+                            <div>{{ document.sub_status.name|default:"Sin subestado" }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="text-muted small">Fecha emisión</div>
+                            <div>{{ document.issue_date|date:"d-m-Y" }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="text-muted small">Fecha vencimiento</div>
+                            <div>{{ document.due_date|date:"d-m-Y" }}</div>
+                        </div>
+                        <div class="col-12">
+                            <div class="text-muted small">Tags</div>
+                            <div class="mt-1">
+                                {% for tag in document.tags.all %}
+                                    <span class="badge bg-secondary">{{ tag.name }}</span>
+                                {% empty %}
+                                    <span class="text-muted">Sin tags</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <strong>Timeline</strong>
+                </div>
+                <div class="card-body text-muted">
+                    Placeholder visual para historial de gestiones futuras.
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <strong>Notas</strong>
+                </div>
+                <div class="card-body text-muted">
+                    Placeholder visual para notas operacionales futuras.
+                </div>
+            </div>
+
+        </div>
+
+        <div class="col-lg-4">
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <strong>Información Cliente</strong>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="text-muted small">Nombre</div>
+                        <div>{{ customer.name }}</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="text-muted small">RUT</div>
+                        <div>{{ customer.rut }}</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="text-muted small">Email</div>
+                        <div>{{ customer.email|default:"Sin email" }}</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="text-muted small">Teléfono</div>
+                        <div>{{ customer.phone|default:"Sin teléfono" }}</div>
+                    </div>
+                    <div>
+                        <div class="text-muted small">Cluster</div>
+                        <div>{{ customer.cluster|default:"Sin cluster" }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <strong>Promesas</strong>
+                </div>
+                <div class="card-body text-muted">
+                    Placeholder visual para promesas de pago.
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <strong>Pagos</strong>
+                </div>
+                <div class="card-body text-muted">
+                    Placeholder visual para pagos asociados.
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <strong>Adjuntos</strong>
+                </div>
+                <div class="card-body text-muted">
+                    Placeholder visual para documentos adjuntos.
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}

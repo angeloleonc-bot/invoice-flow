@@ -4,9 +4,14 @@ from django.db.models import Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
-from apps.portfolio.models import Document, DocumentAssignment
-from .forms import CollectionActionForm
-from .models import CollectionAction
+from apps.portfolio.models import (
+    Document,
+    DocumentAssignment,
+    DocumentStatus,
+    DocumentSubStatus,
+)
+from .forms import CollectionActionForm, PaymentPromiseForm
+from .models import CollectionAction, PaymentPromise, PromiseDocument
 
 
 def my_work(request):
@@ -65,23 +70,110 @@ def document_detail(request, id):
         id=id,
     )
 
+    action_form = CollectionActionForm()
+    promise_form = PaymentPromiseForm()
+
     if request.method == "POST":
-        form = CollectionActionForm(request.POST)
+        form_type = request.POST.get("form_type")
 
-        if form.is_valid():
-            action = form.save(commit=False)
-            action.document = document
-            action.customer = document.customer
+        if form_type == "action":
+            action_form = CollectionActionForm(request.POST)
 
-            if request.user.is_authenticated:
-                action.performed_by = request.user
+            if action_form.is_valid():
+                action = action_form.save(commit=False)
+                action.document = document
+                action.customer = document.customer
 
-            action.save()
+                if request.user.is_authenticated:
+                    action.performed_by = request.user
 
-            return redirect("management:document_detail", id=document.id)
+                action.save()
 
-    else:
-        form = CollectionActionForm()
+                return redirect("management:document_detail", id=document.id)
+
+        elif form_type == "promise":
+            promise_form = PaymentPromiseForm(request.POST)
+
+            if promise_form.is_valid():
+                promise = promise_form.save(commit=False)
+                promise.customer = document.customer
+                promise.status = PaymentPromise.Status.ACTIVE
+
+                if request.user.is_authenticated:
+                    promise.created_by = request.user
+
+                promise.save()
+
+                PromiseDocument.objects.create(
+                    promise=promise,
+                    document=document,
+                )
+
+                CollectionAction.objects.create(
+                    document=document,
+                    customer=document.customer,
+                    action_type=CollectionAction.ActionType.PROMISE,
+                    performed_by=request.user if request.user.is_authenticated else None,
+                    title="Promesa de pago registrada",
+                    description=(
+                        f"Fecha compromiso: {promise.promise_date.strftime('%d-%m-%Y')}\n"
+                        f"Monto comprometido: {promise.promised_amount}"
+                    ),
+                    metadata={
+                        "payment_promise_id": promise.id,
+                        "promise_date": promise.promise_date.isoformat(),
+                        "promised_amount": str(promise.promised_amount),
+                    },
+                )
+
+                status_pago_programado = DocumentStatus.objects.filter(
+                    name__iexact="Pago programado",
+                    is_active=True,
+                ).first()
+
+                substatus_promesa_vigente = DocumentSubStatus.objects.filter(
+                    name__iexact="Promesa vigente",
+                    is_active=True,
+                ).first()
+
+                changed_fields = []
+
+                if status_pago_programado:
+                    document.status = status_pago_programado
+                    changed_fields.append("status")
+
+                if substatus_promesa_vigente:
+                    document.sub_status = substatus_promesa_vigente
+                    changed_fields.append("sub_status")
+
+                if changed_fields:
+                    changed_fields.append("updated_at")
+                    document.save(update_fields=changed_fields)
+
+                return redirect("management:document_detail", id=document.id)
+
+    promise_links = (
+        PromiseDocument.objects.select_related(
+            "promise",
+            "promise__customer",
+            "promise__created_by",
+            "document",
+        )
+        .filter(document=document)
+        .order_by("-promise__created_at")
+    )
+
+    active_promises = promise_links.filter(
+        promise__status=PaymentPromise.Status.ACTIVE,
+    )
+
+    expired_promises = promise_links.filter(
+        promise__status=PaymentPromise.Status.EXPIRED,
+    )
+
+    historical_promises = promise_links.exclude(
+        promise__status=PaymentPromise.Status.ACTIVE,
+    )
 
     timeline_actions = CollectionAction.objects.select_related(
         "document",
@@ -94,7 +186,12 @@ def document_detail(request, id):
     context = {
         "document": document,
         "customer": document.customer,
-        "form": form,
+        "form": action_form,
+        "action_form": action_form,
+        "promise_form": promise_form,
+        "active_promises": active_promises,
+        "expired_promises": expired_promises,
+        "historical_promises": historical_promises,
         "timeline_actions": timeline_actions,
     }
 

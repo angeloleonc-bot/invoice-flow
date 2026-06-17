@@ -140,6 +140,7 @@
     <div class="card-body">
         <form method="post">
             {% csrf_token %}
+            <input type="hidden" name="form_type" value="action">
 
             <div class="row g-3">
 
@@ -267,14 +268,182 @@
                 </div>
             </div>
 
-            <div class="card shadow-sm mb-4">
-                <div class="card-header bg-white">
-                    <strong>Promesas</strong>
-                </div>
-                <div class="card-body text-muted">
-                    Placeholder visual para promesas de pago.
-                </div>
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white">
+        <strong>Promesas</strong>
+    </div>
+
+    <div class="card-body">
+
+        <form method="post" class="mb-4">
+            {% csrf_token %}
+            <input type="hidden" name="form_type" value="promise">
+
+            <div class="mb-3">
+                <label class="form-label">Fecha compromiso</label>
+                {{ promise_form.promise_date }}
             </div>
+
+            <div class="mb-3">
+                <label class="form-label">Monto compromiso</label>
+                {{ promise_form.promised_amount }}
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Notas</label>
+                {{ promise_form.notes }}
+            </div>
+
+            <div class="d-grid">
+                <button type="submit" class="btn btn-primary">
+                    Registrar promesa
+                </button>
+            </div>
+        </form>
+
+        <hr>
+
+        <div class="mb-3">
+            <div class="fw-semibold mb-2">Promesas activas</div>
+
+            {% if active_promises %}
+                {% for link in active_promises %}
+                    <div class="border rounded p-2 mb-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="badge bg-primary">
+                                {{ link.promise.get_status_display }}
+                            </span>
+                            <small class="text-muted">
+                                {{ link.promise.promise_date|date:"d-m-Y" }}
+                            </small>
+                        </div>
+
+                        <div class="mt-2">
+                            <div class="small text-muted">Monto compromiso</div>
+                            <div class="fw-semibold">
+                                {{ link.promise.promised_amount }}
+                            </div>
+                        </div>
+
+                        <div class="small mt-2">
+                            Pago confirmado:
+                            {% if link.promise.payment_confirmed %}
+                                <span class="badge bg-success">Sí</span>
+                            {% else %}
+                                <span class="badge bg-secondary">No</span>
+                            {% endif %}
+                        </div>
+
+                        {% if link.promise.notes %}
+                            <div class="small text-muted mt-2">
+                                {{ link.promise.notes }}
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-muted small">
+                    No existen promesas activas para este documento.
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="mb-3">
+            <div class="fw-semibold mb-2">Promesas vencidas</div>
+
+            {% if expired_promises %}
+                {% for link in expired_promises %}
+                    <div class="border rounded p-2 mb-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="badge bg-warning text-dark">
+                                {{ link.promise.get_status_display }}
+                            </span>
+                            <small class="text-muted">
+                                {{ link.promise.promise_date|date:"d-m-Y" }}
+                            </small>
+                        </div>
+
+                        <div class="mt-2">
+                            <div class="small text-muted">Monto compromiso</div>
+                            <div class="fw-semibold">
+                                {{ link.promise.promised_amount }}
+                            </div>
+                        </div>
+
+                        <div class="small mt-2">
+                            Pago confirmado:
+                            {% if link.promise.payment_confirmed %}
+                                <span class="badge bg-success">Sí</span>
+                            {% else %}
+                                <span class="badge bg-secondary">No</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-muted small">
+                    No existen promesas vencidas para este documento.
+                </div>
+            {% endif %}
+        </div>
+
+        <div>
+            <div class="fw-semibold mb-2">Historial de promesas</div>
+
+            {% if historical_promises %}
+                {% for link in historical_promises %}
+                    <div class="border-bottom pb-2 mb-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            {% if link.promise.status == "EXPIRED" %}
+                                <span class="badge bg-warning text-dark">
+                                    {{ link.promise.get_status_display }}
+                                </span>
+                            {% elif link.promise.status == "FULFILLED" %}
+                                <span class="badge bg-success">
+                                    {{ link.promise.get_status_display }}
+                                </span>
+                            {% elif link.promise.status == "CANCELLED" %}
+                                <span class="badge bg-danger">
+                                    {{ link.promise.get_status_display }}
+                                </span>
+                            {% elif link.promise.status == "PENDING" %}
+                                <span class="badge bg-info text-dark">
+                                    {{ link.promise.get_status_display }}
+                                </span>
+                            {% else %}
+                                <span class="badge bg-secondary">
+                                    {{ link.promise.get_status_display }}
+                                </span>
+                            {% endif %}
+
+                            <small class="text-muted">
+                                {{ link.promise.promise_date|date:"d-m-Y" }}
+                            </small>
+                        </div>
+
+                        <div class="small mt-2">
+                            Monto: {{ link.promise.promised_amount }}
+                        </div>
+
+                        <div class="small">
+                            Pago confirmado:
+                            {% if link.promise.payment_confirmed %}
+                                Sí
+                            {% else %}
+                                No
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-muted small">
+                    Sin historial adicional de promesas.
+                </div>
+            {% endif %}
+        </div>
+
+    </div>
+</div>
 
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-white">

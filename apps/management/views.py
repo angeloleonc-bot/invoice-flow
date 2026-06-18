@@ -17,11 +17,9 @@ from apps.portfolio.constants import (
     DOCUMENT_STATUS_PAYMENT_SCHEDULED,
     DOCUMENT_SUBSTATUS_ACTIVE_PROMISE,
 )
-
+from .services.prioritization import WorklistPriorityService
 
 def my_work(request):
-    today = timezone.localdate()
-    upcoming_limit = today + timedelta(days=7)
     selected_filter = request.GET.get("filter", "all")
 
     assignments = (
@@ -32,38 +30,113 @@ def my_work(request):
             "document__sub_status",
             "assigned_to",
         )
+       .prefetch_related(
+            "document__tags",
+            "document__promise_documents__promise",
+            "document__collection_actions",
+        )
         .filter(is_active=True, assigned_to=request.user)
-        .order_by("document__due_date", "document__customer__name", "document__document_number")
     )
 
     total_documents = assignments.count()
     total_balance = assignments.aggregate(
         total=Sum("document__balance_amount")
     )["total"] or 0
-    overdue_documents = assignments.filter(document__due_date__lt=today).count()
-    upcoming_documents = assignments.filter(
-        document__due_date__gte=today,
-        document__due_date__lte=upcoming_limit,
-    ).count()
 
-    if selected_filter == "overdue":
-        assignments = assignments.filter(document__due_date__lt=today)
+    priority_service = WorklistPriorityService()
+    work_items = []
+
+    for assignment in assignments:
+        priority_data = priority_service.evaluate_assignment(assignment)
+        document = assignment.document
+
+        item = {
+            "assignment": assignment,
+            "document": document,
+            "customer": document.customer,
+            "assigned_to": assignment.assigned_to,
+            **priority_data,
+        }
+
+        work_items.append(item)
+
+    high_priority_count = sum(
+        1 for item in work_items if item["priority_score"] >= 80
+    )
+    expired_promises_count = sum(
+        1
+        for item in work_items
+        if WorklistPriorityService.RULE_PROMISE_EXPIRED
+        in item["priority_reason_codes"]
+    )
+    promises_today_count = sum(
+        1
+        for item in work_items
+        if WorklistPriorityService.RULE_PROMISE_DUE_TODAY
+        in item["priority_reason_codes"]
+    )
+    no_management_7_days_count = sum(
+        1
+        for item in work_items
+        if WorklistPriorityService.RULE_NO_MANAGEMENT_7_DAYS
+        in item["priority_reason_codes"]
+    )
+    critical_portfolio_count = sum(
+        1
+        for item in work_items
+        if WorklistPriorityService.RULE_CUSTOMER_CRITICAL
+        in item["priority_reason_codes"]
+    )
+
+    if selected_filter == "high_priority":
+        work_items = [
+            item for item in work_items if item["priority_score"] >= 80
+        ]
+    elif selected_filter == "promise_expired":
+        work_items = [
+            item
+            for item in work_items
+            if WorklistPriorityService.RULE_PROMISE_EXPIRED
+            in item["priority_reason_codes"]
+        ]
+    elif selected_filter == "no_management_7_days":
+        work_items = [
+            item
+            for item in work_items
+            if WorklistPriorityService.RULE_NO_MANAGEMENT_7_DAYS
+            in item["priority_reason_codes"]
+        ]
     elif selected_filter == "high_balance":
-        assignments = assignments.filter(document__balance_amount__gte=1000000)
-    elif selected_filter == "without_operational_status":
-        assignments = assignments.filter(document__sub_status__isnull=True)
+        work_items = [
+            item
+            for item in work_items
+            if WorklistPriorityService.RULE_HIGH_BALANCE
+            in item["priority_reason_codes"]
+        ]
+    elif selected_filter == "overdue":
+        work_items = [
+            item
+            for item in work_items
+            if WorklistPriorityService.RULE_DOCUMENT_OVERDUE
+            in item["priority_reason_codes"]
+        ]
+
+    work_items = priority_service.sort_items(work_items)
 
     context = {
         "assignments": assignments,
+        "work_items": work_items,
         "selected_filter": selected_filter,
         "total_documents": total_documents,
         "total_balance": total_balance,
-        "overdue_documents": overdue_documents,
-        "upcoming_documents": upcoming_documents,
+        "high_priority_count": high_priority_count,
+        "expired_promises_count": expired_promises_count,
+        "promises_today_count": promises_today_count,
+        "no_management_7_days_count": no_management_7_days_count,
+        "critical_portfolio_count": critical_portfolio_count,
     }
 
     return render(request, "management/my_work.html", context)
-
 
 def document_detail(request, id):
     document = get_object_or_404(

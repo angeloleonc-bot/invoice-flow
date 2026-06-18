@@ -7,47 +7,65 @@
   <div class="row align-items-center">
     <div class="col">
       <div class="page-pretitle">Gestión operacional</div>
-      <h2 class="page-title">Mi worklist</h2>
+      <h2 class="page-title">Mi worklist priorizada</h2>
       <div class="text-secondary mt-1">
-        Documentos asignados activamente para gestión diaria.
+        Bandeja inteligente ordenada por prioridad operacional configurable.
       </div>
     </div>
   </div>
 </div>
 
 <div class="row row-cards mb-4">
-  <div class="col-sm-6 col-lg-3">
+  <div class="col-sm-6 col-lg-2">
     <div class="card">
       <div class="card-body">
-        <div class="subheader">Documentos asignados</div>
+        <div class="subheader">Documentos</div>
         <div class="h1 mb-0">{{ total_documents }}</div>
       </div>
     </div>
   </div>
 
-  <div class="col-sm-6 col-lg-3">
+  <div class="col-sm-6 col-lg-2">
     <div class="card">
       <div class="card-body">
-        <div class="subheader">Saldo asignado</div>
-        <div class="h1 mb-0">{{ total_balance|floatformat:0 }}</div>
+        <div class="subheader">Alta prioridad</div>
+        <div class="h1 mb-0">{{ high_priority_count }}</div>
       </div>
     </div>
   </div>
 
-  <div class="col-sm-6 col-lg-3">
+  <div class="col-sm-6 col-lg-2">
     <div class="card">
       <div class="card-body">
-        <div class="subheader">Vencidos</div>
-        <div class="h1 mb-0">{{ overdue_documents }}</div>
+        <div class="subheader">Promesas vencidas</div>
+        <div class="h1 mb-0">{{ expired_promises_count }}</div>
       </div>
     </div>
   </div>
 
-  <div class="col-sm-6 col-lg-3">
+  <div class="col-sm-6 col-lg-2">
     <div class="card">
       <div class="card-body">
-        <div class="subheader">Próximos a vencer</div>
-        <div class="h1 mb-0">{{ upcoming_documents }}</div>
+        <div class="subheader">Promesas hoy</div>
+        <div class="h1 mb-0">{{ promises_today_count }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-sm-6 col-lg-2">
+    <div class="card">
+      <div class="card-body">
+        <div class="subheader">Sin gestión 7 días</div>
+        <div class="h1 mb-0">{{ no_management_7_days_count }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-sm-6 col-lg-2">
+    <div class="card">
+      <div class="card-body">
+        <div class="subheader">Cartera crítica</div>
+        <div class="h1 mb-0">{{ critical_portfolio_count }}</div>
       </div>
     </div>
   </div>
@@ -61,9 +79,19 @@
         Todos
       </a>
 
-      <a href="{% url 'management:my_work' %}?filter=overdue"
-         class="btn {% if selected_filter == 'overdue' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-        Vencidos
+      <a href="{% url 'management:my_work' %}?filter=high_priority"
+         class="btn {% if selected_filter == 'high_priority' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+        Alta prioridad
+      </a>
+
+      <a href="{% url 'management:my_work' %}?filter=promise_expired"
+         class="btn {% if selected_filter == 'promise_expired' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+        Promesas vencidas
+      </a>
+
+      <a href="{% url 'management:my_work' %}?filter=no_management_7_days"
+         class="btn {% if selected_filter == 'no_management_7_days' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+        Sin gestión 7 días
       </a>
 
       <a href="{% url 'management:my_work' %}?filter=high_balance"
@@ -71,9 +99,9 @@
         Alto saldo
       </a>
 
-      <a href="{% url 'management:my_work' %}?filter=without_operational_status"
-         class="btn {% if selected_filter == 'without_operational_status' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-        Sin estado operativo
+      <a href="{% url 'management:my_work' %}?filter=overdue"
+         class="btn {% if selected_filter == 'overdue' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+        Vencidos
       </a>
     </div>
   </div>
@@ -81,48 +109,85 @@
 
 <div class="card">
   <div class="card-header">
-    <h3 class="card-title">Documentos para gestionar</h3>
+    <div>
+      <h3 class="card-title">Documentos para gestionar</h3>
+      <div class="text-secondary">
+        Ordenados por score de prioridad descendente.
+      </div>
+    </div>
   </div>
 
-  {% if assignments %}
+  {% if work_items %}
     <div class="table-responsive">
       <table class="table table-vcenter card-table">
         <thead>
           <tr>
+            <th>Prioridad</th>
+            <th>Motivo principal</th>
             <th>Documento</th>
             <th>Cliente</th>
             <th>Estado</th>
             <th>Saldo</th>
             <th>Vencimiento</th>
             <th>Responsable</th>
-            <th class="w-1"></th>
+            <th class="w-1">Acción</th>
           </tr>
         </thead>
         <tbody>
-          {% for assignment in assignments %}
+          {% for item in work_items %}
             <tr>
               <td>
-                <div class="fw-semibold">{{ assignment.document.document_number }}</div>
-                <div class="text-secondary">{{ assignment.document.get_document_type_display }}</div>
+                {% if item.priority_score >= 80 %}
+                  <span class="badge bg-red-lt">{{ item.priority_score }}</span>
+                {% elif item.priority_score > 0 %}
+                  <span class="badge bg-yellow-lt">{{ item.priority_score }}</span>
+                {% else %}
+                  <span class="badge bg-secondary-lt">0</span>
+                {% endif %}
               </td>
-              <td>{{ assignment.document.customer.name }}</td>
+
               <td>
-                <div>{{ assignment.document.status.name }}</div>
+                {% if item.priority_score > 0 %}
+                  <div class="fw-semibold">{{ item.main_priority_reason }}</div>
+                {% else %}
+                  <div class="text-secondary">Sin prioridad especial</div>
+                {% endif %}
+
+                {% if item.priority_reasons %}
+                  <div class="mt-1">
+                    {% for reason in item.priority_reasons %}
+                      <span class="badge bg-blue-lt mb-1">{{ reason }}</span>
+                    {% endfor %}
+                  </div>
+                {% endif %}
+              </td>
+
+              <td>
+                <div class="fw-semibold">{{ item.document.document_number }}</div>
+                <div class="text-secondary">{{ item.document.get_document_type_display }}</div>
+              </td>
+
+              <td>{{ item.customer.name }}</td>
+
+              <td>
+                <div>{{ item.document.status.name }}</div>
                 <div class="text-secondary">
-                  {% if assignment.document.sub_status %}
-                    {{ assignment.document.sub_status.name }}
+                  {% if item.document.sub_status %}
+                    {{ item.document.sub_status.name }}
                   {% else %}
                     Sin estado operativo
                   {% endif %}
                 </div>
               </td>
-              <td>{{ assignment.document.balance_amount|floatformat:0 }}</td>
-              <td>{{ assignment.document.due_date|date:"d/m/Y" }}</td>
-              <td>{{ assignment.assigned_to.get_username }}</td>
+
+              <td>{{ item.document.balance_amount|floatformat:0 }}</td>
+              <td>{{ item.document.due_date|date:"d/m/Y" }}</td>
+              <td>{{ item.assigned_to.get_username }}</td>
+
               <td>
-                <a href="{% url 'management:document_detail' assignment.document.id %}" class="btn btn-sm btn-primary">
-    Gestionar
-</a>
+                <a href="{% url 'management:document_detail' item.document.id %}" class="btn btn-sm btn-primary">
+                  Gestionar
+                </a>
               </td>
             </tr>
           {% endfor %}

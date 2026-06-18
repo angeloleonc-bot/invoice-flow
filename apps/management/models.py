@@ -126,3 +126,21 @@ class PromiseDocument(models.Model):
 
     def __str__(self):
         return f"{self.promise} → {self.document}"
+    
+class PriorityRule(models.Model):
+    code = models.CharField(max_length=80, unique=True)
+    name = models.CharField(max_length=150)
+    score = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    description = models.TextField(blank=True)
+    evaluation_order = models.PositiveIntegerField(default=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["evaluation_order", "code"]
+        verbose_name = "Regla de prioridad"
+        verbose_name_plural = "Reglas de prioridad"
+
+    def __str__(self):
+        return f"{self.code} - {self.name}"

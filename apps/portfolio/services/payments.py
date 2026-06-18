@@ -5,6 +5,12 @@ from django.db.models import Sum
 
 from apps.management.models import CollectionAction, PaymentPromise, PromiseDocument
 from apps.portfolio.models import DocumentStatus, DocumentSubStatus, PaymentRecord
+from apps.portfolio.constants import (
+    DOCUMENT_STATUS_PAID,
+    DOCUMENT_STATUS_PAYMENT_SCHEDULED,
+    DOCUMENT_SUBSTATUS_FULL_PAYMENT_REPORTED,
+    DOCUMENT_SUBSTATUS_PARTIAL_PAYMENT_REPORTED,
+)
 
 
 def _get_total_paid(document):
@@ -89,12 +95,21 @@ def update_document_payment_status(document):
 
     if remaining_balance <= 0:
         document.balance_amount = Decimal("0")
-        document.status = _get_or_create_status("Pagada", sort_order=90)
-        document.sub_status = _get_or_create_sub_status("Pago total informado", sort_order=90)
+        document.status = _get_or_create_status(DOCUMENT_STATUS_PAID, sort_order=90)
+        document.sub_status = _get_or_create_sub_status(
+            DOCUMENT_SUBSTATUS_FULL_PAYMENT_REPORTED,
+            sort_order=90,
+        )
     else:
         document.balance_amount = remaining_balance
-        document.status = _get_or_create_status("Pago programado", sort_order=50)
-        document.sub_status = _get_or_create_sub_status("Pago parcial informado", sort_order=50)
+        document.status = _get_or_create_status(
+            DOCUMENT_STATUS_PAYMENT_SCHEDULED,
+            sort_order=50,
+        )
+        document.sub_status = _get_or_create_sub_status(
+            DOCUMENT_SUBSTATUS_PARTIAL_PAYMENT_REPORTED,
+            sort_order=50,
+        )
 
     document.save(update_fields=["balance_amount", "status", "sub_status", "updated_at"])
 

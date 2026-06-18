@@ -13,6 +13,10 @@ from apps.portfolio.models import (
 )
 from .forms import CollectionActionForm, PaymentPromiseForm
 from .models import CollectionAction, PaymentPromise, PromiseDocument
+from apps.portfolio.constants import (
+    DOCUMENT_STATUS_PAYMENT_SCHEDULED,
+    DOCUMENT_SUBSTATUS_ACTIVE_PROMISE,
+)
 
 
 def my_work(request):
@@ -128,12 +132,12 @@ def document_detail(request, id):
                 )
 
                 status_pago_programado = DocumentStatus.objects.filter(
-                    name__iexact="Pago programado",
+                    name__iexact=DOCUMENT_STATUS_PAYMENT_SCHEDULED,
                     is_active=True,
                 ).first()
 
                 substatus_promesa_vigente = DocumentSubStatus.objects.filter(
-                    name__iexact="Promesa vigente",
+                    name__iexact=DOCUMENT_SUBSTATUS_ACTIVE_PROMISE,
                     is_active=True,
                 ).first()
 

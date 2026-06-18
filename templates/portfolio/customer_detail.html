@@ -164,6 +164,49 @@
   </div>
 </div>
 
+<div class="if-card if-section">
+  <div class="if-card-header">
+    <div>
+      <h2 class="if-card-title">Pagos</h2>
+      <p class="if-card-subtitle">Historial consolidado de pagos informados para el cliente.</p>
+    </div>
+    <span class="if-badge if-badge-success">Total pagado: ${{ total_paid }}</span>
+  </div>
+
+  <div class="if-table-wrapper">
+    <table class="if-table">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Documento</th>
+          <th class="text-end">Monto</th>
+          <th>Referencia externa</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for payment in payments %}
+          <tr>
+            <td>{{ payment.payment_date|date:"d/m/Y" }}</td>
+            <td>
+              <a class="if-link" href="{% url 'management:document_detail' payment.document.id %}">
+                {{ payment.document.document_number }}
+              </a>
+            </td>
+            <td class="text-end">${{ payment.amount }}</td>
+            <td>{{ payment.source_reference|default:"Sin referencia" }}</td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="4">
+              <span class="if-muted">Cliente sin pagos informados.</span>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
 <div class="if-two-column">
   <div class="if-card if-section">
     <div class="if-card-header">

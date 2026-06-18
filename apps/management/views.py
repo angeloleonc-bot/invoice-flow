@@ -9,6 +9,7 @@ from apps.portfolio.models import (
     DocumentAssignment,
     DocumentStatus,
     DocumentSubStatus,
+    PaymentRecord,
 )
 from .forms import CollectionActionForm, PaymentPromiseForm
 from .models import CollectionAction, PaymentPromise, PromiseDocument
@@ -175,6 +176,14 @@ def document_detail(request, id):
         promise__status=PaymentPromise.Status.ACTIVE,
     )
 
+    payments = (
+        PaymentRecord.objects.filter(document=document)
+        .select_related("document", "customer")
+        .order_by("-payment_date", "-created_at")
+    )
+
+    total_paid = payments.aggregate(total=Sum("amount"))["total"] or 0
+
     timeline_actions = CollectionAction.objects.select_related(
         "document",
         "customer",
@@ -193,6 +202,8 @@ def document_detail(request, id):
         "expired_promises": expired_promises,
         "historical_promises": historical_promises,
         "timeline_actions": timeline_actions,
+        "payments": payments,
+        "total_paid": total_paid,
     }
 
     return render(request, "management/document_detail.html", context)

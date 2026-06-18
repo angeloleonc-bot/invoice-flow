@@ -3,7 +3,7 @@ from django.db.models import Count, Q, Sum
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 from datetime import datetime, time
-from .models import Customer, CustomerContact, Document, DocumentAssignment
+from .models import Customer, CustomerContact, Document, DocumentAssignment, PaymentRecord
 from apps.management.models import CollectionAction, PaymentPromise, PromiseDocument
 
 
@@ -67,6 +67,14 @@ def customer_detail(request, customer_id):
         .order_by("-created_at")
     )
 
+    payments = (
+        PaymentRecord.objects.filter(customer=customer)
+        .select_related("document", "customer")
+        .order_by("-payment_date", "-created_at")
+    )
+
+    total_paid = payments.aggregate(total=Sum("amount"))["total"] or 0
+
     contacts = CustomerContact.objects.filter(customer=customer).order_by("name")
 
     last_action = actions.first()
@@ -121,6 +129,8 @@ def customer_detail(request, customer_id):
             "active_promises": promise_kpis["active_promises"] or 0,
             "expired_promises": promise_kpis["expired_promises"] or 0,
             "last_action": last_action,
+            "payments": payments,
+            "total_paid": total_paid,
         },
     )
 

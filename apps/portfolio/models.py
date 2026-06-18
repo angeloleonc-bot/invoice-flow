@@ -234,3 +234,36 @@ class DocumentAssignment(models.Model):
 
     def __str__(self):
         return f"{self.document} → {self.assigned_to}"
+    
+class PaymentRecord(models.Model):
+    document = models.ForeignKey(
+        Document,
+        on_delete=models.CASCADE,
+        related_name="payments",
+    )
+    customer = models.ForeignKey(
+        Customer,
+        on_delete=models.CASCADE,
+        related_name="payments",
+    )
+    payment_date = models.DateField()
+    amount = models.DecimalField(max_digits=18, decimal_places=2)
+    source_reference = models.CharField(max_length=120, blank=True)
+    external_payment_id = models.CharField(max_length=120, unique=True, null=True, blank=True)
+    source_table = models.CharField(max_length=120, blank=True, default=Document.SOURCE_PAGO_VTA_REG)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Pago aplicado"
+        verbose_name_plural = "Pagos aplicados"
+        ordering = ["-payment_date", "-created_at"]
+        indexes = [
+            models.Index(fields=["document"]),
+            models.Index(fields=["customer"]),
+            models.Index(fields=["payment_date"]),
+            models.Index(fields=["external_payment_id"]),
+        ]
+
+    def __str__(self):
+        return f"Pago {self.amount} - {self.document}"

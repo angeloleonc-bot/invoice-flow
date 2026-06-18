@@ -446,11 +446,34 @@
 </div>
 
             <div class="card shadow-sm mb-4">
-                <div class="card-header bg-white">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
                     <strong>Pagos</strong>
+                    <span class="badge bg-success">Total pagado: {{ total_paid }}</span>
                 </div>
-                <div class="card-body text-muted">
-                    Placeholder visual para pagos asociados.
+                <div class="card-body">
+                    {% if payments %}
+                        {% for payment in payments %}
+                            <div class="border-bottom pb-2 mb-2">
+                                <div class="d-flex justify-content-between">
+                                    <strong>{{ payment.payment_date|date:"d-m-Y" }}</strong>
+                                    <span>{{ payment.amount }}</span>
+                                </div>
+                                <div class="small text-muted mt-1">
+                                    Referencia externa:
+                                    {{ payment.source_reference|default:"Sin referencia" }}
+                                </div>
+                                {% if payment.external_payment_id %}
+                                    <div class="small text-muted">
+                                        ID externo: {{ payment.external_payment_id }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-muted">
+                            No existen pagos informados para este documento.
+                        </div>
+                    {% endif %}
                 </div>
             </div>
 

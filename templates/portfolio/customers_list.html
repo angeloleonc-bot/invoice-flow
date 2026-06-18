@@ -39,7 +39,11 @@
           {% for customer in customers %}
             <tr>
               <td>
-                <strong>{{ customer.name }}</strong>
+                <strong>
+<a href="/portfolio/customers/{{ customer.id }}/">
+    {{ customer.name }}
+  </a>
+</strong>
               </td>
               <td>{{ customer.rut }}</td>
               <td>

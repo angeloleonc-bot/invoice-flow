@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+
+{% block title %}Cliente 360 | {{ customer.name }}{% endblock %}
+
+{% block content %}
+<div class="if-page-header if-customer-header">
+  <div>
+    <p class="if-eyebrow">Cartera / Cliente 360</p>
+    <h1 class="if-page-title">{{ customer.name }}</h1>
+    <p class="if-page-subtitle">
+      RUT: {{ customer.rut }} · Cluster: {{ customer.cluster|default:"Sin cluster" }}
+    </p>
+    <p class="if-page-subtitle">
+      {{ customer.email|default:"Sin email" }} · {{ customer.phone|default:"Sin teléfono" }}
+    </p>
+  </div>
+
+  <div>
+    {% if customer.is_active %}
+      <span class="if-badge if-badge-primary">Activo</span>
+    {% else %}
+      <span class="if-badge">Inactivo</span>
+    {% endif %}
+  </div>
+</div>
+
+{% include "portfolio/_portfolio_nav.html" with active_tab="customers" %}
+
+<div class="if-kpi-grid">
+  <div class="if-kpi-card">
+    <span>Saldo total</span>
+    <strong>${{ total_balance }}</strong>
+  </div>
+  <div class="if-kpi-card">
+    <span>Documentos</span>
+    <strong>{{ total_documents }}</strong>
+  </div>
+  <div class="if-kpi-card">
+    <span>Documentos vencidos</span>
+    <strong>{{ overdue_documents }}</strong>
+  </div>
+  <div class="if-kpi-card">
+    <span>Promesas activas</span>
+    <strong>{{ active_promises }}</strong>
+  </div>
+  <div class="if-kpi-card">
+    <span>Promesas vencidas</span>
+    <strong>{{ expired_promises }}</strong>
+  </div>
+  <div class="if-kpi-card">
+    <span>Última gestión</span>
+    <strong>
+      {% if last_action %}
+        {{ last_action.created_at|date:"d/m/Y H:i" }}
+      {% else %}
+        Sin gestiones
+      {% endif %}
+    </strong>
+  </div>
+</div>
+
+<div class="if-card if-section">
+  <div class="if-card-header">
+    <div>
+      <h2 class="if-card-title">Timeline Cliente</h2>
+      <p class="if-card-subtitle">
+        Unión cronológica de gestiones, promesas y eventos operacionales del cliente.
+      </p>
+    </div>
+  </div>
+
+  <div class="if-timeline">
+    {% for event in timeline %}
+      <div class="if-timeline-item if-timeline-{{ event.type }}">
+        <div class="if-timeline-marker"></div>
+        <div class="if-timeline-content">
+          <div class="if-timeline-top">
+            <span class="if-badge {% if event.type == 'promesa' %}if-badge-primary{% endif %}">
+              {{ event.label }}
+            </span>
+            <span class="if-muted">{{ event.date|date:"d/m/Y H:i" }}</span>
+          </div>
+
+          <h3>{{ event.title }}</h3>
+
+          {% if event.amount %}
+            <p><strong>Monto:</strong> ${{ event.amount }}</p>
+          {% endif %}
+
+          {% if event.document %}
+            <p><strong>Documento:</strong> {{ event.document }}</p>
+          {% endif %}
+
+          {% if event.description %}
+            <p>{{ event.description }}</p>
+          {% endif %}
+        </div>
+      </div>
+    {% empty %}
+      <div class="if-empty-state">
+        <h3>Sin eventos registrados</h3>
+        <p>Este cliente todavía no tiene gestiones ni promesas registradas.</p>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="if-future-events">
+    <span class="if-badge">Pago futuro</span>
+    <span class="if-badge">Refacturación futura</span>
+    <span class="if-badge">Adjunto futuro</span>
+    <span class="if-badge">Evento externo futuro</span>
+  </div>
+</div>
+
+<div class="if-card if-section">
+  <div class="if-card-header">
+    <div>
+      <h2 class="if-card-title">Documentos</h2>
+      <p class="if-card-subtitle">Documentos asociados al cliente.</p>
+    </div>
+  </div>
+
+  <div class="if-table-wrapper">
+    <table class="if-table">
+      <thead>
+        <tr>
+          <th>Documento</th>
+          <th>Estado</th>
+          <th>Subestado</th>
+          <th>Tags</th>
+          <th class="text-end">Saldo</th>
+          <th>Vencimiento</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for document in documents %}
+          <tr>
+            <td>
+              <a class="if-link" href="{% url 'management:document_detail' document.id %}">
+                {{ document.document_number }}
+              </a>
+            </td>
+            <td>{{ document.status }}</td>
+            <td>{{ document.sub_status|default:"-" }}</td>
+            <td>
+              {% for tag in document.tags.all %}
+                <span class="if-badge if-badge-soft">{{ tag.name }}</span>
+              {% empty %}
+                <span class="if-muted">Sin tags</span>
+              {% endfor %}
+            </td>
+            <td class="text-end">${{ document.balance_amount }}</td>
+            <td>{{ document.due_date|date:"d/m/Y" }}</td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="6">
+              <span class="if-muted">Cliente sin documentos.</span>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="if-two-column">
+  <div class="if-card if-section">
+    <div class="if-card-header">
+      <div>
+        <h2 class="if-card-title">Promesas</h2>
+        <p class="if-card-subtitle">Compromisos formales de pago.</p>
+      </div>
+    </div>
+
+    <div class="if-list">
+      {% for promise in promises %}
+        <div class="if-list-item">
+          <div class="if-list-item-top">
+            <strong>{{ promise.promise_date|date:"d/m/Y" }}</strong>
+
+            {% if promise.status == "ACTIVE" %}
+              <span class="if-badge if-badge-primary">Vigente</span>
+            {% elif promise.status == "EXPIRED" %}
+              <span class="if-badge if-badge-danger">Vencida</span>
+            {% elif promise.status == "FULFILLED" %}
+              <span class="if-badge if-badge-success">Cumplida</span>
+            {% elif promise.status == "CANCELLED" %}
+              <span class="if-badge">Cancelada</span>
+            {% else %}
+              <span class="if-badge">Pendiente</span>
+            {% endif %}
+          </div>
+
+          <p><strong>Monto:</strong> ${{ promise.promised_amount }}</p>
+          <p>
+            <strong>Pago confirmado:</strong>
+            {% if promise.payment_confirmed %}Sí{% else %}No{% endif %}
+          </p>
+
+          <p>
+            <strong>Documentos:</strong>
+            {% for relation in promise.promise_documents.all %}
+              {{ relation.document.document_number }}{% if not forloop.last %}, {% endif %}
+            {% empty %}
+              Sin documentos asociados
+            {% endfor %}
+          </p>
+
+          {% if promise.notes %}
+            <p>{{ promise.notes }}</p>
+          {% endif %}
+        </div>
+      {% empty %}
+        <div class="if-empty-compact">Cliente sin promesas.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="if-card if-section">
+    <div class="if-card-header">
+      <div>
+        <h2 class="if-card-title">Contactos</h2>
+        <p class="if-card-subtitle">Personas de contacto del cliente.</p>
+      </div>
+    </div>
+
+    <div class="if-list">
+      {% for contact in contacts %}
+        <div class="if-list-item">
+          <strong>{{ contact.name }}</strong>
+          <p>{{ contact.email|default:"Sin email" }}</p>
+          <p>{{ contact.phone|default:"Sin teléfono" }}</p>
+        </div>
+      {% empty %}
+        <div class="if-empty-compact">Cliente sin contactos.</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="if-card if-section">
+  <div class="if-card-header">
+    <div>
+      <h2 class="if-card-title">Gestiones</h2>
+      <p class="if-card-subtitle">Acciones operacionales realizadas sobre documentos del cliente.</p>
+    </div>
+  </div>
+
+  <div class="if-list">
+    {% for action in actions %}
+      <div class="if-list-item">
+        <div class="if-list-item-top">
+          <strong>{{ action.created_at|date:"d/m/Y H:i" }}</strong>
+          <span class="if-badge">Gestión</span>
+        </div>
+        <p><strong>Documento:</strong> {{ action.document }}</p>
+{% if action.description %}
+  <p>{{ action.description }}</p>
+{% endif %}
+      </div>
+    {% empty %}
+      <div class="if-empty-compact">Cliente sin gestiones.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

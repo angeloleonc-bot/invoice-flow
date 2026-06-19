@@ -6,26 +6,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Invoice Flow{% endblock %}</title>
 
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/css/tabler.min.css">
-  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-
   <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;750&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/css/tabler.min.css">
-<link rel="stylesheet" href="{% static 'css/invoice-flow.css' %}">
-<script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/css/tabler.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="{% static 'css/invoice-flow.css' %}">
+
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
 </head>
 <body>
-  <div class="page">
+  <div class="page if-app-shell">
     {% include "partials/sidebar.html" %}
 
-    <div class="page-wrapper">
+    <div class="page-wrapper if-page-wrapper">
       {% include "partials/navbar.html" %}
       {% include "partials/messages.html" %}
 
-      <main class="page-body">
+      <main class="page-body if-page-body">
         <div class="container-xl">
           {% block content %}{% endblock %}
         </div>

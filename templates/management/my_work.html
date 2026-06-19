@@ -3,175 +3,92 @@
 {% block title %}Gestión | Invoice Flow{% endblock %}
 
 {% block content %}
-<div class="page-header d-print-none">
-  <div class="row align-items-center">
-    <div class="col">
-      <div class="page-pretitle">Gestión operacional</div>
-      <h2 class="page-title">Mi worklist priorizada</h2>
-      <div class="text-secondary mt-1">
-        Bandeja inteligente ordenada por prioridad operacional configurable.
-      </div>
-    </div>
+<div class="if-page-header">
+  <div>
+    <div class="if-eyebrow">Gestión operacional</div>
+    <h1 class="if-page-title">Mi worklist priorizada</h1>
+    <p class="if-page-subtitle">
+      Bandeja inteligente ordenada por prioridad operacional configurable.
+    </p>
   </div>
 </div>
 
-<div class="row row-cards mb-4">
-  <div class="col-sm-6 col-lg-2">
-    <div class="card">
-      <div class="card-body">
-        <div class="subheader">Documentos</div>
-        <div class="h1 mb-0">{{ total_documents }}</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="col-sm-6 col-lg-2">
-    <div class="card">
-      <div class="card-body">
-        <div class="subheader">Alta prioridad</div>
-        <div class="h1 mb-0">{{ high_priority_count }}</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="col-sm-6 col-lg-2">
-    <div class="card">
-      <div class="card-body">
-        <div class="subheader">Promesas vencidas</div>
-        <div class="h1 mb-0">{{ expired_promises_count }}</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="col-sm-6 col-lg-2">
-    <div class="card">
-      <div class="card-body">
-        <div class="subheader">Promesas hoy</div>
-        <div class="h1 mb-0">{{ promises_today_count }}</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="col-sm-6 col-lg-2">
-    <div class="card">
-      <div class="card-body">
-        <div class="subheader">Sin gestión 7 días</div>
-        <div class="h1 mb-0">{{ no_management_7_days_count }}</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="col-sm-6 col-lg-2">
-    <div class="card">
-      <div class="card-body">
-        <div class="subheader">Cartera crítica</div>
-        <div class="h1 mb-0">{{ critical_portfolio_count }}</div>
-      </div>
-    </div>
-  </div>
+<div class="if-work-kpis">
+  <div class="if-card-kpi"><div class="if-stat-label">Documentos</div><div class="if-stat-value">{{ total_documents }}</div></div>
+  <div class="if-card-kpi"><div class="if-stat-label">Alta prioridad</div><div class="if-stat-value">{{ high_priority_count }}</div></div>
+  <div class="if-card-kpi"><div class="if-stat-label">Promesas vencidas</div><div class="if-stat-value">{{ expired_promises_count }}</div></div>
+  <div class="if-card-kpi"><div class="if-stat-label">Promesas hoy</div><div class="if-stat-value">{{ promises_today_count }}</div></div>
+  <div class="if-card-kpi"><div class="if-stat-label">Sin gestión 7 días</div><div class="if-stat-value">{{ no_management_7_days_count }}</div></div>
+  <div class="if-card-kpi"><div class="if-stat-label">Cartera crítica</div><div class="if-stat-value">{{ critical_portfolio_count }}</div></div>
 </div>
 
-<div class="card mb-4">
-  <div class="card-body">
-    <div class="btn-list">
-      <a href="{% url 'management:my_work' %}?filter=all"
-         class="btn {% if selected_filter == 'all' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-        Todos
-      </a>
-
-      <a href="{% url 'management:my_work' %}?filter=high_priority"
-         class="btn {% if selected_filter == 'high_priority' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-        Alta prioridad
-      </a>
-
-      <a href="{% url 'management:my_work' %}?filter=promise_expired"
-         class="btn {% if selected_filter == 'promise_expired' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-        Promesas vencidas
-      </a>
-
-      <a href="{% url 'management:my_work' %}?filter=no_management_7_days"
-         class="btn {% if selected_filter == 'no_management_7_days' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-        Sin gestión 7 días
-      </a>
-
-      <a href="{% url 'management:my_work' %}?filter=high_balance"
-         class="btn {% if selected_filter == 'high_balance' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-        Alto saldo
-      </a>
-
-      <a href="{% url 'management:my_work' %}?filter=overdue"
-         class="btn {% if selected_filter == 'overdue' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-        Vencidos
-      </a>
-    </div>
+<section class="if-card mt-3 mb-3">
+  <div class="if-work-filters">
+    <a href="{% url 'management:my_work' %}?filter=all" class="if-filter-chip {% if selected_filter == 'all' %}is-active{% endif %}">Todos</a>
+    <a href="{% url 'management:my_work' %}?filter=high_priority" class="if-filter-chip {% if selected_filter == 'high_priority' %}is-active{% endif %}">Alta prioridad</a>
+    <a href="{% url 'management:my_work' %}?filter=promise_expired" class="if-filter-chip {% if selected_filter == 'promise_expired' %}is-active{% endif %}">Promesas vencidas</a>
+    <a href="{% url 'management:my_work' %}?filter=no_management_7_days" class="if-filter-chip {% if selected_filter == 'no_management_7_days' %}is-active{% endif %}">Sin gestión 7 días</a>
+    <a href="{% url 'management:my_work' %}?filter=high_balance" class="if-filter-chip {% if selected_filter == 'high_balance' %}is-active{% endif %}">Alto saldo</a>
+    <a href="{% url 'management:my_work' %}?filter=overdue" class="if-filter-chip {% if selected_filter == 'overdue' %}is-active{% endif %}">Vencidos</a>
   </div>
-</div>
+</section>
 
-<div class="card">
-  <div class="card-header">
+<section class="if-card">
+  <div class="if-card-header">
     <div>
-      <h3 class="card-title">Documentos para gestionar</h3>
-      <div class="text-secondary">
-        Ordenados por score de prioridad descendente.
-      </div>
+      <h2 class="if-card-title">Documentos para gestionar</h2>
+      <p class="if-card-subtitle">Ordenados por score de prioridad descendente.</p>
     </div>
   </div>
 
   {% if work_items %}
-    <div class="table-responsive">
-      <table class="table table-vcenter card-table">
+    <div class="if-table-wrapper">
+      <table class="if-table if-work-table">
         <thead>
           <tr>
             <th>Prioridad</th>
-            <th>Motivo principal</th>
-            <th>Documento</th>
-            <th>Cliente</th>
+            <th>Motivo</th>
+            <th>Documento / Cliente</th>
             <th>Estado</th>
-            <th>Saldo</th>
+            <th class="text-end">Saldo</th>
             <th>Vencimiento</th>
             <th>Responsable</th>
-            <th class="w-1">Acción</th>
+            <th class="text-end">Acción</th>
           </tr>
         </thead>
         <tbody>
           {% for item in work_items %}
             <tr>
               <td>
-                {% if item.priority_score >= 80 %}
-                  <span class="badge bg-red-lt">{{ item.priority_score }}</span>
-                {% elif item.priority_score > 0 %}
-                  <span class="badge bg-yellow-lt">{{ item.priority_score }}</span>
-                {% else %}
-                  <span class="badge bg-secondary-lt">0</span>
-                {% endif %}
+                <div class="if-priority-score {% if item.priority_score >= 80 %}is-danger{% elif item.priority_score > 0 %}is-warning{% else %}is-muted{% endif %}">
+                  {{ item.priority_score|default:0 }}
+                </div>
               </td>
 
               <td>
                 {% if item.priority_score > 0 %}
-                  <div class="fw-semibold">{{ item.main_priority_reason }}</div>
+                  <strong>{{ item.main_priority_reason }}</strong>
                 {% else %}
-                  <div class="text-secondary">Sin prioridad especial</div>
+                  <span class="if-muted">Sin prioridad especial</span>
                 {% endif %}
 
                 {% if item.priority_reasons %}
-                  <div class="mt-1">
+                  <div class="if-reason-list">
                     {% for reason in item.priority_reasons %}
-                      <span class="badge bg-blue-lt mb-1">{{ reason }}</span>
+                      <span class="if-badge if-badge-soft">{{ reason }}</span>
                     {% endfor %}
                   </div>
                 {% endif %}
               </td>
 
               <td>
-                <div class="fw-semibold">{{ item.document.document_number }}</div>
-                <div class="text-secondary">{{ item.document.get_document_type_display }}</div>
+                <strong>{{ item.document.document_number }}</strong>
+                <div class="if-muted">{{ item.document.get_document_type_display }} · {{ item.customer.name }}</div>
               </td>
 
-              <td>{{ item.customer.name }}</td>
-
               <td>
-                <div>{{ item.document.status.name }}</div>
-                <div class="text-secondary">
+                <span class="if-badge if-badge-soft">{{ item.document.status.name }}</span>
+                <div class="if-muted mt-1">
                   {% if item.document.sub_status %}
                     {{ item.document.sub_status.name }}
                   {% else %}
@@ -180,14 +97,18 @@
                 </div>
               </td>
 
-              <td>{{ item.document.balance_amount|floatformat:0 }}</td>
+              <td class="text-end">
+                <strong>${{ item.document.balance_amount|floatformat:0 }}</strong>
+              </td>
+
               <td>{{ item.document.due_date|date:"d/m/Y" }}</td>
               <td>{{ item.assigned_to.get_username }}</td>
 
-              <td>
-                <a href="{% url 'management:document_detail' item.document.id %}" class="btn btn-sm btn-primary">
-                  Gestionar
-                </a>
+              <td class="text-end">
+<a href="{% url 'management:document_detail' item.document.id %}" class="if-action-link">
+  <i class="bi bi-arrow-right"></i>
+  Gestionar
+</a>
               </td>
             </tr>
           {% endfor %}
@@ -195,17 +116,13 @@
       </table>
     </div>
   {% else %}
-    <div class="empty">
-      <div class="empty-title">No hay documentos para gestionar</div>
-      <p class="empty-subtitle text-secondary">
-        Tu bandeja operacional no tiene documentos activos para el filtro seleccionado.
-      </p>
-      <div class="empty-action">
-        <a href="{% url 'management:my_work' %}" class="btn btn-primary">
-          Ver todos
-        </a>
+    <div class="if-empty-state">
+      <h3>No hay documentos para gestionar</h3>
+      <p>Tu bandeja operacional no tiene documentos activos para el filtro seleccionado.</p>
+      <div class="mt-3">
+        <a href="{% url 'management:my_work' %}" class="btn btn-primary">Ver todos</a>
       </div>
     </div>
   {% endif %}
-</div>
+</section>
 {% endblock %}

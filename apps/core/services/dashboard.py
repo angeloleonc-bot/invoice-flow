@@ -33,13 +33,16 @@ class DashboardService:
 
     def get_context(self):
         critical_documents = self.get_critical_documents(limit=10)
+        aging = self.get_aging()
+        total_aging_documents = sum(bucket["count"] for bucket in aging) or 1
 
         return {
             "kpis": self.get_kpis(),
             "team_performance": self.get_team_performance(),
             "critical_documents": critical_documents,
             "commitments": self.get_commitments(),
-            "aging": self.get_aging(),
+            "aging": aging,
+            "total_aging_documents": total_aging_documents,
             "alerts": self.get_alerts(),
         }
 

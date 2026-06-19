@@ -1,37 +1,51 @@
 {% extends "base.html" %}
 
-{% block title %}Carga por cobrador{% endblock %}
+{% block title %}Carga por cobrador | Invoice Flow{% endblock %}
 
 {% block content %}
 <div class="if-page-header">
   <div>
     <p class="if-eyebrow">Asignación</p>
-    <h1>Carga por cobrador</h1>
-    <p class="if-muted">Resumen operativo de documentos activos asignados a cada cobrador.</p>
+    <h1 class="if-page-title">Carga por cobrador</h1>
+    <p class="if-page-subtitle">
+      Resumen operativo de documentos activos asignados a cada cobrador.
+    </p>
   </div>
 </div>
 
 {% include "portfolio/_assignment_nav.html" %}
 
-<div class="row row-cards mb-4">
-  <div class="col-md-6">
-    <div class="if-card">
-      <div class="if-card-label">Documentos sin asignar</div>
-      <div class="if-card-value">{{ unassigned_documents_count }}</div>
-    </div>
+<div class="if-dashboard-kpis mt-3">
+  <div class="if-card-kpi if-kpi-premium">
+    <span class="if-stat-icon"><i class="bi bi-inbox"></i></span>
+    <div class="if-stat-label">Documentos sin asignar</div>
+    <div class="if-stat-value">{{ unassigned_documents_count }}</div>
+    <div class="if-kpi-divider"></div>
+    <div class="if-stat-trend">Pendientes de distribución</div>
   </div>
-  <div class="col-md-6">
-    <div class="if-card">
-      <div class="if-card-label">Saldo sin asignar</div>
-      <div class="if-card-value">{{ unassigned_balance }}</div>
-    </div>
+
+  <div class="if-card-kpi if-kpi-premium">
+    <span class="if-stat-icon"><i class="bi bi-cash-stack"></i></span>
+    <div class="if-stat-label">Saldo sin asignar</div>
+    <div class="if-stat-value">${{ unassigned_balance }}</div>
+    <div class="if-kpi-divider"></div>
+    <div class="if-stat-trend">Monto aún no distribuido</div>
   </div>
 </div>
 
-<div class="if-panel">
+<div class="if-card mt-3">
+  <div class="if-card-header">
+    <div>
+      <h2 class="if-card-title">Cobradores</h2>
+      <p class="if-card-subtitle">
+        Carga activa por responsable de cobranza.
+      </p>
+    </div>
+  </div>
+
   {% if collectors %}
-    <div class="table-responsive">
-      <table class="table table-vcenter">
+    <div class="if-table-wrapper">
+      <table class="if-table if-table-modern if-listing-table">
         <thead>
           <tr>
             <th>Cobrador</th>
@@ -42,9 +56,16 @@
         <tbody>
           {% for collector in collectors %}
             <tr>
-              <td>{{ collector.get_full_name|default:collector.username }}</td>
-              <td class="text-end">{{ collector.active_documents }}</td>
-              <td class="text-end">{{ collector.total_balance|default:0 }}</td>
+              <td>
+                <strong>{{ collector.get_full_name|default:collector.username }}</strong>
+                <div class="if-muted">Responsable operativo</div>
+              </td>
+              <td class="text-end">
+                <strong>{{ collector.active_documents }}</strong>
+              </td>
+              <td class="text-end">
+                <strong>${{ collector.total_balance|default:0 }}</strong>
+              </td>
             </tr>
           {% endfor %}
         </tbody>

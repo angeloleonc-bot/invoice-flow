@@ -13,17 +13,29 @@
 
 {% include "portfolio/_portfolio_nav.html" with active_tab="documents" %}
 
+<div class="if-listing-toolbar">
+  <div>
+    <strong>Listado operacional</strong>
+    <span>{{ documents|length }} documentos disponibles</span>
+  </div>
+
+  <div class="if-listing-search">
+    <i class="bi bi-search"></i>
+    <span>Buscar y filtrar próximamente</span>
+  </div>
+</div>
+
 <div class="if-card">
   <div class="if-card-header">
     <div>
-      <h2 class="if-card-title">Listado de documentos</h2>
+      <h2 class="if-card-title">Documentos de cartera</h2>
       <p class="if-card-subtitle">Documentos disponibles desde el modelo de cartera.</p>
     </div>
   </div>
 
   {% if documents %}
     <div class="if-table-wrapper">
-      <table class="if-table">
+      <table class="if-table if-table-modern if-listing-table">
         <thead>
           <tr>
             <th>Documento</th>
@@ -33,6 +45,7 @@
             <th class="text-end">Saldo</th>
             <th>Vencimiento</th>
             <th>Tags</th>
+            <th class="text-end">Acción</th>
           </tr>
         </thead>
         <tbody>
@@ -42,25 +55,43 @@
                 <strong>{{ document.document_number }}</strong>
                 <div class="if-muted">{{ document.get_document_type_display }}</div>
               </td>
-              <td>{{ document.customer.name }}</td>
+
               <td>
-                <span class="if-badge if-badge-primary">{{ document.status.name }}</span>
+                <strong>{{ document.customer.name }}</strong>
+                <div class="if-muted">Cliente cartera</div>
               </td>
+
+              <td>
+                <span class="if-badge if-badge-success">{{ document.status.name }}</span>
+              </td>
+
               <td>
                 {% if document.sub_status %}
-                  <span class="if-badge">{{ document.sub_status.name }}</span>
+                  <span class="if-badge if-badge-soft">{{ document.sub_status.name }}</span>
                 {% else %}
                   <span class="if-muted">Sin subestado</span>
                 {% endif %}
               </td>
-              <td class="text-end">${{ document.balance_amount }}</td>
-              <td>{{ document.due_date|date:"d-m-Y" }}</td>
+
+              <td class="text-end">
+                <strong>${{ document.balance_amount }}</strong>
+              </td>
+
+              <td>{{ document.due_date|date:"d/m/Y" }}</td>
+
               <td>
                 {% for tag in document.tags.all %}
                   <span class="if-badge if-badge-soft">{{ tag.name }}</span>
                 {% empty %}
                   <span class="if-muted">Sin tags</span>
                 {% endfor %}
+              </td>
+
+              <td class="text-end">
+                <a href="{% url 'management:document_detail' document.id %}" class="if-action-link">
+                  <i class="bi bi-arrow-right"></i>
+                  Ver
+                </a>
               </td>
             </tr>
           {% endfor %}

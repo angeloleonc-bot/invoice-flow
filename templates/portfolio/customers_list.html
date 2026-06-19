@@ -13,61 +13,104 @@
 
 {% include "portfolio/_portfolio_nav.html" with active_tab="customers" %}
 
+<div class="if-listing-toolbar">
+  <div>
+    <strong>Clientes consolidados</strong>
+    <span>{{ customers|length }} clientes en cartera</span>
+  </div>
+
+  <div class="if-listing-search">
+    <i class="bi bi-search"></i>
+    <span>Filtros avanzados próximamente</span>
+  </div>
+</div>
+
 <div class="if-card">
   <div class="if-card-header">
     <div>
       <h2 class="if-card-title">Listado de clientes</h2>
-      <p class="if-card-subtitle">Resumen consolidado de cartera por cliente.</p>
+      <p class="if-card-subtitle">
+        Resumen consolidado de cartera por cliente.
+      </p>
     </div>
   </div>
 
   {% if customers %}
     <div class="if-table-wrapper">
-      <table class="if-table">
+      <table class="if-table if-table-modern if-listing-table">
         <thead>
           <tr>
             <th>Cliente</th>
-            <th>RUT</th>
             <th>Cluster</th>
-            <th>Email</th>
-            <th>Teléfono</th>
+            <th>Contacto</th>
             <th class="text-end">Documentos</th>
             <th class="text-end">Saldo Total</th>
+            <th class="text-end">Acción</th>
           </tr>
         </thead>
+
         <tbody>
           {% for customer in customers %}
             <tr>
               <td>
-                <strong>
-<a href="/portfolio/customers/{{ customer.id }}/">
-    {{ customer.name }}
-  </a>
-</strong>
+                <strong>{{ customer.name }}</strong>
+                <div class="if-muted">
+                  {{ customer.rut }}
+                </div>
               </td>
-              <td>{{ customer.rut }}</td>
+
               <td>
                 {% if customer.cluster %}
-                  <span class="if-badge">{{ customer.cluster }}</span>
+                  <span class="if-badge if-badge-soft">
+                    {{ customer.cluster }}
+                  </span>
                 {% else %}
                   <span class="if-muted">Sin cluster</span>
                 {% endif %}
               </td>
-              <td>{{ customer.email|default:"-" }}</td>
-              <td>{{ customer.phone|default:"-" }}</td>
-              <td class="text-end">{{ customer.documents_count }}</td>
+
+              <td>
+                <div>
+                  {{ customer.email|default:"Sin email" }}
+                </div>
+
+                <div class="if-muted">
+                  {{ customer.phone|default:"Sin teléfono" }}
+                </div>
+              </td>
+
               <td class="text-end">
-                ${{ customer.total_balance|default_if_none:"0" }}
+                <strong>{{ customer.documents_count }}</strong>
+              </td>
+
+              <td class="text-end">
+                <strong>
+                  ${{ customer.total_balance|default_if_none:"0" }}
+                </strong>
+              </td>
+
+              <td class="text-end">
+                <a
+                  href="/portfolio/customers/{{ customer.id }}/"
+                  class="if-action-link"
+                >
+                  <i class="bi bi-arrow-right"></i>
+                  Ver 360
+                </a>
               </td>
             </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
+
   {% else %}
     <div class="if-empty-state">
       <h3>No hay clientes registrados</h3>
-      <p>Cuando existan clientes en cartera, aparecerán en este listado consolidado.</p>
+      <p>
+        Cuando existan clientes en cartera,
+        aparecerán en este listado consolidado.
+      </p>
     </div>
   {% endif %}
 </div>

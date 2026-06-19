@@ -3,190 +3,191 @@
 {% block title %}Dashboard Supervisor | Invoice Flow{% endblock %}
 
 {% block content %}
-<div class="page-header d-print-none">
-  <div class="row align-items-center">
-    <div class="col">
-      <h2 class="page-title">Dashboard Supervisor</h2>
-      <div class="text-secondary mt-1">
-        Salud operacional de cartera, recuperación, riesgo y carga del equipo.
-      </div>
-    </div>
+<div class="if-page-header">
+  <div>
+    <div class="if-eyebrow">Supervisor operacional</div>
+    <h1 class="if-page-title">Dashboard Supervisor</h1>
+    <p class="if-page-subtitle">
+      Salud operacional de cartera, recuperación, riesgo y carga del equipo.
+    </p>
   </div>
 </div>
 
-<div class="row row-deck row-cards mt-3">
-  <div class="col-sm-6 col-lg-3">
-    <div class="card">
-      <div class="card-body">
-        <div class="subheader">Total por cobrar</div>
-        <div class="h1 mb-2">${{ kpis.total_receivable|floatformat:0 }}</div>
-        <div class="text-secondary small">
-  Cartera vigente y vencida
-</div>
-      </div>
-    </div>
+<div class="if-dashboard-kpis">
+  <div class="if-card-kpi if-kpi-premium">
+    <span class="if-stat-icon"><i class="bi bi-cash-stack"></i></span>
+    <div class="if-stat-label">Total por cobrar</div>
+    <div class="if-stat-value">${{ kpis.total_receivable|floatformat:0 }}</div>
+    <div class="if-kpi-divider"></div>
+    <div class="if-stat-trend">Cartera vigente y vencida</div>
   </div>
 
-  <div class="col-sm-6 col-lg-3">
-    <div class="card">
-      <div class="card-body">
-        <div class="subheader">Recuperado del mes</div>
-        <div class="h1 mb-2">${{ kpis.recovered_month|floatformat:0 }}</div>
-        <div class="text-secondary">Pagos registrados del mes</div>
-      </div>
-    </div>
+  <div class="if-card-kpi if-kpi-premium">
+    <span class="if-stat-icon"><i class="bi bi-graph-up-arrow"></i></span>
+    <div class="if-stat-label">Recuperado del mes</div>
+    <div class="if-stat-value">${{ kpis.recovered_month|floatformat:0 }}</div>
+    <div class="if-kpi-divider"></div>
+    <div class="if-stat-trend">Pagos registrados del mes</div>
   </div>
 
-  <div class="col-sm-6 col-lg-3">
-    <div class="card">
-      <div class="card-body">
-        <div class="subheader">Promesas vencidas</div>
-        <div class="h1 mb-2">{{ kpis.overdue_promises }}</div>
-        <div class="text-secondary">Compromisos sin confirmar</div>
-      </div>
-    </div>
+  <div class="if-card-kpi if-kpi-premium">
+    <span class="if-stat-icon if-stat-icon-warning"><i class="bi bi-calendar-x"></i></span>
+    <div class="if-stat-label">Promesas vencidas</div>
+    <div class="if-stat-value">{{ kpis.overdue_promises }}</div>
+    <div class="if-kpi-divider"></div>
+    <div class="if-stat-trend">Compromisos sin confirmar</div>
   </div>
 
-  <div class="col-sm-6 col-lg-3">
-    <div class="card">
-      <div class="card-body">
-        <div class="subheader">Alta prioridad</div>
-        <div class="h1 mb-2">{{ kpis.high_priority_documents }}</div>
-        <div class="text-secondary">Documentos con riesgo operacional</div>
-      </div>
-    </div>
+  <div class="if-card-kpi if-kpi-premium">
+    <span class="if-stat-icon if-stat-icon-danger"><i class="bi bi-exclamation-triangle"></i></span>
+    <div class="if-stat-label">Alta prioridad</div>
+    <div class="if-stat-value">{{ kpis.high_priority_documents }}</div>
+    <div class="if-kpi-divider"></div>
+    <div class="if-stat-trend">Documentos con riesgo operacional</div>
   </div>
 </div>
 
-<div class="row row-cards mt-3">
-  <div class="col-lg-5">
-    <div class="card h-100">
-      <div class="card-header">
-        <h3 class="card-title">Alertas operacionales</h3>
+<div class="if-dashboard-grid mt-3">
+  <section class="if-card">
+    <div class="if-card-header">
+      <div>
+        <h2 class="if-card-title">Alertas operacionales</h2>
+        <p class="if-card-subtitle">Señales que requieren atención supervisora.</p>
       </div>
-      <div class="list-group list-group-flush">
-        {% for alert in alerts %}
-          <div class="list-group-item">
-            <div class="row align-items-center">
-              <div class="col">
-                <div class="font-weight-medium">{{ alert.label }}</div>
-                <div class="text-secondary small">{{ alert.description }}</div>
-              </div>
-              <div class="col-auto">
-                <span class="badge {% if alert.severity == 'danger' %}bg-red-lt{% elif alert.severity == 'warning' %}bg-yellow-lt{% else %}bg-green-lt{% endif %}">
-                  {{ alert.value }}
-                </span>
-              </div>
+    </div>
+
+    <div class="if-alert-list">
+      {% for alert in alerts %}
+        <div class="if-alert-card if-alert-{{ alert.severity }}">
+          <div class="if-alert-icon">
+            {% if alert.severity == 'danger' %}
+              <i class="bi bi-exclamation-octagon"></i>
+            {% elif alert.severity == 'warning' %}
+              <i class="bi bi-exclamation-circle"></i>
+            {% else %}
+              <i class="bi bi-check-circle"></i>
+            {% endif %}
+          </div>
+          <div class="if-alert-content">
+            <div class="if-alert-top">
+              <strong>{{ alert.label }}</strong>
+              <span class="if-alert-value">{{ alert.value }}</span>
+            </div>
+            <p>{{ alert.description }}</p>
+          </div>
+        </div>
+      {% empty %}
+        <div class="if-empty-compact">No hay alertas operacionales.</div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="if-card">
+    <div class="if-card-header">
+      <div>
+        <h2 class="if-card-title">Distribución / Aging</h2>
+        <p class="if-card-subtitle">Concentración de documentos por tramo de mora.</p>
+      </div>
+    </div>
+
+    <div class="if-aging-list">
+      {% for bucket in aging %}
+        <div class="if-aging-row">
+          <div class="if-aging-meta">
+            <strong>{{ bucket.label }}</strong>
+            <span>{{ bucket.count }} docs · ${{ bucket.balance|floatformat:0 }}</span>
+          </div>
+<div class="if-aging-context">
+  <div class="if-aging-bar">
+    <span style="width: {% widthratio bucket.count total_aging_documents 100 %}%"></span>
+  </div>
+  <small>{{ bucket.count }} de {{ total_aging_documents }} documentos</small>
+</div>
+        </div>
+      {% empty %}
+        <div class="if-empty-compact">No hay documentos para analizar aging.</div>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+
+<section class="if-card mt-3">
+  <div class="if-card-header">
+    <div>
+      <h2 class="if-card-title">Rendimiento del Equipo</h2>
+      <p class="if-card-subtitle">Recuperación mensual, carga asignada y riesgo operativo por cobrador.</p>
+    </div>
+  </div>
+
+  <div class="if-collector-grid">
+    {% for collector in team_performance %}
+      <article class="if-collector-card">
+        <div class="if-collector-header">
+          <div class="if-team-person">
+            <span class="if-team-avatar">{{ collector.collector_name|slice:":1" }}</span>
+            <div>
+              <strong>{{ collector.collector_name }}</strong>
+              <span>{{ collector.assigned_documents }} documentos asignados</span>
             </div>
           </div>
-        {% empty %}
-          <div class="card-body text-secondary">
-            No hay alertas operacionales.
+
+          <span class="if-badge {% if collector.high_priority_documents %}if-badge-danger{% else %}if-badge-success{% endif %}">
+            {{ collector.high_priority_documents }} críticos
+          </span>
+        </div>
+
+        <div class="if-collector-recovery">
+          <div class="if-collector-recovery-top">
+            <span>Recuperación sobre saldo asignado</span>
+            <strong>${{ collector.payments|floatformat:0 }}</strong>
           </div>
-        {% endfor %}
-      </div>
+
+          <div class="if-metric-bar">
+            <span style="width: {% widthratio collector.payments collector.assigned_balance 100 %}%"></span>
+          </div>
+
+          <small>
+            Saldo asignado: ${{ collector.assigned_balance|floatformat:0 }}
+          </small>
+        </div>
+
+        <div class="if-collector-metrics">
+          <div>
+            <span>Promesas vencidas</span>
+            <strong>{{ collector.overdue_promises }}</strong>
+          </div>
+          <div>
+            <span>Documentos</span>
+            <strong>{{ collector.assigned_documents }}</strong>
+          </div>
+          <div>
+            <span>Alta prioridad</span>
+            <strong>{{ collector.high_priority_documents }}</strong>
+          </div>
+        </div>
+      </article>
+    {% empty %}
+      <div class="if-empty-compact">No hay cobradores con documentos asignados.</div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="if-card mt-3">
+  <div class="if-card-header">
+    <div>
+      <h2 class="if-card-title">Documentos Críticos</h2>
+      <p class="if-card-subtitle">Documentos priorizados por riesgo, mora y señales operacionales.</p>
     </div>
   </div>
 
-  <div class="col-lg-7">
-    <div class="card h-100">
-      <div class="card-header">
-        <h3 class="card-title">Distribución / Aging</h3>
-      </div>
-      <div class="table-responsive">
-        <table class="table table-vcenter card-table">
-          <thead>
-            <tr>
-              <th>Tramo</th>
-              <th class="text-end">Documentos</th>
-              <th class="text-end">Saldo</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for bucket in aging %}
-              <tr>
-                <td>{{ bucket.label }}</td>
-                <td class="text-end">{{ bucket.count }}</td>
-                <td class="text-end">${{ bucket.balance|floatformat:0 }}</td>
-              </tr>
-            {% empty %}
-              <tr>
-                <td colspan="3" class="text-secondary">
-                  No hay documentos para analizar aging.
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="card mt-3">
-  <div class="card-header">
-    <h3 class="card-title">Rendimiento del Equipo</h3>
-  </div>
-  <div class="table-responsive">
-    <table class="table table-vcenter card-table">
+  <div class="if-table-wrapper">
+    <table class="if-table if-table-modern">
       <thead>
         <tr>
-          <th>Cobrador</th>
-          <th class="text-end">Docs. asignados</th>
-          <th class="text-end">Saldo asignado</th>
-          <th class="text-end">Pagos mes</th>
-          <th class="text-end">Promesas vencidas</th>
-          <th class="text-end">Alta prioridad</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for collector in team_performance %}
-          <tr>
-            <td>{{ collector.collector_name }}</td>
-            <td class="text-end">{{ collector.assigned_documents }}</td>
-            <td class="text-end">${{ collector.assigned_balance|floatformat:0 }}</td>
-            <td class="text-end">${{ collector.payments|floatformat:0 }}</td>
-            <td class="text-end">{{ collector.overdue_promises }}</td>
-            <td class="text-end">
-              <span class="badge {% if collector.high_priority_documents %}bg-red-lt{% else %}bg-green-lt{% endif %}">
-                {{ collector.high_priority_documents }}
-              </span>
-            </td>
-          </tr>
-        {% empty %}
-          <tr>
-            <td colspan="6" class="text-secondary">
-              No hay cobradores con documentos asignados.
-            </td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<div class="card mt-3">
-  <div class="card-header">
-    <h3 class="card-title">Documentos Críticos</h3>
-  </div>
-  <div class="table-responsive">
-    <table class="table table-vcenter card-table">
-      <thead>
-        <tr>
-          <th>Cliente</th>
-          <td>
-  <div>{{ item.customer.name }}</div>
-  <div class="text-secondary small">
-    {{ item.document.document_number }}
-  </div>
-</td>
+          <th>Cliente / Documento</th>
           <th class="text-end">Saldo</th>
-          <th class="text-end">Días mora</th>
-          <td class="text-end">
-  <span class="badge bg-red text-white">
-    {{ item.priority_score }}
-  </span>
-</td>
+          <th class="text-end">Mora</th>
+          <th class="text-end">Score</th>
           <th>Motivo principal</th>
           <th class="text-end">Acción</th>
         </tr>
@@ -194,89 +195,78 @@
       <tbody>
         {% for item in critical_documents %}
           <tr>
-            <td>{{ item.customer.name }}</td>
-            <td>{{ item.document.document_number }}</td>
+            <td>
+              <strong>{{ item.customer.name }}</strong>
+              <div class="if-muted">{{ item.document.document_number }}</div>
+            </td>
             <td class="text-end">${{ item.document.balance_amount|floatformat:0 }}</td>
-            <td class="text-end">{{ item.days_overdue }}</td>
+            <td class="text-end">{{ item.days_overdue }} días</td>
             <td class="text-end">
-              <span class="badge {% if item.priority_score %}bg-red-lt{% else %}bg-secondary-lt{% endif %}">
-                {{ item.priority_score }}
-              </span>
+              <span class="if-score-pill">{{ item.priority_score }}</span>
             </td>
             <td>
-  <div>{{ item.priority_reason }}</div>
-
-  {% if item.priority_reasons %}
-    <div class="text-secondary small">
-      {{ item.priority_reasons|join:", " }}
-    </div>
-  {% endif %}
-</td>
-            <td class="text-end">
-              <a href="{% url 'management:document_detail' item.document.id %}" class="btn btn-sm btn-outline-primary">
-                Ver
-              </a>
-            </td>
-          </tr>
-        {% empty %}
-          <tr>
-            <td colspan="7" class="text-secondary">
-              No hay documentos críticos.
-            </td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<div class="card mt-3">
-  <div class="card-header">
-    <h3 class="card-title">Próximos Compromisos</h3>
-  </div>
-  <div class="table-responsive">
-    <table class="table table-vcenter card-table">
-      <thead>
-        <tr>
-          <th>Cliente</th>
-          <th>Fecha compromiso</th>
-          <th class="text-end">Monto</th>
-          <th>Estado</th>
-          <th class="text-end">Acción</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for item in commitments %}
-          <tr>
-            <td>{{ item.customer.name }}</td>
-            <td>{{ item.promise_date|date:"d/m/Y" }}</td>
-            <td class="text-end">${{ item.promised_amount|floatformat:0 }}</td>
-            <td>
-              <span class="badge {% if item.status_key == 'overdue' %}bg-red-lt{% elif item.status_key == 'today' %}bg-blue-lt{% else %}bg-yellow-lt{% endif %}">
-                {{ item.status_label }}
-              </span>
-            </td>
-            <td class="text-end">
-              {% if item.document %}
-                <a href="{% url 'management:document_detail' item.document.id %}" class="btn btn-sm btn-outline-primary">
-                  Ver documento
-                </a>
-              {% else %}
-                <span class="text-secondary">Sin documento</span>
+              <strong>{{ item.priority_reason }}</strong>
+              {% if item.priority_reasons %}
+                <div class="if-muted">{{ item.priority_reasons|join:", " }}</div>
               {% endif %}
             </td>
+            <td class="text-end">
+<a href="{% url 'management:document_detail' item.document.id %}" class="if-action-link">
+  <i class="bi bi-arrow-right"></i>
+  Ver
+</a>
+            </td>
           </tr>
         {% empty %}
           <tr>
-            <td colspan="5" class="text-secondary">
-              No hay compromisos próximos o vencidos.
-            </td>
+            <td colspan="6" class="text-secondary">No hay documentos críticos.</td>
           </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
-</div>
+</section>
 
+<section class="if-card mt-3">
+  <div class="if-card-header">
+    <div>
+      <h2 class="if-card-title">Próximos Compromisos</h2>
+      <p class="if-card-subtitle">Promesas próximas, vencidas o programadas para hoy.</p>
+    </div>
+  </div>
 
+  <div class="if-commitment-grid">
+    {% for item in commitments %}
+      <div class="if-commitment-card">
+        <div class="if-commitment-icon">
+          <i class="bi bi-calendar-check"></i>
+        </div>
+
+        <div class="if-commitment-body">
+          <strong>{{ item.customer.name }}</strong>
+          <span>{{ item.promise_date|date:"d/m/Y" }} · ${{ item.promised_amount|floatformat:0 }}</span>
+
+          <div class="mt-2">
+            <span class="if-badge {% if item.status_key == 'overdue' %}if-badge-danger{% elif item.status_key == 'today' %}if-badge-success{% else %}if-badge-warning{% endif %}">
+              {{ item.status_label }}
+            </span>
+          </div>
+        </div>
+
+        <div class="if-commitment-action">
+          {% if item.document %}
+            <a href="{% url 'management:document_detail' item.document.id %}" class="if-action-link">
+  <i class="bi bi-arrow-right"></i>
+  Ver
+</a>
+          {% else %}
+            <span class="if-muted">Sin documento</span>
+          {% endif %}
+        </div>
+      </div>
+    {% empty %}
+      <div class="if-empty-compact">No hay compromisos próximos o vencidos.</div>
+    {% endfor %}
+  </div>
+</section>
 {% endblock %}

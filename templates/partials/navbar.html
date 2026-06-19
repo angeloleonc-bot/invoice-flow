@@ -1,12 +1,28 @@
-<header class="navbar navbar-expand-md d-print-none">
+<header class="navbar navbar-expand-md d-print-none if-topbar">
   <div class="container-xl">
-    <div class="navbar-brand navbar-brand-autodark d-none-navbar-horizontal pe-0 pe-md-3">
-      Plataforma centralizada de gestión de cobranza
+    <div class="if-topbar-left">
+      <div class="if-topbar-title">Plataforma centralizada de gestión de cobranza</div>
+      <div class="if-topbar-breadcrumb">Operación / Invoice Flow</div>
     </div>
 
-    <div class="navbar-nav flex-row order-md-last ms-auto">
-      <div class="nav-item">
-        <span class="nav-link">Entorno MVP</span>
+    <div class="if-global-search d-none d-lg-flex">
+      <i class="bi bi-search"></i>
+      <input type="search" placeholder="Buscar cliente, documento o compromiso">
+    </div>
+
+    <div class="navbar-nav flex-row order-md-last ms-auto if-topbar-actions">
+      <span class="if-env-pill">Entorno MVP</span>
+
+      <button class="if-icon-button" type="button" aria-label="Notificaciones">
+        <i class="bi bi-bell"></i>
+      </button>
+
+      <div class="if-user-chip">
+        <span class="if-user-avatar">U</span>
+        <span class="if-user-meta">
+          <strong>Usuario</strong>
+          <small>Supervisor</small>
+        </span>
       </div>
     </div>
   </div>

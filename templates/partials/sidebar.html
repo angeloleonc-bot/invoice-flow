@@ -1,32 +1,65 @@
-<aside class="navbar navbar-vertical navbar-expand-lg navbar-dark bg-dark">
+<aside class="navbar navbar-vertical navbar-expand-lg if-sidebar">
   <div class="container-fluid">
-    <h1 class="navbar-brand navbar-brand-autodark">
-      <a href="{% url 'core:dashboard' %}" class="text-decoration-none">
-        Invoice Flow
+    <h1 class="navbar-brand">
+      <a href="{% url 'core:dashboard' %}" class="text-decoration-none if-brand">
+        <span class="if-brand-mark">IF</span>
+        <span>Invoice Flow</span>
       </a>
     </h1>
 
     <div class="collapse navbar-collapse show">
       <ul class="navbar-nav pt-lg-3">
         <li class="nav-item">
-          <a class="nav-link" href="{% url 'core:dashboard' %}">
+          <a class="nav-link if-sidebar-item {% if request.resolver_match.app_name == 'core' %}active{% endif %}" href="{% url 'core:dashboard' %}">
+            <span class="nav-link-icon"><i class="bi bi-grid-1x2"></i></span>
             <span class="nav-link-title">Dashboard</span>
           </a>
         </li>
-        <li class="nav-item"><a class="nav-link" href="#"><span class="nav-link-title">Asignación</span></a></li>
-        <li class="nav-item">
-  <a class="nav-link" href="{% url 'management:my_work' %}">
-    <span class="nav-link-title">Gestión</span>
+
+<li class="nav-item">
+  <a
+    class="nav-link if-sidebar-item {% if request.resolver_match.url_name == 'unassigned_documents' or request.resolver_match.url_name == 'assignment_workloads' %}active{% endif %}"
+    href="{% url 'portfolio:unassigned_documents' %}"
+  >
+    <span class="nav-link-icon"><i class="bi bi-diagram-3"></i></span>
+    <span class="nav-link-title">Asignación</span>
   </a>
 </li>
+
         <li class="nav-item">
-  <a class="nav-link" href="{% url 'portfolio:documents_list' %}">
-    <span class="nav-link-title">Cartera</span>
-  </a>
-</li>
-        <li class="nav-item"><a class="nav-link" href="#"><span class="nav-link-title">Reportes</span></a></li>
-        <li class="nav-item"><a class="nav-link" href="#"><span class="nav-link-title">Integraciones</span></a></li>
-        <li class="nav-item"><a class="nav-link" href="#"><span class="nav-link-title">Administración</span></a></li>
+          <a class="nav-link if-sidebar-item {% if request.resolver_match.app_name == 'management' %}active{% endif %}" href="{% url 'management:my_work' %}">
+            <span class="nav-link-icon"><i class="bi bi-check2-square"></i></span>
+            <span class="nav-link-title">Gestión</span>
+          </a>
+        </li>
+
+        <li class="nav-item">
+          <a class="nav-link if-sidebar-item {% if request.resolver_match.app_name == 'portfolio' and request.resolver_match.url_name != 'unassigned_documents' and request.resolver_match.url_name != 'assignment_workloads' %}active{% endif %}" href="{% url 'portfolio:documents_list' %}">
+            <span class="nav-link-icon"><i class="bi bi-folder2-open"></i></span>
+            <span class="nav-link-title">Cartera</span>
+          </a>
+        </li>
+
+        <li class="nav-item">
+          <a class="nav-link if-sidebar-item" href="#">
+            <span class="nav-link-icon"><i class="bi bi-bar-chart"></i></span>
+            <span class="nav-link-title">Reportes</span>
+          </a>
+        </li>
+
+        <li class="nav-item">
+          <a class="nav-link if-sidebar-item" href="#">
+            <span class="nav-link-icon"><i class="bi bi-plug"></i></span>
+            <span class="nav-link-title">Integraciones</span>
+          </a>
+        </li>
+
+        <li class="nav-item">
+          <a class="nav-link if-sidebar-item" href="#">
+            <span class="nav-link-icon"><i class="bi bi-sliders2"></i></span>
+            <span class="nav-link-title">Administración</span>
+          </a>
+        </li>
       </ul>
     </div>
   </div>

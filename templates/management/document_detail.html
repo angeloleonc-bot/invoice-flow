@@ -3,492 +3,297 @@
 {% block title %}Detalle Documento | Invoice Flow{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="if-document-header">
+  <div>
+    <div class="if-eyebrow">Documento 360</div>
+    <h1 class="if-page-title">{{ document.document_number }}</h1>
+    <p class="if-page-subtitle">{{ customer.name }} · Gestión operacional del documento asignado</p>
+  </div>
 
-    <div class="d-flex justify-content-between align-items-start mb-4">
-        <div>
-            <h1 class="h3 mb-1">Detalle Operacional de Documento</h1>
-            <p class="text-muted mb-0">
-                Gestión diaria del documento asignado.
-            </p>
-        </div>
-
-        <a href="{% url 'management:my_work' %}" class="btn btn-outline-secondary">
-            Volver a Gestión
-        </a>
-    </div>
-
-    <div class="row g-3 mb-4">
-
-        <div class="col-md-3">
-            <div class="card shadow-sm h-100">
-                <div class="card-body">
-                    <div class="text-muted small">Documento</div>
-                    <div class="fw-semibold">
-                        {{ document.document_number }}
-                    </div>
-                    <div class="small text-muted mt-2">
-                        Emisión: {{ document.issue_date|date:"d-m-Y" }}
-                    </div>
-                    <div class="small text-muted">
-                        Vencimiento: {{ document.due_date|date:"d-m-Y" }}
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="card shadow-sm h-100">
-                <div class="card-body">
-                    <div class="text-muted small">Cliente</div>
-                    <div class="fw-semibold">
-                        {{ customer.name }}
-                    </div>
-                    <div class="small text-muted mt-2">
-                        RUT: {{ customer.rut }}
-                    </div>
-                    <div class="small text-muted">
-                        Cluster: {{ customer.cluster|default:"Sin cluster" }}
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="card shadow-sm h-100">
-                <div class="card-body">
-                    <div class="text-muted small">Saldo</div>
-                    <div class="fw-semibold fs-5">
-                        {{ document.balance }}
-                    </div>
-                    <div class="small text-muted mt-2">
-                        Monto pendiente del documento.
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="card shadow-sm h-100">
-                <div class="card-body">
-                    <div class="text-muted small">Estado</div>
-                    <div class="fw-semibold">
-                        {{ document.status.name|default:"Sin estado" }}
-                    </div>
-                    <div class="small text-muted mt-2">
-                        Subestado: {{ document.sub_status.name|default:"Sin subestado" }}
-                    </div>
-                </div>
-            </div>
-        </div>
-
-    </div>
-
-    <div class="row g-4">
-
-        <div class="col-lg-8">
-
-            <div class="card shadow-sm mb-4">
-                <div class="card-header bg-white">
-                    <strong>Información del Documento</strong>
-                </div>
-                <div class="card-body">
-                    <div class="row gy-3">
-                        <div class="col-md-6">
-                            <div class="text-muted small">Número</div>
-                            <div>{{ document.document_number }}</div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="text-muted small">Cliente</div>
-                            <div>{{ customer.name }}</div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="text-muted small">Estado</div>
-                            <div>{{ document.status.name|default:"Sin estado" }}</div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="text-muted small">Subestado</div>
-                            <div>{{ document.sub_status.name|default:"Sin subestado" }}</div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="text-muted small">Fecha emisión</div>
-                            <div>{{ document.issue_date|date:"d-m-Y" }}</div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="text-muted small">Fecha vencimiento</div>
-                            <div>{{ document.due_date|date:"d-m-Y" }}</div>
-                        </div>
-                        <div class="col-12">
-                            <div class="text-muted small">Tags</div>
-                            <div class="mt-1">
-                                {% for tag in document.tags.all %}
-                                    <span class="badge bg-secondary">{{ tag.name }}</span>
-                                {% empty %}
-                                    <span class="text-muted">Sin tags</span>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-<div class="card shadow-sm mb-4">
-    <div class="card-header bg-white">
-        <strong>Registrar gestión</strong>
-    </div>
-
-    <div class="card-body">
-        <form method="post">
-            {% csrf_token %}
-            <input type="hidden" name="form_type" value="action">
-
-            <div class="row g-3">
-
-                <div class="col-md-3">
-                    <label class="form-label">Tipo</label>
-                    {{ form.action_type }}
-                </div>
-
-                <div class="col-md-9">
-                    <label class="form-label">Título</label>
-                    {{ form.title }}
-                </div>
-
-                <div class="col-12">
-                    <label class="form-label">Descripción</label>
-                    {{ form.description }}
-                </div>
-
-                <div class="col-12 text-end">
-                    <button type="submit" class="btn btn-primary">
-                        Registrar gestión
-                    </button>
-                </div>
-
-            </div>
-        </form>
-    </div>
+  <a href="{% url 'management:my_work' %}" class="if-action-link">
+    <i class="bi bi-arrow-left"></i>
+    Volver a Gestión
+  </a>
 </div>
 
-<div class="card shadow-sm mb-4">
-    <div class="card-header bg-white">
-        <strong>Timeline</strong>
-    </div>
+<div class="if-document-hero">
+  <div class="if-card-kpi if-kpi-premium">
+    <span class="if-stat-icon"><i class="bi bi-receipt"></i></span>
+    <div class="if-stat-label">Documento</div>
+    <div class="if-stat-value">{{ document.document_number }}</div>
+    <div class="if-kpi-divider"></div>
+    <div class="if-stat-trend">Vence {{ document.due_date|date:"d/m/Y" }}</div>
+  </div>
 
-    <div class="card-body">
+  <div class="if-card-kpi if-kpi-premium">
+    <span class="if-stat-icon"><i class="bi bi-building"></i></span>
+    <div class="if-stat-label">Cliente</div>
+    <div class="if-stat-value if-stat-value-text">{{ customer.name }}</div>
+    <div class="if-kpi-divider"></div>
+    <div class="if-stat-trend">RUT {{ customer.rut }}</div>
+  </div>
 
-        {% if timeline_actions %}
+  <div class="if-card-kpi if-kpi-premium">
+    <span class="if-stat-icon"><i class="bi bi-currency-dollar"></i></span>
+    <div class="if-stat-label">Saldo pendiente</div>
+    <div class="if-stat-value">
+  {% if document.balance %}
+    {{ document.balance }}
+  {% else %}
+    $0
+  {% endif %}
+</div>
+    <div class="if-kpi-divider"></div>
+    <div class="if-stat-trend">Monto pendiente del documento</div>
+  </div>
 
-            {% for action in timeline_actions %}
+  <div class="if-card-kpi if-kpi-premium">
+    <span class="if-stat-icon if-stat-icon-warning"><i class="bi bi-flag"></i></span>
+    <div class="if-stat-label">Estado</div>
+    <div class="if-stat-value if-stat-value-text">{{ document.status.name|default:"Sin estado" }}</div>
+    <div class="if-kpi-divider"></div>
+    <div class="if-stat-trend">{{ document.sub_status.name|default:"Sin subestado" }}</div>
+  </div>
+</div>
 
-                <div class="border-bottom pb-3 mb-3">
+<div class="if-document-layout">
+  <main class="if-document-main">
+    <section class="if-card">
+      <div class="if-card-header">
+        <div>
+          <h2 class="if-card-title">Registrar gestión</h2>
+          <p class="if-card-subtitle">Registra llamadas, correos, WhatsApp, notas u otras acciones.</p>
+        </div>
+      </div>
 
-                    <div class="d-flex justify-content-between">
-                        <strong>{{ action.get_action_type_display }}</strong>
+      <div class="if-card-body">
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="form_type" value="action">
 
-                        <small class="text-muted">
-                            {{ action.action_date|date:"d/m/Y H:i" }}
-                        </small>
-                    </div>
-
-                    <div class="mt-2">
-                        <strong>{{ action.title }}</strong>
-                    </div>
-
-                    {% if action.description %}
-                        <div class="text-muted mt-1">
-                            {{ action.description }}
-                        </div>
-                    {% endif %}
-
-                    <div class="mt-2">
-                        <small class="text-secondary">
-                            Usuario:
-                            {% if action.performed_by %}
-                                {{ action.performed_by }}
-                            {% else %}
-                                Sistema
-                            {% endif %}
-                        </small>
-                    </div>
-
-                </div>
-
-            {% endfor %}
-
-        {% else %}
-
-            <div class="text-muted">
-                No existen gestiones registradas para este documento.
+          <div class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label">Tipo</label>
+              {{ form.action_type }}
             </div>
 
+            <div class="col-md-9">
+              <label class="form-label">Título</label>
+              {{ form.title }}
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">Descripción</label>
+              {{ form.description }}
+            </div>
+
+            <div class="col-12 text-end">
+              <button type="submit" class="if-button-primary">
+                <i class="bi bi-plus-circle"></i>
+                Registrar gestión
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section class="if-card mt-3">
+      <div class="if-card-header">
+        <div>
+          <h2 class="if-card-title">Timeline operacional</h2>
+          <p class="if-card-subtitle">Historial cronológico de acciones realizadas sobre el documento.</p>
+        </div>
+      </div>
+
+      <div class="if-document-timeline">
+        {% if timeline_actions %}
+          {% for action in timeline_actions %}
+            <article class="if-timeline-entry">
+              <div class="if-timeline-entry-icon">
+                {% if action.action_type == "CALL" %}
+                  <i class="bi bi-telephone"></i>
+                {% elif action.action_type == "EMAIL" %}
+                  <i class="bi bi-envelope"></i>
+                {% elif action.action_type == "WHATSAPP" %}
+                  <i class="bi bi-whatsapp"></i>
+                {% elif action.action_type == "NOTE" %}
+                  <i class="bi bi-journal-text"></i>
+                {% elif action.action_type == "PROMISE" %}
+                  <i class="bi bi-calendar-check"></i>
+                {% elif action.action_type == "PAYMENT" %}
+                  <i class="bi bi-cash-coin"></i>
+                {% else %}
+                  <i class="bi bi-activity"></i>
+                {% endif %}
+              </div>
+
+              <div class="if-timeline-entry-card">
+                <div class="if-timeline-entry-top">
+                  <span class="if-badge if-badge-soft">{{ action.get_action_type_display }}</span>
+                  <time>{{ action.action_date|date:"d/m/Y H:i" }}</time>
+                </div>
+
+                <h3>{{ action.title }}</h3>
+
+                {% if action.description %}
+                  <p>{{ action.description }}</p>
+                {% endif %}
+
+                <div class="if-timeline-entry-user">
+                  <i class="bi bi-person-circle"></i>
+                  {% if action.performed_by %}
+                    {{ action.performed_by }}
+                  {% else %}
+                    Sistema
+                  {% endif %}
+                </div>
+              </div>
+            </article>
+          {% endfor %}
+        {% else %}
+          <div class="if-empty-compact">No existen gestiones registradas para este documento.</div>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="if-card mt-3">
+      <div class="if-card-header">
+        <div>
+          <h2 class="if-card-title">Información del Documento</h2>
+          <p class="if-card-subtitle">Datos operacionales y clasificación actual.</p>
+        </div>
+      </div>
+
+      <div class="if-detail-grid">
+        <div><span>Número</span><strong>{{ document.document_number }}</strong></div>
+        <div><span>Cliente</span><strong>{{ customer.name }}</strong></div>
+        <div><span>Estado</span><strong>{{ document.status.name|default:"Sin estado" }}</strong></div>
+        <div><span>Subestado</span><strong>{{ document.sub_status.name|default:"Sin subestado" }}</strong></div>
+        <div><span>Fecha emisión</span><strong>{{ document.issue_date|date:"d/m/Y" }}</strong></div>
+        <div><span>Fecha vencimiento</span><strong>{{ document.due_date|date:"d/m/Y" }}</strong></div>
+      </div>
+
+      <div class="if-tags-row">
+        {% for tag in document.tags.all %}
+          <span class="if-badge if-badge-soft">{{ tag.name }}</span>
+        {% empty %}
+          <span class="if-muted">Sin tags</span>
+        {% endfor %}
+      </div>
+    </section>
+  </main>
+
+  <aside class="if-document-side">
+    <section class="if-card">
+      <div class="if-card-header">
+        <div>
+          <h2 class="if-card-title">Cliente</h2>
+          <p class="if-card-subtitle">Información de contacto.</p>
+        </div>
+      </div>
+
+      <div class="if-side-list">
+        <div><span>Nombre</span><strong>{{ customer.name }}</strong></div>
+        <div><span>RUT</span><strong>{{ customer.rut }}</strong></div>
+        <div><span>Email</span><strong>{{ customer.email|default:"Sin email" }}</strong></div>
+        <div><span>Teléfono</span><strong>{{ customer.phone|default:"Sin teléfono" }}</strong></div>
+        <div><span>Cluster</span><strong>{{ customer.cluster|default:"Sin cluster" }}</strong></div>
+      </div>
+    </section>
+
+    <section class="if-card mt-3">
+      <div class="if-card-header">
+        <div>
+          <h2 class="if-card-title">Promesas</h2>
+          <p class="if-card-subtitle">Compromisos asociados al documento.</p>
+        </div>
+      </div>
+
+      <div class="if-card-body">
+        <form method="post" class="if-side-form">
+          {% csrf_token %}
+          <input type="hidden" name="form_type" value="promise">
+
+          <label class="form-label">Fecha compromiso</label>
+          {{ promise_form.promise_date }}
+
+          <label class="form-label mt-2">Monto compromiso</label>
+          {{ promise_form.promised_amount }}
+
+          <label class="form-label mt-2">Notas</label>
+          {{ promise_form.notes }}
+
+          <button type="submit" class="if-button-primary w-100 mt-3">
+            <i class="bi bi-calendar-plus"></i>
+            Registrar promesa
+          </button>
+        </form>
+
+        <div class="if-side-divider"></div>
+
+        <h3 class="if-side-title">Promesas activas</h3>
+        {% if active_promises %}
+          {% for link in active_promises %}
+            <div class="if-mini-card">
+              <div class="if-mini-card-top">
+                <span class="if-badge if-badge-success">{{ link.promise.get_status_display }}</span>
+                <small>{{ link.promise.promise_date|date:"d/m/Y" }}</small>
+              </div>
+              <strong>{{ link.promise.promised_amount }}</strong>
+              <p>Pago confirmado: {% if link.promise.payment_confirmed %}Sí{% else %}No{% endif %}</p>
+              {% if link.promise.notes %}<p>{{ link.promise.notes }}</p>{% endif %}
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="if-muted">No existen promesas activas.</div>
         {% endif %}
 
-    </div>
-</div>
-
-            <div class="card shadow-sm mb-4">
-                <div class="card-header bg-white">
-                    <strong>Notas</strong>
-                </div>
-                <div class="card-body text-muted">
-                    Placeholder visual para notas operacionales futuras.
-                </div>
+        <h3 class="if-side-title mt-3">Promesas vencidas</h3>
+        {% if expired_promises %}
+          {% for link in expired_promises %}
+            <div class="if-mini-card">
+              <div class="if-mini-card-top">
+                <span class="if-badge if-badge-warning">{{ link.promise.get_status_display }}</span>
+                <small>{{ link.promise.promise_date|date:"d/m/Y" }}</small>
+              </div>
+              <strong>{{ link.promise.promised_amount }}</strong>
+              <p>Pago confirmado: {% if link.promise.payment_confirmed %}Sí{% else %}No{% endif %}</p>
             </div>
+          {% endfor %}
+        {% else %}
+          <div class="if-muted">No existen promesas vencidas.</div>
+        {% endif %}
+      </div>
+    </section>
 
-        </div>
-
-        <div class="col-lg-4">
-
-            <div class="card shadow-sm mb-4">
-                <div class="card-header bg-white">
-                    <strong>Información Cliente</strong>
-                </div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <div class="text-muted small">Nombre</div>
-                        <div>{{ customer.name }}</div>
-                    </div>
-                    <div class="mb-3">
-                        <div class="text-muted small">RUT</div>
-                        <div>{{ customer.rut }}</div>
-                    </div>
-                    <div class="mb-3">
-                        <div class="text-muted small">Email</div>
-                        <div>{{ customer.email|default:"Sin email" }}</div>
-                    </div>
-                    <div class="mb-3">
-                        <div class="text-muted small">Teléfono</div>
-                        <div>{{ customer.phone|default:"Sin teléfono" }}</div>
-                    </div>
-                    <div>
-                        <div class="text-muted small">Cluster</div>
-                        <div>{{ customer.cluster|default:"Sin cluster" }}</div>
-                    </div>
-                </div>
-            </div>
-
-<div class="card shadow-sm mb-4">
-    <div class="card-header bg-white">
-        <strong>Promesas</strong>
-    </div>
-
-    <div class="card-body">
-
-        <form method="post" class="mb-4">
-            {% csrf_token %}
-            <input type="hidden" name="form_type" value="promise">
-
-            <div class="mb-3">
-                <label class="form-label">Fecha compromiso</label>
-                {{ promise_form.promise_date }}
-            </div>
-
-            <div class="mb-3">
-                <label class="form-label">Monto compromiso</label>
-                {{ promise_form.promised_amount }}
-            </div>
-
-            <div class="mb-3">
-                <label class="form-label">Notas</label>
-                {{ promise_form.notes }}
-            </div>
-
-            <div class="d-grid">
-                <button type="submit" class="btn btn-primary">
-                    Registrar promesa
-                </button>
-            </div>
-        </form>
-
-        <hr>
-
-        <div class="mb-3">
-            <div class="fw-semibold mb-2">Promesas activas</div>
-
-            {% if active_promises %}
-                {% for link in active_promises %}
-                    <div class="border rounded p-2 mb-2">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span class="badge bg-primary">
-                                {{ link.promise.get_status_display }}
-                            </span>
-                            <small class="text-muted">
-                                {{ link.promise.promise_date|date:"d-m-Y" }}
-                            </small>
-                        </div>
-
-                        <div class="mt-2">
-                            <div class="small text-muted">Monto compromiso</div>
-                            <div class="fw-semibold">
-                                {{ link.promise.promised_amount }}
-                            </div>
-                        </div>
-
-                        <div class="small mt-2">
-                            Pago confirmado:
-                            {% if link.promise.payment_confirmed %}
-                                <span class="badge bg-success">Sí</span>
-                            {% else %}
-                                <span class="badge bg-secondary">No</span>
-                            {% endif %}
-                        </div>
-
-                        {% if link.promise.notes %}
-                            <div class="small text-muted mt-2">
-                                {{ link.promise.notes }}
-                            </div>
-                        {% endif %}
-                    </div>
-                {% endfor %}
-            {% else %}
-                <div class="text-muted small">
-                    No existen promesas activas para este documento.
-                </div>
-            {% endif %}
-        </div>
-
-        <div class="mb-3">
-            <div class="fw-semibold mb-2">Promesas vencidas</div>
-
-            {% if expired_promises %}
-                {% for link in expired_promises %}
-                    <div class="border rounded p-2 mb-2">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span class="badge bg-warning text-dark">
-                                {{ link.promise.get_status_display }}
-                            </span>
-                            <small class="text-muted">
-                                {{ link.promise.promise_date|date:"d-m-Y" }}
-                            </small>
-                        </div>
-
-                        <div class="mt-2">
-                            <div class="small text-muted">Monto compromiso</div>
-                            <div class="fw-semibold">
-                                {{ link.promise.promised_amount }}
-                            </div>
-                        </div>
-
-                        <div class="small mt-2">
-                            Pago confirmado:
-                            {% if link.promise.payment_confirmed %}
-                                <span class="badge bg-success">Sí</span>
-                            {% else %}
-                                <span class="badge bg-secondary">No</span>
-                            {% endif %}
-                        </div>
-                    </div>
-                {% endfor %}
-            {% else %}
-                <div class="text-muted small">
-                    No existen promesas vencidas para este documento.
-                </div>
-            {% endif %}
-        </div>
-
+    <section class="if-card mt-3">
+      <div class="if-card-header">
         <div>
-            <div class="fw-semibold mb-2">Historial de promesas</div>
-
-            {% if historical_promises %}
-                {% for link in historical_promises %}
-                    <div class="border-bottom pb-2 mb-2">
-                        <div class="d-flex justify-content-between align-items-center">
-                            {% if link.promise.status == "EXPIRED" %}
-                                <span class="badge bg-warning text-dark">
-                                    {{ link.promise.get_status_display }}
-                                </span>
-                            {% elif link.promise.status == "FULFILLED" %}
-                                <span class="badge bg-success">
-                                    {{ link.promise.get_status_display }}
-                                </span>
-                            {% elif link.promise.status == "CANCELLED" %}
-                                <span class="badge bg-danger">
-                                    {{ link.promise.get_status_display }}
-                                </span>
-                            {% elif link.promise.status == "PENDING" %}
-                                <span class="badge bg-info text-dark">
-                                    {{ link.promise.get_status_display }}
-                                </span>
-                            {% else %}
-                                <span class="badge bg-secondary">
-                                    {{ link.promise.get_status_display }}
-                                </span>
-                            {% endif %}
-
-                            <small class="text-muted">
-                                {{ link.promise.promise_date|date:"d-m-Y" }}
-                            </small>
-                        </div>
-
-                        <div class="small mt-2">
-                            Monto: {{ link.promise.promised_amount }}
-                        </div>
-
-                        <div class="small">
-                            Pago confirmado:
-                            {% if link.promise.payment_confirmed %}
-                                Sí
-                            {% else %}
-                                No
-                            {% endif %}
-                        </div>
-                    </div>
-                {% endfor %}
-            {% else %}
-                <div class="text-muted small">
-                    Sin historial adicional de promesas.
-                </div>
-            {% endif %}
+          <h2 class="if-card-title">Pagos</h2>
+          <p class="if-card-subtitle">Total pagado: {{ total_paid }}</p>
         </div>
+      </div>
 
-    </div>
-</div>
-
-            <div class="card shadow-sm mb-4">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                    <strong>Pagos</strong>
-                    <span class="badge bg-success">Total pagado: {{ total_paid }}</span>
-                </div>
-                <div class="card-body">
-                    {% if payments %}
-                        {% for payment in payments %}
-                            <div class="border-bottom pb-2 mb-2">
-                                <div class="d-flex justify-content-between">
-                                    <strong>{{ payment.payment_date|date:"d-m-Y" }}</strong>
-                                    <span>{{ payment.amount }}</span>
-                                </div>
-                                <div class="small text-muted mt-1">
-                                    Referencia externa:
-                                    {{ payment.source_reference|default:"Sin referencia" }}
-                                </div>
-                                {% if payment.external_payment_id %}
-                                    <div class="small text-muted">
-                                        ID externo: {{ payment.external_payment_id }}
-                                    </div>
-                                {% endif %}
-                            </div>
-                        {% endfor %}
-                    {% else %}
-                        <div class="text-muted">
-                            No existen pagos informados para este documento.
-                        </div>
-                    {% endif %}
-                </div>
+      <div class="if-card-body">
+        {% if payments %}
+          {% for payment in payments %}
+            <div class="if-mini-card">
+              <div class="if-mini-card-top">
+                <strong>{{ payment.payment_date|date:"d/m/Y" }}</strong>
+                <span>{{ payment.amount }}</span>
+              </div>
+              <p>Referencia: {{ payment.source_reference|default:"Sin referencia" }}</p>
+              {% if payment.external_payment_id %}
+                <p>ID externo: {{ payment.external_payment_id }}</p>
+              {% endif %}
             </div>
-
-            <div class="card shadow-sm mb-4">
-                <div class="card-header bg-white">
-                    <strong>Adjuntos</strong>
-                </div>
-                <div class="card-body text-muted">
-                    Placeholder visual para documentos adjuntos.
-                </div>
-            </div>
-
-        </div>
-
-    </div>
-
+          {% endfor %}
+        {% else %}
+          <div class="if-muted">No existen pagos informados para este documento.</div>
+        {% endif %}
+      </div>
+    </section>
+  </aside>
 </div>
 {% endblock %}

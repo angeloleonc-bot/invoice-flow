@@ -10,4 +10,5 @@ urlpatterns = [
     path("assignment/unassigned/", views.unassigned_documents, name="unassigned_documents"),
     path("assignment/workloads/", views.assignment_workloads, name="assignment_workloads"),
     path("customers/<int:customer_id>/", views.customer_detail, name="customer_detail"),
+    path("assignment/assign/",views.assign_documents,name="assign_documents",),
 ]

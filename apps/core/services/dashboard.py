@@ -9,6 +9,8 @@ from apps.management.models import CollectionAction, PaymentPromise
 from apps.management.services.prioritization import WorklistPriorityService
 from apps.portfolio.models import Document, DocumentAssignment, PaymentRecord
 
+from apps.portfolio.services.workload import WorkloadService
+
 
 class DashboardService:
     """
@@ -39,6 +41,7 @@ class DashboardService:
         return {
             "kpis": self.get_kpis(),
             "team_performance": self.get_team_performance(),
+            "team_workload": self.get_team_workload(),
             "critical_documents": critical_documents,
             "commitments": self.get_commitments(),
             "aging": aging,
@@ -352,3 +355,6 @@ class DashboardService:
             })
 
         return prioritized
+    
+    def get_team_workload(self):
+        return WorkloadService().get_ranking(limit=5)

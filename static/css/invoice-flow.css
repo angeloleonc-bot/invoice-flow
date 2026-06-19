@@ -1817,3 +1817,75 @@ a.if-action-link:hover {
 .if-listing-table .if-badge {
   font-size: .72rem;
 }
+
+.if-assignment-kpis {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.if-listing-toolbar .form-select {
+  min-height: 38px;
+  border-color: var(--if-border);
+  border-radius: 999px;
+  font-size: .85rem;
+}
+
+@media (max-width: 992px) {
+  .if-assignment-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .if-listing-toolbar .d-flex {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+}
+
+.if-workload-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .9rem;
+  padding: 1rem;
+}
+
+.if-workload-card {
+  padding: 1rem;
+  background: var(--if-surface-soft);
+  border: 1px solid var(--if-border);
+  border-radius: 18px;
+}
+
+.if-workload-top {
+  display: flex;
+  justify-content: space-between;
+  gap: .85rem;
+  align-items: flex-start;
+}
+
+@media (max-width: 1200px) {
+  .if-workload-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.if-metric-bar > span[style*="--if-bar-width"],
+.if-aging-bar > span[style*="--if-bar-width"] {
+  width: var(--if-bar-width);
+}
+
+.if-metric-bar > span[data-width],
+.if-aging-bar > span[data-width] {
+  width: attr(data-width percentage);
+}
+
+.if-bar-0 > span { width: 0%; }
+.if-bar-10 > span { width: 10%; }
+.if-bar-20 > span { width: 20%; }
+.if-bar-30 > span { width: 30%; }
+.if-bar-40 > span { width: 40%; }
+.if-bar-50 > span { width: 50%; }
+.if-bar-60 > span { width: 60%; }
+.if-bar-70 > span { width: 70%; }
+.if-bar-80 > span { width: 80%; }
+.if-bar-90 > span { width: 90%; }
+.if-bar-100 > span { width: 100%; }

@@ -99,7 +99,7 @@
           </div>
 <div class="if-aging-context">
   <div class="if-aging-bar">
-    <span style="width: {% widthratio bucket.count total_aging_documents 100 %}%"></span>
+    <span style="--if-bar-width: {% widthratio bucket.count total_aging_documents 100 %}%;"></span>
   </div>
   <small>{{ bucket.count }} de {{ total_aging_documents }} documentos</small>
 </div>
@@ -110,6 +110,59 @@
     </div>
   </section>
 </div>
+
+<section class="if-card mt-3">
+  <div class="if-card-header">
+    <div>
+      <h2 class="if-card-title">Carga Operacional Equipo</h2>
+      <p class="if-card-subtitle">Top 5 cobradores por score de carga operacional.</p>
+    </div>
+
+    <a href="{% url 'portfolio:assignment_workloads' %}" class="if-action-link">
+      <i class="bi bi-arrow-right"></i>
+      Ver balance
+    </a>
+  </div>
+
+  <div class="if-workload-grid">
+    {% for item in team_workload %}
+      <article class="if-workload-card">
+        <div class="if-workload-top">
+          <div class="if-team-person">
+            <span class="if-team-avatar">{{ item.collector_name|slice:":1" }}</span>
+            <div>
+              <strong>{{ item.collector_name }}</strong>
+              <span>{{ item.active_documents }} documentos activos</span>
+            </div>
+          </div>
+
+          <span class="if-badge if-badge-soft">{{ item.workload_percentage }}%</span>
+        </div>
+
+        <div class="if-metric-bar mt-3">
+          <span style="--if-bar-width: {{ item.workload_percentage }}%;"></span>
+        </div>
+
+        <div class="if-collector-metrics">
+          <div>
+            <span>Saldo</span>
+            <strong>${{ item.assigned_balance|floatformat:0 }}</strong>
+          </div>
+          <div>
+            <span>Críticos</span>
+            <strong>{{ item.critical_documents }}</strong>
+          </div>
+          <div>
+            <span>Promesas</span>
+            <strong>{{ item.overdue_promises }}</strong>
+          </div>
+        </div>
+      </article>
+    {% empty %}
+      <div class="if-empty-compact">No hay carga operacional asignada.</div>
+    {% endfor %}
+  </div>
+</section>
 
 <section class="if-card mt-3">
   <div class="if-card-header">
@@ -143,7 +196,7 @@
           </div>
 
           <div class="if-metric-bar">
-            <span style="width: {% widthratio collector.payments collector.assigned_balance 100 %}%"></span>
+            <span style="--if-bar-width: {% widthratio collector.payments collector.assigned_balance 100 %}%;"></span>
           </div>
 
           <small>
@@ -171,6 +224,8 @@
     {% endfor %}
   </div>
 </section>
+
+
 
 <section class="if-card mt-3">
   <div class="if-card-header">

@@ -18,6 +18,9 @@ from apps.portfolio.constants import (
     DOCUMENT_SUBSTATUS_ACTIVE_PROMISE,
 )
 from .services.prioritization import WorklistPriorityService
+from django.contrib import messages
+from django.contrib.auth import get_user_model
+from django.db import transaction
 
 def my_work(request):
     selected_filter = request.GET.get("filter", "all")
@@ -151,6 +154,20 @@ def document_detail(request, id):
     action_form = CollectionActionForm()
     promise_form = PaymentPromiseForm()
 
+    User = get_user_model()
+
+    collectors = User.objects.filter(is_active=True).order_by(
+        "first_name",
+        "last_name",
+        "username",
+    )
+
+    current_assignment = (
+        DocumentAssignment.objects.select_related("assigned_to", "assigned_by")
+        .filter(document=document, is_active=True)
+        .first()
+    )
+
     if request.method == "POST":
         form_type = request.POST.get("form_type")
 
@@ -229,6 +246,36 @@ def document_detail(request, id):
                     document.save(update_fields=changed_fields)
 
                 return redirect("management:document_detail", id=document.id)
+        
+        elif form_type == "reassignment":
+            collector_id = request.POST.get("collector_id")
+
+            if not collector_id:
+                messages.error(request, "Debe seleccionar un cobrador para reasignar.")
+                return redirect("management:document_detail", id=document.id)
+
+            collector = get_object_or_404(
+                User,
+                pk=collector_id,
+                is_active=True,
+            )
+
+            with transaction.atomic():
+                DocumentAssignment.objects.filter(
+                    document=document,
+                    is_active=True,
+                ).update(is_active=False)
+
+                DocumentAssignment.objects.create(
+                    document=document,
+                    assigned_to=collector,
+                    assigned_by=request.user,
+                    assignment_type=DocumentAssignment.ASSIGNMENT_TYPE_REASSIGNMENT,
+                    is_active=True,
+                )
+
+            messages.success(request, "Documento reasignado correctamente.")
+            return redirect("management:document_detail", id=document.id)
 
     promise_links = (
         PromiseDocument.objects.select_related(
@@ -281,6 +328,8 @@ def document_detail(request, id):
         "timeline_actions": timeline_actions,
         "payments": payments,
         "total_paid": total_paid,
+        "collectors": collectors,
+        "current_assignment": current_assignment,
     }
 
     return render(request, "management/document_detail.html", context)

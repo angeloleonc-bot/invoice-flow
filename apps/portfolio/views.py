@@ -5,7 +5,11 @@ from django.utils import timezone
 from datetime import datetime, time
 from .models import Customer, CustomerContact, Document, DocumentAssignment, PaymentRecord
 from apps.management.models import CollectionAction, PaymentPromise, PromiseDocument
+from .services.workload import WorkloadRecommendationService, WorkloadService
 
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import redirect
 
 def documents_list(request):
     documents = (
@@ -136,45 +140,61 @@ def customer_detail(request, customer_id):
 
 
 def unassigned_documents(request):
+    User = get_user_model()
+
+    collectors = User.objects.filter(is_active=True).order_by(
+        "first_name",
+        "last_name",
+        "username",
+    )
+
     documents = (
-        Document.objects.select_related("customer", "status", "sub_status")
+        Document.objects.select_related(
+            "customer",
+            "status",
+            "sub_status",
+        )
         .filter(~Q(assignments__is_active=True))
         .distinct()
-        .order_by("due_date", "customer__name", "document_number")
+        .order_by(
+            "due_date",
+            "customer__name",
+            "document_number",
+        )
     )
 
     total_documents = documents.count()
-    total_balance = documents.aggregate(total=Sum("balance_amount"))["total"] or 0
+
+    total_balance = (
+        documents.aggregate(total=Sum("balance_amount"))["total"]
+        or 0
+    )
+
+    workload_service = WorkloadService()
+    workloads = workload_service.get_workloads()
+
+    recommendation_service = WorkloadRecommendationService()
+    recommendation = recommendation_service.recommend_collector()
 
     return render(
         request,
         "portfolio/unassigned_documents.html",
         {
             "documents": documents,
+            "collectors": collectors,
+            "workloads": workloads,
+            "recommendation": recommendation,
             "total_documents": total_documents,
             "total_balance": total_balance,
         },
     )
 
-
 def assignment_workloads(request):
-    User = get_user_model()
+    workload_service = WorkloadService()
+    recommendation_service = WorkloadRecommendationService()
 
-    collectors = (
-        User.objects.filter(portfolio_assignments_received__is_active=True)
-        .annotate(
-            active_documents=Count(
-                "portfolio_assignments_received__document",
-                filter=Q(portfolio_assignments_received__is_active=True),
-                distinct=True,
-            ),
-            total_balance=Sum(
-                "portfolio_assignments_received__document__balance_amount",
-                filter=Q(portfolio_assignments_received__is_active=True),
-            ),
-        )
-        .order_by("username")
-    )
+    workloads = workload_service.get_workloads()
+    recommendation = recommendation_service.recommend_collector()
 
     unassigned_documents_count = (
         Document.objects.filter(~Q(assignments__is_active=True)).distinct().count()
@@ -191,8 +211,62 @@ def assignment_workloads(request):
         request,
         "portfolio/assignment_workloads.html",
         {
-            "collectors": collectors,
+            "workloads": workloads,
+            "recommendation": recommendation,
             "unassigned_documents_count": unassigned_documents_count,
             "unassigned_balance": unassigned_balance,
         },
     )
+
+@login_required
+def assign_documents(request):
+    if request.method != "POST":
+        return redirect("portfolio:unassigned_documents")
+
+    collector_id = request.POST.get("collector_id")
+    document_ids = request.POST.getlist("document_ids")
+
+    if not collector_id:
+        messages.error(request, "Debe seleccionar un cobrador.")
+        return redirect("portfolio:unassigned_documents")
+
+    if not document_ids:
+        messages.error(request, "Debe seleccionar al menos un documento.")
+        return redirect("portfolio:unassigned_documents")
+
+    User = get_user_model()
+
+    collector = get_object_or_404(
+        User,
+        pk=collector_id,
+        is_active=True,
+    )
+
+    created_count = 0
+
+    for document in Document.objects.filter(id__in=document_ids):
+
+        has_active_assignment = DocumentAssignment.objects.filter(
+            document=document,
+            is_active=True,
+        ).exists()
+
+        if has_active_assignment:
+            continue
+
+        DocumentAssignment.objects.create(
+            document=document,
+            assigned_to=collector,
+            assigned_by=request.user,
+            assignment_type=DocumentAssignment.ASSIGNMENT_TYPE_INITIAL,
+            is_active=True,
+        )
+
+        created_count += 1
+
+    messages.success(
+        request,
+        f"{created_count} documento(s) asignado(s) correctamente.",
+    )
+
+    return redirect("portfolio:unassigned_documents")

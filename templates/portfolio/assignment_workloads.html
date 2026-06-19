@@ -7,9 +7,7 @@
   <div>
     <p class="if-eyebrow">Asignación</p>
     <h1 class="if-page-title">Carga por cobrador</h1>
-    <p class="if-page-subtitle">
-      Resumen operativo de documentos activos asignados a cada cobrador.
-    </p>
+    <p class="if-page-subtitle">Balance operacional del equipo de cobranza.</p>
   </div>
 </div>
 
@@ -27,44 +25,96 @@
   <div class="if-card-kpi if-kpi-premium">
     <span class="if-stat-icon"><i class="bi bi-cash-stack"></i></span>
     <div class="if-stat-label">Saldo sin asignar</div>
-    <div class="if-stat-value">${{ unassigned_balance }}</div>
+    <div class="if-stat-value">${{ unassigned_balance|floatformat:0 }}</div>
     <div class="if-kpi-divider"></div>
     <div class="if-stat-trend">Monto aún no distribuido</div>
   </div>
+
+  <div class="if-card-kpi if-kpi-premium">
+    <span class="if-stat-icon"><i class="bi bi-people"></i></span>
+    <div class="if-stat-label">Cobradores activos</div>
+    <div class="if-stat-value">{{ workloads|length }}</div>
+    <div class="if-kpi-divider"></div>
+    <div class="if-stat-trend">Con cartera asignada</div>
+  </div>
+
+  <div class="if-card-kpi if-kpi-premium">
+    <span class="if-stat-icon if-stat-icon-success"><i class="bi bi-stars"></i></span>
+    <div class="if-stat-label">Recomendación</div>
+    <div class="if-stat-value if-stat-value-text">
+      {% if recommendation %}{{ recommendation.collector_name }}{% else %}Sin datos{% endif %}
+    </div>
+    <div class="if-kpi-divider"></div>
+    <div class="if-stat-trend">
+      {% if recommendation %}Carga {{ recommendation.workload_percentage }}%{% else %}No hay cobradores{% endif %}
+    </div>
+  </div>
 </div>
 
-<div class="if-card mt-3">
+{% if recommendation %}
+<section class="if-card mt-3">
   <div class="if-card-header">
     <div>
-      <h2 class="if-card-title">Cobradores</h2>
-      <p class="if-card-subtitle">
-        Carga activa por responsable de cobranza.
-      </p>
+      <h2 class="if-card-title">Recomendación automática</h2>
+      <p class="if-card-subtitle">Mejor cobrador disponible según carga, saldo y cartera crítica.</p>
+    </div>
+    <span class="if-badge if-badge-success">{{ recommendation.workload_percentage }}% carga</span>
+  </div>
+
+  <div class="if-card-body">
+    <h3 class="if-side-title">{{ recommendation.collector_name }}</h3>
+    {% for reason in recommendation.reasons %}
+      <span class="if-badge if-badge-soft">✓ {{ reason }}</span>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="if-card mt-3">
+  <div class="if-card-header">
+    <div>
+      <h2 class="if-card-title">Balanceo de carga</h2>
+      <p class="if-card-subtitle">Score calculado: 40% documentos, 30% saldo, 20% críticos, 10% promesas vencidas.</p>
     </div>
   </div>
 
-  {% if collectors %}
+  {% if workloads %}
     <div class="if-table-wrapper">
       <table class="if-table if-table-modern if-listing-table">
         <thead>
           <tr>
             <th>Cobrador</th>
-            <th class="text-end">Documentos activos</th>
-            <th class="text-end">Saldo asignado</th>
+            <th class="text-end">Documentos</th>
+            <th class="text-end">Saldo</th>
+            <th class="text-end">Críticos</th>
+            <th class="text-end">Promesas vencidas</th>
+            <th>Carga</th>
           </tr>
         </thead>
         <tbody>
-          {% for collector in collectors %}
+          {% for item in workloads %}
             <tr>
               <td>
-                <strong>{{ collector.get_full_name|default:collector.username }}</strong>
+                <strong>{{ item.collector_name }}</strong>
                 <div class="if-muted">Responsable operativo</div>
               </td>
+              <td class="text-end"><strong>{{ item.active_documents }}</strong></td>
+              <td class="text-end"><strong>${{ item.assigned_balance|floatformat:0 }}</strong></td>
               <td class="text-end">
-                <strong>{{ collector.active_documents }}</strong>
+                <span class="if-badge {% if item.critical_documents %}if-badge-danger{% else %}if-badge-success{% endif %}">
+                  {{ item.critical_documents }}
+                </span>
               </td>
               <td class="text-end">
-                <strong>${{ collector.total_balance|default:0 }}</strong>
+                <span class="if-badge {% if item.overdue_promises %}if-badge-warning{% else %}if-badge-success{% endif %}">
+                  {{ item.overdue_promises }}
+                </span>
+              </td>
+              <td>
+                <strong>{{ item.workload_percentage }}%</strong>
+<div class="if-metric-bar mt-1 if-bar-{{ item.workload_percentage }}">
+  <span></span>
+</div>
               </td>
             </tr>
           {% endfor %}
@@ -77,5 +127,5 @@
       <p>Aún no existen documentos con asignación activa a cobradores.</p>
     </div>
   {% endif %}
-</div>
+</section>
 {% endblock %}

@@ -185,7 +185,55 @@
   </main>
 
   <aside class="if-document-side">
-    <section class="if-card">
+
+<section class="if-card">
+  <div class="if-card-header">
+    <div>
+      <h2 class="if-card-title">Responsable actual</h2>
+      <p class="if-card-subtitle">Asignación operacional activa.</p>
+    </div>
+  </div>
+
+  <div class="if-card-body">
+    {% if current_assignment %}
+      <div class="if-mini-card">
+        <div class="if-mini-card-top">
+          <strong>{{ current_assignment.assigned_to.get_full_name|default:current_assignment.assigned_to.username }}</strong>
+          <span class="if-badge if-badge-soft">{{ current_assignment.get_assignment_type_display }}</span>
+        </div>
+        <p>Asignado el {{ current_assignment.assigned_at|date:"d/m/Y H:i" }}</p>
+        <p>Asignado por {{ current_assignment.assigned_by.get_full_name|default:current_assignment.assigned_by.username }}</p>
+      </div>
+    {% else %}
+      <div class="if-muted">Este documento no tiene una asignación activa.</div>
+    {% endif %}
+
+    <div class="if-side-divider"></div>
+
+    <form method="post" class="if-side-form">
+      {% csrf_token %}
+      <input type="hidden" name="form_type" value="reassignment">
+
+      <label class="form-label">Reasignar a</label>
+      <select name="collector_id" class="form-select" required>
+        <option value="">Seleccionar cobrador</option>
+        {% for collector in collectors %}
+          <option value="{{ collector.id }}">
+            {{ collector.get_full_name|default:collector.username }}
+          </option>
+        {% endfor %}
+      </select>
+
+      <button type="submit" class="if-button-primary w-100 mt-3">
+        <i class="bi bi-arrow-left-right"></i>
+        Reasignar
+      </button>
+    </form>
+  </div>
+</section>
+
+
+    <section class="if-card mt-3">
       <div class="if-card-header">
         <div>
           <h2 class="if-card-title">Cliente</h2>

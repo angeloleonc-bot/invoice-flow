@@ -7,91 +7,135 @@
   <div>
     <p class="if-eyebrow">Asignación</p>
     <h1 class="if-page-title">Documentos sin asignar</h1>
-    <p class="if-page-subtitle">
-      Documentos de cartera que aún no tienen una asignación activa.
-    </p>
+    <p class="if-page-subtitle">Selecciona documentos y asígnalos operacionalmente a un cobrador.</p>
   </div>
 </div>
 
 {% include "portfolio/_assignment_nav.html" %}
 
-<div class="if-dashboard-kpis mt-3">
-  <div class="if-card-kpi if-kpi-premium">
-    <span class="if-stat-icon"><i class="bi bi-inbox"></i></span>
-    <div class="if-stat-label">Documentos sin asignar</div>
-    <div class="if-stat-value">{{ total_documents }}</div>
-    <div class="if-kpi-divider"></div>
-    <div class="if-stat-trend">Pendientes de distribución</div>
+<form method="post" action="{% url 'portfolio:assign_documents' %}">
+  {% csrf_token %}
+
+  <div class="if-dashboard-kpis if-assignment-kpis mt-3">
+    <div class="if-card-kpi if-kpi-premium">
+      <span class="if-stat-icon"><i class="bi bi-inbox"></i></span>
+      <div class="if-stat-label">Documentos sin asignar</div>
+      <div class="if-stat-value">{{ total_documents }}</div>
+      <div class="if-kpi-divider"></div>
+      <div class="if-stat-trend">Pendientes de distribución</div>
+    </div>
+
+    <div class="if-card-kpi if-kpi-premium">
+      <span class="if-stat-icon"><i class="bi bi-cash-stack"></i></span>
+      <div class="if-stat-label">Saldo sin asignar</div>
+      <div class="if-stat-value">${{ total_balance|floatformat:0 }}</div>
+      <div class="if-kpi-divider"></div>
+      <div class="if-stat-trend">Monto aún no distribuido</div>
+    </div>
+
+    <div class="if-card-kpi if-kpi-premium">
+      <span class="if-stat-icon if-stat-icon-success"><i class="bi bi-stars"></i></span>
+      <div class="if-stat-label">Recomendación</div>
+      <div class="if-stat-value if-stat-value-text">
+        {% if recommendation %}{{ recommendation.collector_name }}{% else %}Sin datos{% endif %}
+      </div>
+      <div class="if-kpi-divider"></div>
+      <div class="if-stat-trend">
+        {% if recommendation %}Carga {{ recommendation.workload_percentage }}%{% else %}No hay carga previa{% endif %}
+      </div>
+    </div>
   </div>
 
-  <div class="if-card-kpi if-kpi-premium">
-    <span class="if-stat-icon"><i class="bi bi-cash-stack"></i></span>
-    <div class="if-stat-label">Saldo sin asignar</div>
-    <div class="if-stat-value">${{ total_balance }}</div>
-    <div class="if-kpi-divider"></div>
-    <div class="if-stat-trend">Monto aún no distribuido</div>
-  </div>
-</div>
-
-<div class="if-card mt-3">
-  <div class="if-card-header">
+  <div class="if-listing-toolbar mt-3">
     <div>
-      <h2 class="if-card-title">Documentos pendientes</h2>
-      <p class="if-card-subtitle">
-        Documentos disponibles para asignación operacional.
-      </p>
+      <strong>Asignación operacional</strong>
+      <span>Selecciona documentos y asígnalos al cobrador elegido.</span>
+    </div>
+
+    <div class="d-flex gap-2 align-items-center">
+      <select name="collector_id" class="form-select" style="min-width: 260px;" required>
+        <option value="">Seleccionar cobrador</option>
+        {% for collector in collectors %}
+          <option value="{{ collector.id }}"
+            {% if recommendation and recommendation.collector.id == collector.id %}selected{% endif %}
+          >
+            {{ collector.get_full_name|default:collector.username }}
+          </option>
+        {% endfor %}
+      </select>
+
+      <button type="submit" class="if-button-primary">
+        <i class="bi bi-diagram-3"></i>
+        Asignar
+      </button>
     </div>
   </div>
 
-  {% if documents %}
-    <div class="if-table-wrapper">
-      <table class="if-table if-table-modern if-listing-table">
-        <thead>
-          <tr>
-            <th>Documento</th>
-            <th>Cliente</th>
-            <th>Vencimiento</th>
-            <th>Estado</th>
-            <th class="text-end">Saldo</th>
-            <th class="text-end">Acción</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for document in documents %}
+  <section class="if-card mt-3">
+    <div class="if-card-header">
+      <div>
+        <h2 class="if-card-title">Documentos pendientes</h2>
+        <p class="if-card-subtitle">Selecciona uno o varios documentos para asignación inicial.</p>
+      </div>
+    </div>
+
+    {% if documents %}
+      <div class="if-table-wrapper">
+        <table class="if-table if-table-modern if-listing-table">
+          <thead>
             <tr>
-              <td>
-                <strong>{{ document.document_number }}</strong>
-                <div class="if-muted">{{ document.get_document_type_display }}</div>
-              </td>
-              <td>
-                <strong>{{ document.customer.name }}</strong>
-                <div class="if-muted">Cliente cartera</div>
-              </td>
-              <td>{{ document.due_date|date:"d/m/Y" }}</td>
-              <td>
-                <span class="if-badge if-badge-soft">
-                  {{ document.status.name }}
-                </span>
-              </td>
-              <td class="text-end">
-                <strong>${{ document.balance_amount }}</strong>
-              </td>
-              <td class="text-end">
-                <a href="{% url 'management:document_detail' document.id %}" class="if-action-link">
-                  <i class="bi bi-arrow-right"></i>
-                  Ver
-                </a>
-              </td>
+              <th>Seleccionar</th>
+              <th>Documento</th>
+              <th>Cliente</th>
+              <th>Vencimiento</th>
+              <th>Estado</th>
+              <th class="text-end">Saldo</th>
+              <th class="text-end">Acción</th>
             </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  {% else %}
-    <div class="if-empty-state">
-      <h3>No hay documentos sin asignar</h3>
-      <p>Toda la cartera disponible tiene una asignación activa.</p>
-    </div>
-  {% endif %}
-</div>
+          </thead>
+          <tbody>
+            {% for document in documents %}
+              <tr>
+                <td>
+                  <input
+                    type="checkbox"
+                    name="document_ids"
+                    value="{{ document.id }}"
+                    class="form-check-input"
+                  >
+                </td>
+                <td>
+                  <strong>{{ document.document_number }}</strong>
+                  <div class="if-muted">{{ document.get_document_type_display }}</div>
+                </td>
+                <td>
+                  <strong>{{ document.customer.name }}</strong>
+                  <div class="if-muted">Cliente cartera</div>
+                </td>
+                <td>{{ document.due_date|date:"d/m/Y" }}</td>
+                <td>
+                  <span class="if-badge if-badge-soft">{{ document.status.name }}</span>
+                </td>
+                <td class="text-end">
+                  <strong>${{ document.balance_amount|floatformat:0 }}</strong>
+                </td>
+                <td class="text-end">
+                  <a href="{% url 'management:document_detail' document.id %}" class="if-action-link">
+                    <i class="bi bi-arrow-right"></i>
+                    Ver
+                  </a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="if-empty-state">
+        <h3>No hay documentos sin asignar</h3>
+        <p>Toda la cartera disponible tiene una asignación activa.</p>
+      </div>
+    {% endif %}
+  </section>
+</form>
 {% endblock %}

@@ -144,3 +144,87 @@ class PriorityRule(models.Model):
 
     def __str__(self):
         return f"{self.code} - {self.name}"
+    
+class OperationalAlert(models.Model):
+    class AlertType(models.TextChoices):
+        PROMISE_EXPIRED = "PROMISE_EXPIRED", "Promesa vencida"
+        PROMISE_DUE_TODAY = "PROMISE_DUE_TODAY", "Promesa vence hoy"
+        NO_MANAGEMENT_7_DAYS = "NO_MANAGEMENT_7_DAYS", "Sin gestión 7 días"
+        HIGH_PRIORITY_DOCUMENT = "HIGH_PRIORITY_DOCUMENT", "Documento alta prioridad"
+        UNASSIGNED_DOCUMENT = "UNASSIGNED_DOCUMENT", "Documento sin asignar"
+        CRITICAL_CUSTOMER = "CRITICAL_CUSTOMER", "Cliente crítico"
+        PAYMENT_RECEIVED = "PAYMENT_RECEIVED", "Pago recibido"
+        PROMISE_FULFILLED = "PROMISE_FULFILLED", "Promesa cumplida"
+
+    class Severity(models.TextChoices):
+        CRITICAL = "CRITICAL", "Crítica"
+        HIGH = "HIGH", "Alta"
+        MEDIUM = "MEDIUM", "Media"
+        LOW = "LOW", "Baja"
+        INFO = "INFO", "Informativa"
+
+    class AlertStatus(models.TextChoices):
+        NEW = "NEW", "Nueva"
+        VIEWED = "VIEWED", "Vista"
+        IN_PROGRESS = "IN_PROGRESS", "En gestión"
+        RESOLVED = "RESOLVED", "Resuelta"
+        POSTPONED = "POSTPONED", "Pospuesta"
+        DISMISSED = "DISMISSED", "Descartada"
+
+    alert_type = models.CharField(max_length=40, choices=AlertType.choices)
+    severity = models.CharField(max_length=20, choices=Severity.choices)
+    title = models.CharField(max_length=180)
+    message = models.TextField()
+
+    customer = models.ForeignKey(
+        "portfolio.Customer",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="operational_alerts",
+    )
+    document = models.ForeignKey(
+        "portfolio.Document",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="operational_alerts",
+    )
+    promise = models.ForeignKey(
+        "management.PaymentPromise",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="operational_alerts",
+    )
+
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="operational_alerts",
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=AlertStatus.choices,
+        default=AlertStatus.NEW,
+    )
+
+    created_at = models.DateTimeField(default=timezone.now)
+    due_at = models.DateTimeField(null=True, blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["alert_type", "status"]),
+            models.Index(fields=["severity", "status"]),
+            models.Index(fields=["created_at"]),
+            models.Index(fields=["due_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.get_severity_display()} - {self.title}"

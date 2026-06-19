@@ -11,6 +11,8 @@ from apps.portfolio.models import Document, DocumentAssignment, PaymentRecord
 
 from apps.portfolio.services.workload import WorkloadService
 
+from apps.management.models import OperationalAlert
+from apps.management.services.alerts import OperationalAlertService
 
 class DashboardService:
     """
@@ -38,6 +40,22 @@ class DashboardService:
         aging = self.get_aging()
         total_aging_documents = sum(bucket["count"] for bucket in aging) or 1
 
+        operational_alerts = OperationalAlertService.get_active_alerts()
+
+        operational_alert_summary = {
+            "new": operational_alerts.filter(
+                status=OperationalAlert.AlertStatus.NEW
+            ).count(),
+            "critical": operational_alerts.filter(
+                severity=OperationalAlert.Severity.CRITICAL
+            ).count(),
+            "high": operational_alerts.filter(
+                severity=OperationalAlert.Severity.HIGH
+            ).count(),
+        }
+
+        recent_operational_alerts = operational_alerts.order_by("-created_at")[:5]
+
         return {
             "kpis": self.get_kpis(),
             "team_performance": self.get_team_performance(),
@@ -47,6 +65,8 @@ class DashboardService:
             "aging": aging,
             "total_aging_documents": total_aging_documents,
             "alerts": self.get_alerts(),
+            "operational_alert_summary": operational_alert_summary,
+            "recent_operational_alerts": recent_operational_alerts,
         }
 
     def get_kpis(self):

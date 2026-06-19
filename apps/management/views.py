@@ -22,6 +22,10 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.db import transaction
 
+from django.views.decorators.http import require_POST
+from apps.management.models import OperationalAlert
+from apps.management.services.alerts import OperationalAlertService
+
 def my_work(request):
     selected_filter = request.GET.get("filter", "all")
 
@@ -49,6 +53,15 @@ def my_work(request):
     priority_service = WorklistPriorityService()
     work_items = []
 
+    active_alerts = OperationalAlertService.get_active_alerts()
+
+    alerts_by_document = {}
+    for alert in active_alerts.filter(document__isnull=False):
+        alerts_by_document.setdefault(alert.document_id, 0)
+        alerts_by_document[alert.document_id] += 1
+
+
+
     for assignment in assignments:
         priority_data = priority_service.evaluate_assignment(assignment)
         document = assignment.document
@@ -62,6 +75,10 @@ def my_work(request):
         }
 
         work_items.append(item)
+
+    for item in work_items:
+        document = item.get("document")
+        item["active_alerts_count"] = alerts_by_document.get(document.id, 0) if document else 0
 
     high_priority_count = sum(
         1 for item in work_items if item["priority_score"] >= 80
@@ -138,6 +155,12 @@ def my_work(request):
         "no_management_7_days_count": no_management_7_days_count,
         "critical_portfolio_count": critical_portfolio_count,
     }
+
+    for item in work_items:
+        print(
+            item["document"].document_number,
+            item.get("active_alerts_count")
+        )
 
     return render(request, "management/my_work.html", context)
 
@@ -333,3 +356,73 @@ def document_detail(request, id):
     }
 
     return render(request, "management/document_detail.html", context)
+
+def alerts_center(request):
+    OperationalAlertService.generate_alerts()
+
+    alerts = OperationalAlertService.get_active_alerts()
+
+    selected_filter = request.GET.get("filter", "all")
+
+    if selected_filter == "critical":
+        alerts = alerts.filter(severity=OperationalAlert.Severity.CRITICAL)
+    elif selected_filter == "promises":
+        alerts = alerts.filter(
+            alert_type__in=[
+                OperationalAlert.AlertType.PROMISE_EXPIRED,
+                OperationalAlert.AlertType.PROMISE_DUE_TODAY,
+            ]
+        )
+    elif selected_filter == "no_management":
+        alerts = alerts.filter(
+            alert_type=OperationalAlert.AlertType.NO_MANAGEMENT_7_DAYS
+        )
+    elif selected_filter == "unassigned":
+        alerts = alerts.filter(
+            alert_type=OperationalAlert.AlertType.UNASSIGNED_DOCUMENT
+        )
+
+    all_active_alerts = OperationalAlertService.get_active_alerts()
+
+    context = {
+        "alerts": alerts,
+        "selected_filter": selected_filter,
+        "kpi_new": all_active_alerts.filter(
+            status=OperationalAlert.AlertStatus.NEW
+        ).count(),
+        "kpi_critical": all_active_alerts.filter(
+            severity=OperationalAlert.Severity.CRITICAL
+        ).count(),
+        "kpi_high": all_active_alerts.filter(
+            severity=OperationalAlert.Severity.HIGH
+        ).count(),
+        "kpi_in_progress": all_active_alerts.filter(
+            status=OperationalAlert.AlertStatus.IN_PROGRESS
+        ).count(),
+    }
+
+    return render(request, "management/alerts.html", context)
+
+
+@require_POST
+def alert_resolve(request, alert_id):
+    alert = get_object_or_404(OperationalAlert, id=alert_id)
+    OperationalAlertService.mark_resolved(alert)
+    messages.success(request, "Alerta resuelta correctamente.")
+    return redirect("management:alerts_center")
+
+
+@require_POST
+def alert_postpone(request, alert_id):
+    alert = get_object_or_404(OperationalAlert, id=alert_id)
+    OperationalAlertService.mark_postponed(alert)
+    messages.info(request, "Alerta pospuesta correctamente.")
+    return redirect("management:alerts_center")
+
+
+@require_POST
+def alert_dismiss(request, alert_id):
+    alert = get_object_or_404(OperationalAlert, id=alert_id)
+    OperationalAlertService.mark_dismissed(alert)
+    messages.warning(request, "Alerta descartada correctamente.")
+    return redirect("management:alerts_center")

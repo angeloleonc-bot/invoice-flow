@@ -13,9 +13,39 @@
     <div class="navbar-nav flex-row order-md-last ms-auto if-topbar-actions">
       <span class="if-env-pill">Entorno MVP</span>
 
-      <button class="if-icon-button" type="button" aria-label="Notificaciones">
-        <i class="bi bi-bell"></i>
-      </button>
+<div class="if-notification-wrapper">
+  <button class="if-icon-button if-notification-trigger" type="button" aria-label="Notificaciones">
+    <i class="bi bi-bell"></i>
+    {% if navbar_new_alerts_count %}
+      <span class="if-notification-badge">{{ navbar_new_alerts_count }}</span>
+    {% endif %}
+  </button>
+
+  <div class="if-notification-dropdown">
+    <div class="if-notification-header">
+      <strong>Alertas operacionales</strong>
+      <span>{{ navbar_new_alerts_count }} nuevas</span>
+    </div>
+
+    <div class="if-notification-list">
+      {% for alert in navbar_recent_alerts %}
+        <a class="if-notification-item" href="{% url 'management:alerts_center' %}">
+          <span class="if-notification-severity if-notification-severity-{{ alert.severity|lower }}"></span>
+          <span>
+            <strong>{{ alert.title }}</strong>
+            <small>{{ alert.created_at|date:"d/m/Y H:i" }}</small>
+          </span>
+        </a>
+      {% empty %}
+        <div class="if-notification-empty">No hay alertas activas.</div>
+      {% endfor %}
+    </div>
+
+    <a class="if-notification-footer" href="{% url 'management:alerts_center' %}">
+      Ver todas
+    </a>
+  </div>
+</div>
 
       <div class="if-user-chip">
         <span class="if-user-avatar">U</span>

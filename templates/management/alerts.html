@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Alertas Operacionales{% endblock %}
+
+{% block content %}
+<div class="if-page-header if-alerts-header">
+  <div>
+    <p class="if-eyebrow">Workflow operacional</p>
+    <h1>Centro de Alertas</h1>
+    <p class="if-muted">Alertas internas accionables para priorizar gestión y supervisión.</p>
+  </div>
+</div>
+
+<div class="if-alert-kpi-grid">
+  <div class="if-alert-kpi">
+    <span>Nuevas</span>
+    <strong>{{ kpi_new }}</strong>
+  </div>
+  <div class="if-alert-kpi">
+    <span>Críticas</span>
+    <strong>{{ kpi_critical }}</strong>
+  </div>
+  <div class="if-alert-kpi">
+    <span>Altas</span>
+    <strong>{{ kpi_high }}</strong>
+  </div>
+  <div class="if-alert-kpi">
+    <span>En gestión</span>
+    <strong>{{ kpi_in_progress }}</strong>
+  </div>
+</div>
+
+<div class="if-alert-filter-card">
+  <a class="{% if selected_filter == 'all' %}is-active{% endif %}" href="{% url 'management:alerts_center' %}">Todas</a>
+  <a class="{% if selected_filter == 'critical' %}is-active{% endif %}" href="{% url 'management:alerts_center' %}?filter=critical">Críticas</a>
+  <a class="{% if selected_filter == 'promises' %}is-active{% endif %}" href="{% url 'management:alerts_center' %}?filter=promises">Promesas</a>
+  <a class="{% if selected_filter == 'no_management' %}is-active{% endif %}" href="{% url 'management:alerts_center' %}?filter=no_management">Sin gestión</a>
+  <a class="{% if selected_filter == 'unassigned' %}is-active{% endif %}" href="{% url 'management:alerts_center' %}?filter=unassigned">Sin asignar</a>
+</div>
+
+<div class="if-alert-panel">
+  <div class="if-alert-panel-header">
+    <div>
+      <h2>Alertas activas</h2>
+      <p>Trabajo pendiente empujado por el motor operacional.</p>
+    </div>
+  </div>
+
+  <div class="if-alert-list">
+    {% for alert in alerts %}
+      <div class="if-alert-item">
+        <div class="if-alert-severity">
+          <span class="if-badge if-badge-{{ alert.severity|lower }}">
+            {{ alert.get_severity_display }}
+          </span>
+        </div>
+
+        <div class="if-alert-main">
+          <div class="if-alert-title">{{ alert.title }}</div>
+          <div class="if-alert-message">{{ alert.message }}</div>
+          <div class="if-alert-meta">
+            {% if alert.customer %}
+              <a href="{% url 'portfolio:customer_detail' alert.customer.id %}">{{ alert.customer }}</a>
+            {% endif %}
+            {% if alert.document %}
+              <span>·</span>
+              <a href="{% url 'management:document_detail' alert.document.id %}">{{ alert.document }}</a>
+            {% endif %}
+            <span>·</span>
+            <span>{{ alert.created_at|date:"d/m/Y H:i" }}</span>
+            <span>·</span>
+            <span>{{ alert.get_status_display }}</span>
+          </div>
+        </div>
+
+        <div class="if-alert-actions">
+          {% if alert.document %}
+            <a class="if-btn-soft if-btn-primary" href="{% url 'management:document_detail' alert.document.id %}">Gestionar</a>
+          {% endif %}
+
+          <form method="post" action="{% url 'management:alert_resolve' alert.id %}">
+            {% csrf_token %}
+            <button class="if-btn-soft if-btn-success" type="submit">Resolver</button>
+          </form>
+
+          <form method="post" action="{% url 'management:alert_postpone' alert.id %}">
+            {% csrf_token %}
+            <button class="if-btn-soft" type="submit">Posponer</button>
+          </form>
+
+          <form method="post" action="{% url 'management:alert_dismiss' alert.id %}">
+            {% csrf_token %}
+            <button class="if-btn-soft if-btn-danger" type="submit">Descartar</button>
+          </form>
+        </div>
+      </div>
+    {% empty %}
+      <div class="if-empty">No hay alertas activas para este filtro.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

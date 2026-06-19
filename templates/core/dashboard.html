@@ -48,39 +48,48 @@
 </div>
 
 <div class="if-dashboard-grid mt-3">
-  <section class="if-card">
-    <div class="if-card-header">
-      <div>
-        <h2 class="if-card-title">Alertas operacionales</h2>
-        <p class="if-card-subtitle">Señales que requieren atención supervisora.</p>
-      </div>
+ <section class="if-card if-dashboard-alerts-card">
+  <div class="if-card-header">
+    <div>
+      <h2 class="if-card-title">Alertas operacionales</h2>
+      <p class="if-card-subtitle">Señales internas generadas por el workflow operacional.</p>
     </div>
 
-    <div class="if-alert-list">
-      {% for alert in alerts %}
-        <div class="if-alert-card if-alert-{{ alert.severity }}">
-          <div class="if-alert-icon">
-            {% if alert.severity == 'danger' %}
-              <i class="bi bi-exclamation-octagon"></i>
-            {% elif alert.severity == 'warning' %}
-              <i class="bi bi-exclamation-circle"></i>
-            {% else %}
-              <i class="bi bi-check-circle"></i>
-            {% endif %}
-          </div>
-          <div class="if-alert-content">
-            <div class="if-alert-top">
-              <strong>{{ alert.label }}</strong>
-              <span class="if-alert-value">{{ alert.value }}</span>
-            </div>
-            <p>{{ alert.description }}</p>
-          </div>
-        </div>
-      {% empty %}
-        <div class="if-empty-compact">No hay alertas operacionales.</div>
-      {% endfor %}
+<a href="{% url 'management:alerts_center' %}" class="if-dashboard-card-link">
+  Ver centro
+  <i class="bi bi-arrow-right"></i>
+</a>
+  </div>
+
+  <div class="if-dashboard-alert-summary">
+    <div>
+      <span>Nuevas</span>
+      <strong>{{ operational_alert_summary.new }}</strong>
     </div>
-  </section>
+    <div>
+      <span>Críticas</span>
+      <strong>{{ operational_alert_summary.critical }}</strong>
+    </div>
+    <div>
+      <span>Altas</span>
+      <strong>{{ operational_alert_summary.high }}</strong>
+    </div>
+  </div>
+
+  <div class="if-dashboard-alert-feed">
+    {% for alert in recent_operational_alerts %}
+      <a class="if-dashboard-alert-item" href="{% url 'management:alerts_center' %}">
+        <span class="if-dashboard-alert-dot if-dashboard-alert-dot-{{ alert.severity|lower }}"></span>
+        <span>
+          <strong>{{ alert.title }}</strong>
+          <small>{{ alert.get_severity_display }} · {{ alert.created_at|date:"d/m/Y H:i" }}</small>
+        </span>
+      </a>
+    {% empty %}
+      <div class="if-empty-compact">No hay alertas operacionales activas.</div>
+    {% endfor %}
+  </div>
+</section>
 
   <section class="if-card">
     <div class="if-card-header">

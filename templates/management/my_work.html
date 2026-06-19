@@ -81,10 +81,20 @@
                 {% endif %}
               </td>
 
-              <td>
-                <strong>{{ item.document.document_number }}</strong>
-                <div class="if-muted">{{ item.document.get_document_type_display }} · {{ item.customer.name }}</div>
-              </td>
+<td>
+  <div class="if-work-document-cell">
+    <strong>{{ item.document.document_number }}</strong>
+
+    {% if item.active_alerts_count %}
+      <a href="{% url 'management:alerts_center' %}" class="if-work-alert-badge">
+        <i class="bi bi-bell-fill"></i>
+        {{ item.active_alerts_count }} alerta{% if item.active_alerts_count > 1 %}s{% endif %}
+      </a>
+    {% endif %}
+  </div>
+
+  <div class="if-muted">{{ item.document.get_document_type_display }} · {{ item.customer.name }}</div>
+</td>
 
               <td>
                 <span class="if-badge if-badge-soft">{{ item.document.status.name }}</span>

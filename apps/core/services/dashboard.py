@@ -1,7 +1,7 @@
 from datetime import timedelta
 from decimal import Decimal
 
-from django.db.models import Count, Max, Q, Sum
+from django.db.models import Case, Count, Max, Q, Sum, When
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
@@ -39,6 +39,7 @@ class DashboardService:
         critical_documents = self.get_critical_documents(limit=10)
         aging = self.get_aging()
         total_aging_documents = sum(bucket["count"] for bucket in aging) or 1
+        unattended_portfolio = self.get_unattended_portfolio()
 
         operational_alerts = OperationalAlertService.get_visible_active_alerts(user)
 
@@ -79,6 +80,7 @@ class DashboardService:
             "operational_alert_aging": OperationalAlertService.aging_summary_for_user(user),
             "operational_alerts_by_responsible": OperationalAlertService.alerts_by_responsible(user),
             "critical_customer_summary": OperationalAlertService.critical_customer_summary_for_user(user),
+            "unattended_portfolio": unattended_portfolio,
         }
 
     def get_kpis(self):
@@ -294,6 +296,64 @@ class DashboardService:
                 "label": bucket["label"],
                 "count": data["count"],
                 "balance": data["balance"],
+                "url": f"/management/my-work/?aging={bucket['key']}",
+            })
+
+        return result
+    
+    def get_unattended_portfolio(self):
+        thresholds = [
+            {
+                "key": "without_action_7",
+                "label": "Sin gestión > 7 días",
+                "days": 7,
+                "description": "Documentos sin gestión operacional reciente.",
+            },
+            {
+                "key": "without_action_14",
+                "label": "Sin gestión > 14 días",
+                "days": 14,
+                "description": "Documentos que requieren revisión supervisora.",
+            },
+            {
+                "key": "without_action_30",
+                "label": "Sin gestión > 30 días",
+                "days": 30,
+                "description": "Cartera crítica sin seguimiento operativo.",
+            },
+        ]
+
+        last_actions = (
+            CollectionAction.objects
+            .filter(document_id__isnull=False)
+            .values("document_id")
+            .annotate(last_action_date=Max("action_date"))
+        )
+
+        result = []
+
+        for threshold in thresholds:
+            cutoff = self.now - timedelta(days=threshold["days"])
+
+            recent_document_ids = last_actions.filter(
+                last_action_date__gte=cutoff
+            ).values_list("document_id", flat=True)
+
+            data = (
+                Document.objects
+                .filter(balance_amount__gt=0)
+                .exclude(id__in=recent_document_ids)
+                .aggregate(
+                    count=Count("id"),
+                    balance=Coalesce(Sum("balance_amount"), Decimal("0")),
+                )
+            )
+
+            result.append({
+                **threshold,
+                "count": data["count"],
+                "balance": data["balance"],
+                "url": f"/management/my-work/?attention={threshold['days']}",
             })
 
         return result

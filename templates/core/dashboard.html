@@ -183,25 +183,34 @@
       </div>
     </div>
 
-    <div class="if-aging-list">
-      {% for bucket in aging %}
-        <div class="if-aging-row">
-          <div class="if-aging-meta">
-            <strong>{{ bucket.label }}</strong>
-            <span>{{ bucket.count }} docs · ${{ bucket.balance|floatformat:0 }}</span>
-          </div>
-          <div class="if-aging-context">
-            <div class="if-aging-bar">
-              <span style="--if-bar-width: {% widthratio bucket.count total_aging_documents 100 %}%;"></span>
-            </div>
-            <small>{{ bucket.count }} de {{ total_aging_documents }} documentos</small>
-          </div>
+<div class="if-aging-list">
+  {% for bucket in aging %}
+    <a href="{{ bucket.url }}" class="if-aging-row">
+      <div class="if-aging-meta">
+        <strong>{{ bucket.label }}</strong>
+        <span>
+          {{ bucket.count }} docs · ${{ bucket.balance|floatformat:0 }}
+        </span>
+      </div>
+
+      <div class="if-aging-context">
+        <div class="if-aging-bar">
+          <span style="--if-bar-width: {% widthratio bucket.count total_aging_documents 100 %}%;">
+          </span>
         </div>
-      {% empty %}
-        <div class="if-empty-compact">No hay documentos para analizar aging.</div>
-      {% endfor %}
+
+        <small>
+          {{ bucket.count }} de {{ total_aging_documents }} documentos
+        </small>
+      </div>
+    </a>
+  {% empty %}
+    <div class="if-empty-compact">
+      No hay documentos para analizar aging.
     </div>
-  </section>
+  {% endfor %}
+</div>
+</section>
 </div>
 
 <section class="if-card mt-3">

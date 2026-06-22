@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from django.db.models import Sum
+from django.db.models import Max, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
@@ -28,6 +28,8 @@ from apps.management.services.alerts import OperationalAlertService
 
 def my_work(request):
     selected_filter = request.GET.get("filter", "all")
+    selected_attention = request.GET.get("attention")
+    selected_aging = request.GET.get("aging")
 
     assignments = (
         DocumentAssignment.objects.select_related(
@@ -80,6 +82,75 @@ def my_work(request):
         document = item.get("document")
         item["active_alerts_count"] = alerts_by_document.get(document.id, 0) if document else 0
 
+    requires_action_count = sum(
+        1
+        for item in work_items
+        if (
+            WorklistPriorityService.RULE_PROMISE_EXPIRED in item["priority_reason_codes"]
+            or WorklistPriorityService.RULE_NO_MANAGEMENT_7_DAYS in item["priority_reason_codes"]
+            or WorklistPriorityService.RULE_DOCUMENT_OVERDUE in item["priority_reason_codes"]
+            or item.get("active_alerts_count", 0) > 0
+        )
+    )
+
+    if selected_attention in ["7", "14", "30"]:
+        cutoff = timezone.now() - timedelta(days=int(selected_attention))
+
+        recent_document_ids = (
+            CollectionAction.objects
+            .filter(document_id__isnull=False)
+            .values("document_id")
+            .annotate(last_action_date=Max("action_date"))
+            .filter(last_action_date__gte=cutoff)
+            .values_list("document_id", flat=True)
+        )
+
+        work_items = [
+            item
+            for item in work_items
+            if item["document"].id not in recent_document_ids
+        ]
+
+        selected_filter = f"attention_{selected_attention}"
+
+    if selected_aging in ["current", "days_1_30", "days_31_60", "days_61_90", "days_90_plus"]:
+        today = timezone.localdate()
+
+        if selected_aging == "current":
+            work_items = [
+                item for item in work_items
+                if item["document"].due_date and item["document"].due_date >= today
+            ]
+        elif selected_aging == "days_1_30":
+            work_items = [
+                item for item in work_items
+                if item["document"].due_date
+                and item["document"].due_date < today
+                and item["document"].due_date >= today - timedelta(days=30)
+            ]
+        elif selected_aging == "days_31_60":
+            work_items = [
+                item for item in work_items
+                if item["document"].due_date
+                and item["document"].due_date < today - timedelta(days=30)
+                and item["document"].due_date >= today - timedelta(days=60)
+            ]
+        elif selected_aging == "days_61_90":
+            work_items = [
+                item for item in work_items
+                if item["document"].due_date
+                and item["document"].due_date < today - timedelta(days=60)
+                and item["document"].due_date >= today - timedelta(days=90)
+            ]
+        elif selected_aging == "days_90_plus":
+            work_items = [
+                item for item in work_items
+                if item["document"].due_date
+                and item["document"].due_date < today - timedelta(days=90)
+            ]
+
+        selected_filter = f"aging_{selected_aging}"   
+
     high_priority_count = sum(
         1 for item in work_items if item["priority_score"] >= 80
     )
@@ -111,6 +182,17 @@ def my_work(request):
     if selected_filter == "high_priority":
         work_items = [
             item for item in work_items if item["priority_score"] >= 80
+        ]
+    elif selected_filter == "requires_action":
+        work_items = [
+            item
+            for item in work_items
+            if (
+                WorklistPriorityService.RULE_PROMISE_EXPIRED in item["priority_reason_codes"]
+                or WorklistPriorityService.RULE_NO_MANAGEMENT_7_DAYS in item["priority_reason_codes"]
+                or WorklistPriorityService.RULE_DOCUMENT_OVERDUE in item["priority_reason_codes"]
+                or item.get("active_alerts_count", 0) > 0
+            )
         ]
     elif selected_filter == "promise_expired":
         work_items = [
@@ -147,6 +229,7 @@ def my_work(request):
         "assignments": assignments,
         "work_items": work_items,
         "selected_filter": selected_filter,
+        "selected_attention": selected_attention,
         "total_documents": total_documents,
         "total_balance": total_balance,
         "high_priority_count": high_priority_count,
@@ -154,6 +237,8 @@ def my_work(request):
         "promises_today_count": promises_today_count,
         "no_management_7_days_count": no_management_7_days_count,
         "critical_portfolio_count": critical_portfolio_count,
+        "requires_action_count": requires_action_count,
+        "selected_aging": selected_aging,
     }
 
     for item in work_items:

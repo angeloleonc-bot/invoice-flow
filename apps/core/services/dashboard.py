@@ -35,12 +35,12 @@ class DashboardService:
         self.month_start = self.today.replace(day=1)
         self.priority_service = WorklistPriorityService()
 
-    def get_context(self):
+    def get_context(self, user=None):
         critical_documents = self.get_critical_documents(limit=10)
         aging = self.get_aging()
         total_aging_documents = sum(bucket["count"] for bucket in aging) or 1
 
-        operational_alerts = OperationalAlertService.get_active_alerts()
+        operational_alerts = OperationalAlertService.get_visible_active_alerts(user)
 
         operational_alert_summary = {
             "new": operational_alerts.filter(
@@ -51,6 +51,15 @@ class DashboardService:
             ).count(),
             "high": operational_alerts.filter(
                 severity=OperationalAlert.Severity.HIGH
+            ).count(),
+            "aged": operational_alerts.filter(
+                created_at__lt=self.now - timedelta(days=7)
+            ).count(),
+            "reopened": operational_alerts.filter(
+                status=OperationalAlert.AlertStatus.REOPENED
+            ).count(),
+            "postponed": operational_alerts.filter(
+                status=OperationalAlert.AlertStatus.POSTPONED
             ).count(),
         }
 
@@ -67,6 +76,9 @@ class DashboardService:
             "alerts": self.get_alerts(),
             "operational_alert_summary": operational_alert_summary,
             "recent_operational_alerts": recent_operational_alerts,
+            "operational_alert_aging": OperationalAlertService.aging_summary_for_user(user),
+            "operational_alerts_by_responsible": OperationalAlertService.alerts_by_responsible(user),
+            "critical_customer_summary": OperationalAlertService.critical_customer_summary_for_user(user),
         }
 
     def get_kpis(self):

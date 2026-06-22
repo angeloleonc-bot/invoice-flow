@@ -11,6 +11,9 @@ class CollectionAction(models.Model):
         NOTE = "NOTE", "Nota"
         PROMISE = "PROMISE", "Promesa"
         PAYMENT_INFO = "PAYMENT_INFO", "Información de pago"
+        ALERT_RESOLVED = "ALERT_RESOLVED", "Alerta resuelta"
+        ALERT_POSTPONED = "ALERT_POSTPONED", "Alerta pospuesta"
+        ALERT_REOPENED = "ALERT_REOPENED", "Alerta reabierta"
 
     document = models.ForeignKey(
         "portfolio.Document",
@@ -170,6 +173,7 @@ class OperationalAlert(models.Model):
         RESOLVED = "RESOLVED", "Resuelta"
         POSTPONED = "POSTPONED", "Pospuesta"
         DISMISSED = "DISMISSED", "Descartada"
+        REOPENED = "REOPENED", "Reabierta"
 
     alert_type = models.CharField(max_length=40, choices=AlertType.choices)
     severity = models.CharField(max_length=20, choices=Severity.choices)

@@ -7,36 +7,26 @@
   <div>
     <p class="if-eyebrow">Workflow operacional</p>
     <h1>Centro de Alertas</h1>
-    <p class="if-muted">Alertas internas accionables para priorizar gestión y supervisión.</p>
+    <p class="if-muted">Centro de control operacional para monitoreo visual, gestión de riesgo y seguimiento por responsable.</p>
   </div>
 </div>
 
-<div class="if-alert-kpi-grid">
-  <div class="if-alert-kpi">
-    <span>Nuevas</span>
-    <strong>{{ kpi_new }}</strong>
-  </div>
-  <div class="if-alert-kpi">
-    <span>Críticas</span>
-    <strong>{{ kpi_critical }}</strong>
-  </div>
-  <div class="if-alert-kpi">
-    <span>Altas</span>
-    <strong>{{ kpi_high }}</strong>
-  </div>
-  <div class="if-alert-kpi">
-    <span>En gestión</span>
-    <strong>{{ kpi_in_progress }}</strong>
-  </div>
-</div>
+
 
 <div class="if-alert-filter-card">
-  <a class="{% if selected_filter == 'all' %}is-active{% endif %}" href="{% url 'management:alerts_center' %}">Todas</a>
+  <a class="{% if selected_filter == 'mine' %}is-active{% endif %}" href="{% url 'management:alerts_center' %}?filter=mine">Mis alertas</a>
+  <a class="{% if selected_filter == 'all' %}is-active{% endif %}" href="{% url 'management:alerts_center' %}?filter=all">Todas</a>
   <a class="{% if selected_filter == 'critical' %}is-active{% endif %}" href="{% url 'management:alerts_center' %}?filter=critical">Críticas</a>
+  <a class="{% if selected_filter == 'reopened' %}is-active{% endif %}" href="{% url 'management:alerts_center' %}?filter=reopened">Reabiertas</a>
+  <a class="{% if selected_filter == 'postponed' %}is-active{% endif %}" href="{% url 'management:alerts_center' %}?filter=postponed">Pospuestas</a>
   <a class="{% if selected_filter == 'promises' %}is-active{% endif %}" href="{% url 'management:alerts_center' %}?filter=promises">Promesas</a>
-  <a class="{% if selected_filter == 'no_management' %}is-active{% endif %}" href="{% url 'management:alerts_center' %}?filter=no_management">Sin gestión</a>
+  <a class="{% if selected_filter == 'without_management' or selected_filter == 'no_management' %}is-active{% endif %}" href="{% url 'management:alerts_center' %}?filter=without_management">Sin gestión</a>
+  <a class="{% if selected_filter == 'critical_customers' %}is-active{% endif %}" href="{% url 'management:alerts_center' %}?filter=critical_customers">Clientes críticos</a>
+  <a class="{% if selected_filter == 'high_priority' %}is-active{% endif %}" href="{% url 'management:alerts_center' %}?filter=high_priority">Alta prioridad</a>
   <a class="{% if selected_filter == 'unassigned' %}is-active{% endif %}" href="{% url 'management:alerts_center' %}?filter=unassigned">Sin asignar</a>
 </div>
+
+
 
 <div class="if-alert-panel">
   <div class="if-alert-panel-header">
@@ -58,18 +48,34 @@
         <div class="if-alert-main">
           <div class="if-alert-title">{{ alert.title }}</div>
           <div class="if-alert-message">{{ alert.message }}</div>
+
           <div class="if-alert-meta">
             {% if alert.customer %}
               <a href="{% url 'portfolio:customer_detail' alert.customer.id %}">{{ alert.customer }}</a>
             {% endif %}
+
             {% if alert.document %}
               <span>·</span>
               <a href="{% url 'management:document_detail' alert.document.id %}">{{ alert.document }}</a>
             {% endif %}
+
             <span>·</span>
             <span>{{ alert.created_at|date:"d/m/Y H:i" }}</span>
+
             <span>·</span>
             <span>{{ alert.get_status_display }}</span>
+
+            <span>·</span>
+            {% if alert.assigned_to %}
+              <span>Responsable: {{ alert.assigned_to.get_full_name|default:alert.assigned_to.username }}</span>
+            {% else %}
+              <span>Sin responsable</span>
+            {% endif %}
+
+            {% if alert.status == "POSTPONED" and alert.due_at %}
+              <span>·</span>
+              <span>Vuelve: {{ alert.due_at|date:"d/m/Y H:i" }}</span>
+            {% endif %}
           </div>
         </div>
 
@@ -99,4 +105,6 @@
     {% endfor %}
   </div>
 </div>
+
+
 {% endblock %}

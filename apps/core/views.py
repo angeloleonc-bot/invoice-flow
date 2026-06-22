@@ -7,6 +7,6 @@ from apps.core.services.dashboard import DashboardService
 @login_required
 def dashboard(request):
     service = DashboardService()
-    context = service.get_context()
+    context = service.get_context(request.user)
 
     return render(request, "core/dashboard.html", context)

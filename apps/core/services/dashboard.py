@@ -34,6 +34,8 @@ class DashboardService:
         self.now = timezone.now()
         self.month_start = self.today.replace(day=1)
         self.priority_service = WorklistPriorityService()
+        self._prioritized_documents_cache = None
+        
 
     def get_context(self, user=None):
         critical_documents = self.get_critical_documents(limit=10)
@@ -84,7 +86,7 @@ class DashboardService:
         }
 
     def get_kpis(self):
-        total_receivable = Document.objects.aggregate(
+        total_receivable = self._active_documents_queryset().aggregate(
             total=Coalesce(Sum("balance_amount"), Decimal("0"))
         )["total"]
 
@@ -136,48 +138,100 @@ class DashboardService:
             .order_by("assigned_to__username")
         )
 
+        assignment_rows = list(assignments)
+
+        document_owner_rows = (
+            DocumentAssignment.objects
+            .filter(is_active=True)
+            .values("assigned_to_id", "document_id")
+        )
+
+        document_ids_by_collector = {}
+        collector_by_document_id = {}
+
+        for row in document_owner_rows:
+            collector_id = row["assigned_to_id"]
+            document_id = row["document_id"]
+
+            document_ids_by_collector.setdefault(collector_id, set()).add(document_id)
+            collector_by_document_id[document_id] = collector_id
+
+        assigned_document_ids = list(collector_by_document_id.keys())
+
+        payments_by_collector = {}
+
+        if assigned_document_ids:
+            payment_rows = (
+                PaymentRecord.objects
+                .filter(
+                    document_id__in=assigned_document_ids,
+                    payment_date__gte=self.month_start,
+                    payment_date__lte=self.today,
+                )
+                .values("document_id")
+                .annotate(total=Coalesce(Sum("amount"), Decimal("0")))
+            )
+
+            for row in payment_rows:
+                collector_id = collector_by_document_id.get(row["document_id"])
+                if not collector_id:
+                    continue
+
+                payments_by_collector[collector_id] = (
+                    payments_by_collector.get(collector_id, Decimal("0"))
+                    + row["total"]
+                )
+
+        overdue_promises_by_collector = {}
+
+        if assigned_document_ids:
+            promise_rows = (
+                PaymentPromise.objects
+                .filter(
+                    promise_documents__document_id__in=assigned_document_ids,
+                    promise_date__lt=self.today,
+                    payment_confirmed=False,
+                    status__in=[
+                        PaymentPromise.Status.PENDING,
+                        PaymentPromise.Status.ACTIVE,
+                        PaymentPromise.Status.EXPIRED,
+                    ],
+                )
+                .values("promise_documents__document_id")
+                .distinct()
+            )
+
+            for row in promise_rows:
+                document_id = row["promise_documents__document_id"]
+                collector_id = collector_by_document_id.get(document_id)
+
+                if not collector_id:
+                    continue
+
+                overdue_promises_by_collector[collector_id] = (
+                    overdue_promises_by_collector.get(collector_id, 0) + 1
+                )
+
         prioritized_documents = self._get_prioritized_documents()
-        priority_by_document_id = {
-            item["document"].id: item["priority_score"]
-            for item in prioritized_documents
-        }
+
+        high_priority_by_collector = {}
+
+        for item in prioritized_documents:
+            document_id = item["document"].id
+            collector_id = collector_by_document_id.get(document_id)
+
+            if not collector_id:
+                continue
+
+            if item["priority_score"] >= self.HIGH_PRIORITY_MIN_SCORE:
+                high_priority_by_collector[collector_id] = (
+                    high_priority_by_collector.get(collector_id, 0) + 1
+                )
 
         result = []
 
-        for row in assignments:
+        for row in assignment_rows:
             assigned_to_id = row["assigned_to_id"]
-
-            document_ids = list(
-                DocumentAssignment.objects.filter(
-                    assigned_to_id=assigned_to_id,
-                    is_active=True,
-                ).values_list("document_id", flat=True)
-            )
-
-            payments = PaymentRecord.objects.filter(
-                document_id__in=document_ids,
-                payment_date__gte=self.month_start,
-                payment_date__lte=self.today,
-            ).aggregate(
-                total=Coalesce(Sum("amount"), Decimal("0"))
-            )["total"]
-
-            overdue_promises = PaymentPromise.objects.filter(
-                promise_documents__document_id__in=document_ids,
-                promise_date__lt=self.today,
-                payment_confirmed=False,
-                status__in=[
-                    PaymentPromise.Status.PENDING,
-                    PaymentPromise.Status.ACTIVE,
-                    PaymentPromise.Status.EXPIRED,
-                ],
-            ).distinct().count()
-
-            high_priority_documents = sum(
-                1
-                for document_id in document_ids
-                if priority_by_document_id.get(document_id, 0) >= self.HIGH_PRIORITY_MIN_SCORE
-            )
 
             full_name = (
                 f"{row['assigned_to__first_name']} {row['assigned_to__last_name']}"
@@ -187,9 +241,9 @@ class DashboardService:
                 "collector_name": full_name or row["assigned_to__username"],
                 "assigned_documents": row["assigned_documents"],
                 "assigned_balance": row["assigned_balance"],
-                "payments": payments,
-                "overdue_promises": overdue_promises,
-                "high_priority_documents": high_priority_documents,
+                "payments": payments_by_collector.get(assigned_to_id, Decimal("0")),
+                "overdue_promises": overdue_promises_by_collector.get(assigned_to_id, 0),
+                "high_priority_documents": high_priority_by_collector.get(assigned_to_id, 0),
             })
 
         return result
@@ -197,7 +251,13 @@ class DashboardService:
     def get_critical_documents(self, limit=10):
         prioritized_documents = self._get_prioritized_documents()
 
-        sorted_documents = self.priority_service.sort_items(prioritized_documents)
+        sorted_documents = sorted(
+            prioritized_documents,
+            key=lambda item: (
+                -item.get("priority_score", 0),
+                item.get("document").due_date if item.get("document") else self.today,
+            ),
+        )
 
         return sorted_documents[:limit]
 
@@ -286,7 +346,7 @@ class DashboardService:
         result = []
 
         for bucket in buckets:
-            data = Document.objects.filter(bucket["query"]).aggregate(
+            data = self._active_documents_queryset().filter(bucket["query"]).aggregate(
                 count=Count("id"),
                 balance=Coalesce(Sum("balance_amount"), Decimal("0")),
             )
@@ -340,8 +400,7 @@ class DashboardService:
             ).values_list("document_id", flat=True)
 
             data = (
-                Document.objects
-                .filter(balance_amount__gt=0)
+                self._active_documents_queryset()
                 .exclude(id__in=recent_document_ids)
                 .aggregate(
                     count=Count("id"),
@@ -361,9 +420,11 @@ class DashboardService:
     def get_alerts(self):
         seven_days_ago = self.now - timedelta(days=7)
 
-        unassigned_documents = Document.objects.filter(
-            assignments__isnull=True
-        ).count()
+        unassigned_documents = (
+            self._active_documents_queryset()
+            .filter(assignments__isnull=True)
+            .count()
+        )
 
         overdue_promises = PaymentPromise.objects.filter(
             promise_date__lt=self.today,
@@ -383,7 +444,7 @@ class DashboardService:
             .values_list("document_id", flat=True)
         )
 
-        without_management_7_days = Document.objects.exclude(
+        without_management_7_days = self._active_documents_queryset().exclude(
             id__in=last_action_by_document
         ).count()
 
@@ -421,17 +482,67 @@ class DashboardService:
         ]
 
     def _get_prioritized_documents(self):
-        documents = (
-            Document.objects
-            .filter(balance_amount__gt=0)
+        if self._prioritized_documents_cache is not None:
+            return self._prioritized_documents_cache
+
+        documents = list(
+            self._active_documents_queryset()
             .select_related("customer", "status", "sub_status")
-            .prefetch_related("tags", "assignments")
         )
+
+        document_ids = [document.id for document in documents]
+
+        expired_promise_document_ids = set(
+            PaymentPromise.objects.filter(
+                promise_documents__document_id__in=document_ids,
+                promise_date__lt=self.today,
+                payment_confirmed=False,
+                status__in=[
+                    PaymentPromise.Status.PENDING,
+                    PaymentPromise.Status.ACTIVE,
+                    PaymentPromise.Status.EXPIRED,
+                ],
+            )
+            .values_list("promise_documents__document_id", flat=True)
+            .distinct()
+        )
+
+        recently_managed_document_ids = set(
+            CollectionAction.objects.filter(
+                document_id__in=document_ids,
+                action_date__gte=self.now - timedelta(days=7),
+            )
+            .values_list("document_id", flat=True)
+            .distinct()
+        )
+
+        high_balance_threshold = Decimal("1000000")
 
         prioritized = []
 
         for document in documents:
-            priority_data = self.priority_service.evaluate_document(document)
+            balance = Decimal(str(document.balance_amount or 0))
+            priority_score = 0
+            priority_reasons = []
+
+            if document.id in expired_promise_document_ids:
+                priority_score += 50
+                priority_reasons.append("Promesa vencida")
+
+            if document.due_date and document.due_date < self.today:
+                priority_score += 40
+                priority_reasons.append("Documento vencido")
+
+            if balance >= high_balance_threshold:
+                priority_score += 30
+                priority_reasons.append("Alto saldo")
+
+            if document.id not in recently_managed_document_ids:
+                priority_score += 20
+                priority_reasons.append("Sin gestión reciente")
+
+            if not priority_reasons:
+                priority_reasons.append("Sin prioridad especial")
 
             days_overdue = 0
             if document.due_date and document.due_date < self.today:
@@ -440,13 +551,23 @@ class DashboardService:
             prioritized.append({
                 "document": document,
                 "customer": document.customer,
-                "priority_score": priority_data["priority_score"],
-                "priority_reason": priority_data["main_priority_reason"],
-                "priority_reasons": priority_data["priority_reasons"],
+                "priority_score": priority_score,
+                "priority_reason": priority_reasons[0],
+                "priority_reasons": priority_reasons,
                 "days_overdue": days_overdue,
             })
 
-        return prioritized
+        self._prioritized_documents_cache = prioritized
+        return self._prioritized_documents_cache
     
     def get_team_workload(self):
         return WorkloadService().get_ranking(limit=5)
+    
+
+    def _active_documents_queryset(self):
+        return (
+            Document.objects
+            .filter(balance_amount__gt=0)
+            .exclude(status__name__iexact="Cerrada")
+            .exclude(status__name__iexact="Pagada")
+        )

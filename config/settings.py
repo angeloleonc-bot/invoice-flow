@@ -1,6 +1,7 @@
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -75,12 +76,36 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+DB_TRUSTED_CONNECTION = config("DB_TRUSTED_CONNECTION", default="no").lower() == "yes"
+
+db_options = {
+    "driver": config("DB_DRIVER", default="ODBC Driver 17 for SQL Server"),
+}
+
+extra_params = []
+
+if config("DB_TRUST_SERVER_CERTIFICATE", default="yes").lower() == "yes":
+    extra_params.append("TrustServerCertificate=yes")
+
+if extra_params:
+    db_options["extra_params"] = ";".join(extra_params) + ";"
+
+if DB_TRUSTED_CONNECTION:
+    db_options["trusted_connection"] = "yes"
+
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+    "default": {
+        "ENGINE": config("DB_ENGINE", default="mssql"),
+        "NAME": config("DB_NAME"),
+        "HOST": config("DB_HOST"),
+        "PORT": config("DB_PORT", default="1433"),
+        "OPTIONS": db_options,
     }
 }
+
+if not DB_TRUSTED_CONNECTION:
+    DATABASES["default"]["USER"] = config("DB_USER")
+    DATABASES["default"]["PASSWORD"] = config("DB_PASSWORD")
 
 
 # Password validation

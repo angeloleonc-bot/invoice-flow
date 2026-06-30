@@ -70,7 +70,7 @@ def register_payment_record(
         title="Pago recibido",
         description=(
             f"Fecha pago: {payment.payment_date.strftime('%d-%m-%Y')}\n"
-            f"Monto pago: {payment.amount}\n"
+            f"Monto pago: {f'$ {payment.amount:,.0f}'.replace(',', '.')}\n"
             f"Referencia externa: {payment.source_reference or 'Sin referencia'}"
         ),
         metadata={

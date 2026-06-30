@@ -1,5 +1,6 @@
 {% extends "base.html" %}
-
+{% load money %}
+{% load operational_ui %}
 {% block title %}Detalle Documento | Invoice Flow{% endblock %}
 
 {% block content %}
@@ -33,19 +34,15 @@
     <div class="if-stat-trend">RUT {{ customer.rut }}</div>
   </div>
 
-  <div class="if-card-kpi if-kpi-premium">
-    <span class="if-stat-icon"><i class="bi bi-currency-dollar"></i></span>
-    <div class="if-stat-label">Saldo pendiente</div>
-    <div class="if-stat-value">
-  {% if document.balance %}
-    {{ document.balance }}
-  {% else %}
-    $0
-  {% endif %}
-</div>
-    <div class="if-kpi-divider"></div>
-    <div class="if-stat-trend">Monto pendiente del documento</div>
+<div class="if-card-kpi if-kpi-premium">
+  <span class="if-stat-icon"><i class="bi bi-currency-dollar"></i></span>
+  <div class="if-stat-label">Saldo pendiente</div>
+  <div class="if-stat-value">{{ financial_summary.balance_amount|clp }}</div>
+  <div class="if-kpi-divider"></div>
+  <div class="if-stat-trend">
+    Original {{ financial_summary.original_amount|clp }} · NC {{ financial_summary.total_credit_notes|clp }}
   </div>
+</div>
 
   <div class="if-card-kpi if-kpi-premium">
     <span class="if-stat-icon if-stat-icon-warning"><i class="bi bi-flag"></i></span>
@@ -55,6 +52,8 @@
     <div class="if-stat-trend">{{ document.sub_status.name|default:"Sin subestado" }}</div>
   </div>
 </div>
+
+
 
 <div class="if-document-layout">
   <main class="if-document-main">
@@ -98,64 +97,119 @@
       </div>
     </section>
 
-    <section class="if-card mt-3">
-      <div class="if-card-header">
-        <div>
-          <h2 class="if-card-title">Timeline operacional</h2>
-          <p class="if-card-subtitle">Historial cronológico de acciones realizadas sobre el documento.</p>
+   <section class="if-card mt-3">
+  <div class="if-card-header">
+    <div>
+      <h2 class="if-card-title">Timeline operacional</h2>
+      <p class="if-card-subtitle">Historial cronológico de eventos del documento.</p>
+    </div>
+  </div>
+
+  <div class="if-document-timeline">
+    {% if timeline_events %}
+      {% for event in timeline_events %}
+        <article class="if-timeline-entry">
+          <div class="if-timeline-entry-icon">
+            <i class="bi {{ event.icon }}"></i>
+          </div>
+
+      <div class="if-timeline-entry-card">
+        <div class="if-timeline-entry-top">
+          <span class="if-badge if-badge-soft">{{ event.label }}</span>
+          <time>{{ event.date|date:"d/m/Y" }}</time>
         </div>
-      </div>
 
-      <div class="if-document-timeline">
-        {% if timeline_actions %}
-          {% for action in timeline_actions %}
-            <article class="if-timeline-entry">
-              <div class="if-timeline-entry-icon">
-                {% if action.action_type == "CALL" %}
-                  <i class="bi bi-telephone"></i>
-                {% elif action.action_type == "EMAIL" %}
-                  <i class="bi bi-envelope"></i>
-                {% elif action.action_type == "WHATSAPP" %}
-                  <i class="bi bi-whatsapp"></i>
-                {% elif action.action_type == "NOTE" %}
-                  <i class="bi bi-journal-text"></i>
-                {% elif action.action_type == "PROMISE" %}
-                  <i class="bi bi-calendar-check"></i>
-                {% elif action.action_type == "PAYMENT" %}
-                  <i class="bi bi-cash-coin"></i>
-                {% else %}
-                  <i class="bi bi-activity"></i>
-                {% endif %}
-              </div>
+        <h3>{{ event.title }}</h3>
 
-              <div class="if-timeline-entry-card">
-                <div class="if-timeline-entry-top">
-                  <span class="if-badge if-badge-soft">{{ action.get_action_type_display }}</span>
-                  <time>{{ action.action_date|date:"d/m/Y H:i" }}</time>
-                </div>
+        {% if event.amount %}
+          <p><strong>Monto:</strong> {{ event.amount|clp }}</p>
+        {% endif %}
 
-                <h3>{{ action.title }}</h3>
+        {% if event.status %}
+          <p><strong>Estado:</strong> {{ event.status }}</p>
+        {% endif %}
 
-                {% if action.description %}
-                  <p>{{ action.description }}</p>
-                {% endif %}
+        {% if event.reason %}
+          <p><strong>Causa:</strong> {{ event.reason }}</p>
+        {% endif %}
 
-                <div class="if-timeline-entry-user">
-                  <i class="bi bi-person-circle"></i>
-                  {% if action.performed_by %}
-                    {{ action.performed_by }}
-                  {% else %}
-                    Sistema
-                  {% endif %}
-                </div>
-              </div>
-            </article>
-          {% endfor %}
+        {% if event.description %}
+          <p>{{ event.description }}</p>
+        {% endif %}
+
+        {% if event.user %}
+          <div class="if-timeline-entry-user">
+            <i class="bi bi-person-circle"></i>
+            {{ event.user }}
+          </div>
         {% else %}
-          <div class="if-empty-compact">No existen gestiones registradas para este documento.</div>
+          <div class="if-timeline-entry-user">
+            <i class="bi bi-cpu"></i>
+            Sistema
+          </div>
         {% endif %}
       </div>
-    </section>
+    </article>
+  {% endfor %}
+{% else %}
+  <div class="if-empty-compact">No existen eventos registrados para este documento.</div>
+{% endif %}
+
+  </div>
+</section>
+
+
+ <section id="credit-notes" class="if-card mt-3">
+  <div class="if-card-header">
+    <div>
+      <h2 class="if-card-title">Notas de crédito aplicadas</h2>
+      <p class="if-card-subtitle">Ajustes financieros que impactan el saldo de este documento.</p>
+    </div>
+  </div>
+
+  <div class="if-card-body">
+    {% if credit_notes %}
+      <table class="if-table if-table-modern">
+        <thead>
+          <tr>
+            <th>NC</th>
+            <th>Fecha</th>
+            <th>Tipo</th>
+            <th>Estado</th>
+            <th class="text-end">Monto</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for nc in credit_notes %}
+            <tr>
+              <td><strong>{{ nc.credit_document_number }}</strong></td>
+              <td>{{ nc.issue_date|date:"d/m/Y" }}</td>
+              <td>{{ nc.credit_type|default:"-" }}</td>
+              <td>
+                <span class="if-badge {% if nc.status == 'Total' %}if-badge-nc-total{% else %}if-badge-nc-partial{% endif %}">
+                  {{ nc.status|default:"Sin estado" }}
+                </span>
+              </td>
+              <td class="text-end"><strong>{{ nc.credit_amount|clp }}</strong></td>
+            </tr>
+
+            {% if nc.comment %}
+              <tr>
+                <td colspan="5" class="if-muted">
+                  <i class="bi bi-chat-left-text"></i>
+                  {{ nc.comment }}
+                </td>
+              </tr>
+            {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="if-empty-compact">No existen notas de crédito aplicadas a este documento.</div>
+    {% endif %}
+  </div>
+</section>
 
     <section class="if-card mt-3">
       <div class="if-card-header">
@@ -285,10 +339,10 @@
           {% for link in active_promises %}
             <div class="if-mini-card">
               <div class="if-mini-card-top">
-                <span class="if-badge if-badge-success">{{ link.promise.get_status_display }}</span>
+                <span class="if-pill if-pill-status-success">{{ link.promise.get_status_display }}</span>
                 <small>{{ link.promise.promise_date|date:"d/m/Y" }}</small>
               </div>
-              <strong>{{ link.promise.promised_amount }}</strong>
+              <strong>{{ link.promise.promised_amount|clp }}</strong>
               <p>Pago confirmado: {% if link.promise.payment_confirmed %}Sí{% else %}No{% endif %}</p>
               {% if link.promise.notes %}<p>{{ link.promise.notes }}</p>{% endif %}
             </div>
@@ -302,10 +356,10 @@
           {% for link in expired_promises %}
             <div class="if-mini-card">
               <div class="if-mini-card-top">
-                <span class="if-badge if-badge-warning">{{ link.promise.get_status_display }}</span>
+                <span class="if-pill if-pill-status-warning">{{ link.promise.get_status_display }}</span>
                 <small>{{ link.promise.promise_date|date:"d/m/Y" }}</small>
               </div>
-              <strong>{{ link.promise.promised_amount }}</strong>
+              <strong>{{ link.promise.promised_amount|clp }}</strong>
               <p>Pago confirmado: {% if link.promise.payment_confirmed %}Sí{% else %}No{% endif %}</p>
             </div>
           {% endfor %}

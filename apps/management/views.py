@@ -1,6 +1,5 @@
-from datetime import timedelta
-
-from django.db.models import Max, Sum
+from datetime import timedelta,datetime, time
+from django.db.models import Count, Q, Max, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
@@ -10,6 +9,7 @@ from apps.portfolio.models import (
     DocumentStatus,
     DocumentSubStatus,
     PaymentRecord,
+    CreditNoteApplication,
 )
 from .forms import CollectionActionForm, PaymentPromiseForm
 from .models import CollectionAction, PaymentPromise, PromiseDocument
@@ -25,6 +25,9 @@ from django.db import transaction
 from django.views.decorators.http import require_POST
 from apps.management.models import OperationalAlert
 from apps.management.services.alerts import OperationalAlertService
+
+from django.db.models.functions import Coalesce
+from decimal import Decimal
 
 def my_work(request):
     selected_filter = request.GET.get("filter", "all")
@@ -259,6 +262,35 @@ def document_detail(request, id):
         id=id,
     )
 
+    credit_notes = (
+        CreditNoteApplication.objects
+        .filter(document=document)
+        .order_by("-issue_date", "-created_at")
+    )
+
+    total_credit_notes = (
+        credit_notes.aggregate(total=Coalesce(Sum("credit_amount"), Decimal("0")))["total"]
+    )
+
+    payments = (
+        PaymentRecord.objects.filter(document=document)
+        .select_related("document", "customer")
+        .order_by("-payment_date", "-created_at")
+    )
+
+    total_paid = (
+        payments.aggregate(
+            total=Coalesce(Sum("amount"), Decimal("0"))
+        )["total"]
+    )
+
+    financial_summary = {
+        "original_amount": document.original_amount,
+        "total_credit_notes": total_credit_notes,
+        "total_paid": total_paid,
+        "balance_amount": document.balance_amount,
+    }
+
     action_form = CollectionActionForm()
     promise_form = PaymentPromiseForm()
 
@@ -291,6 +323,7 @@ def document_detail(request, id):
                     action.performed_by = request.user
 
                 action.save()
+                messages.success(request, "Gestión registrada correctamente.")
 
                 return redirect("management:document_detail", id=document.id)
 
@@ -320,7 +353,7 @@ def document_detail(request, id):
                     title="Promesa de pago registrada",
                     description=(
                         f"Fecha compromiso: {promise.promise_date.strftime('%d-%m-%Y')}\n"
-                        f"Monto comprometido: {promise.promised_amount}"
+                        f"Monto comprometido: $ {promise.promised_amount:,.0f}".replace(",", ".")
                     ),
                     metadata={
                         "payment_promise_id": promise.id,
@@ -353,6 +386,8 @@ def document_detail(request, id):
                     changed_fields.append("updated_at")
                     document.save(update_fields=changed_fields)
 
+                
+                messages.success(request, "Promesa registrada correctamente.")
                 return redirect("management:document_detail", id=document.id)
         
         elif form_type == "reassignment":
@@ -408,20 +443,78 @@ def document_detail(request, id):
         promise__status=PaymentPromise.Status.ACTIVE,
     )
 
-    payments = (
-        PaymentRecord.objects.filter(document=document)
-        .select_related("document", "customer")
-        .order_by("-payment_date", "-created_at")
-    )
 
-    total_paid = payments.aggregate(total=Sum("amount"))["total"] or 0
 
-    timeline_actions = CollectionAction.objects.select_related(
+    actions = CollectionAction.objects.select_related(
         "document",
         "customer",
         "performed_by",
     ).filter(
         document=document,
+    )
+
+    def normalize_timeline_date(value):
+        if value is None:
+            return timezone.now()
+
+        if isinstance(value, datetime):
+            if timezone.is_naive(value):
+                return timezone.make_aware(value)
+            return value
+
+        return timezone.make_aware(datetime.combine(value, time.min))
+
+    timeline_events = []
+
+    for action in actions:
+        timeline_events.append(
+            {
+                "type": "action",
+                "date": action.action_date,
+                "label": action.get_action_type_display(),
+                "title": action.title,
+                "description": action.description,
+                "amount": None,
+                "user": action.performed_by,
+                "icon": "bi-activity",
+            }
+        )
+
+    for payment in payments:
+        timeline_events.append(
+            {
+                "type": "payment",
+                "date": payment.payment_date,
+                "label": "Pago",
+                "title": "Pago aplicado",
+                "description": payment.source_reference or payment.notes,
+                "amount": payment.amount,
+                "user": None,
+                "icon": "bi-cash-coin",
+            }
+        )
+
+    for nc in credit_notes:
+        timeline_events.append(
+            {
+                "type": "credit_note",
+                "date": nc.issue_date,
+                "label": "Nota de crédito",
+                "title": f"NC {nc.credit_document_number} aplicada",
+                "description": nc.comment,
+                "amount": nc.credit_amount,
+                "user": None,
+                "icon": "bi-receipt-cutoff",
+                "status": nc.status,
+                "reason": nc.reason,
+                "invoice_amount": nc.invoice_amount,
+            }
+        )
+
+    timeline_events = sorted(
+        timeline_events,
+        key=lambda event: normalize_timeline_date(event["date"]),
+        reverse=True,
     )
 
     context = {
@@ -433,11 +526,14 @@ def document_detail(request, id):
         "active_promises": active_promises,
         "expired_promises": expired_promises,
         "historical_promises": historical_promises,
-        "timeline_actions": timeline_actions,
+        "timeline_events": timeline_events,
         "payments": payments,
         "total_paid": total_paid,
         "collectors": collectors,
         "current_assignment": current_assignment,
+        "credit_notes": credit_notes,
+        "total_credit_notes": total_credit_notes,
+        "financial_summary": financial_summary,
     }
 
     return render(request, "management/document_detail.html", context)

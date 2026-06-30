@@ -1,4 +1,11 @@
 <div class="if-tabs mb-3">
-  <a href="{% url 'portfolio:unassigned_documents' %}" class="if-tab">Documentos sin asignar</a>
-  <a href="{% url 'portfolio:assignment_workloads' %}" class="if-tab">Carga por cobrador</a>
+  <a href="{% url 'portfolio:unassigned_documents' %}"
+     class="if-tab {% if active_tab == 'unassigned' %}is-active{% endif %}">
+    Documentos sin asignar
+  </a>
+
+  <a href="{% url 'portfolio:assignment_workloads' %}"
+     class="if-tab {% if active_tab == 'workloads' %}is-active{% endif %}">
+    Carga por cobrador
+  </a>
 </div>

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-
+{% load money %}
 {% block title %}Cliente 360 | {{ customer.name }}{% endblock %}
 
 {% block content %}
@@ -14,7 +14,7 @@
 
   <div class="if-customer-status">
     {% if customer.is_active %}
-      <span class="if-badge if-badge-success">Activo</span>
+      <span class="if-pill if-pill-status-success">Activo</span>
     {% else %}
       <span class="if-badge">Inactivo</span>
     {% endif %}
@@ -25,11 +25,19 @@
 
 <div class="if-customer-kpis">
   <div class="if-card-kpi if-kpi-premium">
-    <span class="if-stat-icon"><i class="bi bi-cash-stack"></i></span>
+    <span class="if-stat-icon"><i class="bi bi-wallet2"></i></span>
     <div class="if-stat-label">Saldo total</div>
-    <div class="if-stat-value">${{ total_balance }}</div>
+    <div class="if-stat-value">{{ total_balance|clp }}</div>
     <div class="if-kpi-divider"></div>
     <div class="if-stat-trend">Exposición total del cliente</div>
+  </div>
+
+  <div class="if-card-kpi if-kpi-premium">
+    <span class="if-stat-icon if-stat-icon-warning"><i class="bi bi-receipt-cutoff"></i></span>
+    <div class="if-stat-label">Notas de crédito</div>
+    <div class="if-stat-value">{{ total_credit_notes|clp }}</div>
+    <div class="if-kpi-divider"></div>
+    <div class="if-stat-trend">{{ total_credit_note_count }} NC aplicadas</div>
   </div>
 
   <div class="if-card-kpi if-kpi-premium">
@@ -99,6 +107,8 @@
                 <i class="bi bi-chat-left-text"></i>
               {% elif event.type == "pago" %}
                 <i class="bi bi-cash-coin"></i>
+              {% elif event.type == "credit_note" %}
+                <i class="bi bi-receipt-cutoff"></i>
               {% else %}
                 <i class="bi bi-activity"></i>
               {% endif %}
@@ -106,7 +116,7 @@
 
             <div class="if-timeline-entry-card">
               <div class="if-timeline-entry-top">
-                <span class="if-badge {% if event.type == 'promesa' %}if-badge-success{% else %}if-badge-soft{% endif %}">
+                <span class="if-pill {% if event.type == 'promesa' %}if-pill-status-success{% elif event.type == 'credit_note' %}if-pill-status-warning{% else %}if-pill-status-info{% endif %}">
                   {{ event.label }}
                 </span>
                 <time>{{ event.date|date:"d/m/Y H:i" }}</time>
@@ -115,8 +125,16 @@
               <h3>{{ event.title }}</h3>
 
               {% if event.amount %}
-                <p><strong>Monto:</strong> ${{ event.amount }}</p>
+                <p><strong>Monto:</strong> {{ event.amount|clp }}</p>
               {% endif %}
+
+              {% if event.status %}
+  <p><strong>Estado:</strong> {{ event.status }}</p>
+{% endif %}
+
+{% if event.reason %}
+  <p><strong>Causa:</strong> {{ event.reason }}</p>
+{% endif %}
 
               {% if event.document %}
                 <p><strong>Documento:</strong> {{ event.document }}</p>
@@ -153,6 +171,7 @@
               <th>Subestado</th>
               <th>Tags</th>
               <th class="text-end">Saldo</th>
+              <th class="text-center">NC</th>
               <th>Vencimiento</th>
             </tr>
           </thead>
@@ -173,12 +192,22 @@
                     <span class="if-muted">Sin tags</span>
                   {% endfor %}
                 </td>
-                <td class="text-end"><strong>${{ document.balance_amount }}</strong></td>
+                <td class="text-end"><strong>{{ document.balance_amount|clp }}</strong></td>
+<td class="text-center">
+{% with nc=document.credit_note_applications.first %}
+    {% if nc %}
+        <a href="#credit-notes"
+           class="if-badge {% if nc.status == 'Total' %}if-badge-nc-total{% else %}if-badge-nc-partial{% endif %}">
+            {{ document.credit_note_applications.count }} NC
+        </a>
+    {% endif %}
+{% endwith %}
+</td>
                 <td>{{ document.due_date|date:"d/m/Y" }}</td>
               </tr>
             {% empty %}
               <tr>
-                <td colspan="6"><span class="if-muted">Cliente sin documentos.</span></td>
+                <td colspan="7"><span class="if-muted">Cliente sin documentos.</span></td>
               </tr>
             {% endfor %}
           </tbody>
@@ -186,13 +215,65 @@
       </div>
     </section>
 
+<section id="credit-notes" class="if-card mt-3">
+  <div class="if-card-header">
+    <div>
+      <h2 class="if-card-title">Notas de crédito aplicadas</h2>
+      <p class="if-card-subtitle">Ajustes financieros asociados a documentos del cliente.</p>
+    </div>
+  </div>
+
+  <div class="if-card-body">
+    {% if credit_notes %}
+      <table class="if-table if-table-modern">
+        <thead>
+          <tr>
+            <th>NC</th>
+            <th>Factura</th>
+            <th>Fecha</th>
+            <th>Tipo</th>
+            <th>Estado</th>
+            <th>Comentario</th>
+            <th class="text-end">Monto</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for nc in credit_notes %}
+            <tr>
+              <td><strong>{{ nc.credit_document_number }}</strong></td>
+              <td>
+                <a class="if-link" href="{% url 'management:document_detail' nc.document.id %}">
+                  {{ nc.document.document_number }}
+                </a>
+              </td>
+              <td>{{ nc.issue_date|date:"d/m/Y" }}</td>
+              <td>{{ nc.credit_type|default:"-" }}</td>
+              <td>
+                <span class="if-badge if-badge-soft">
+                  {{ nc.status|default:"Sin estado" }}
+                </span>
+              </td>
+              <td class="if-muted">
+  {{ nc.comment|default:"Sin comentario" }}
+</td>
+              <td class="text-end"><strong>{{ nc.credit_amount|clp }}</strong></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="if-empty-compact">No existen notas de crédito aplicadas a documentos de este cliente.</div>
+    {% endif %}
+  </div>
+</section>
+
     <section class="if-card if-section">
       <div class="if-card-header">
         <div>
           <h2 class="if-card-title">Pagos</h2>
           <p class="if-card-subtitle">Historial consolidado de pagos informados para el cliente.</p>
         </div>
-        <span class="if-badge if-badge-success">Total pagado: ${{ total_paid }}</span>
+        <span class="if-pill if-pill-status-success">Total pagado: {{ total_paid|clp }}</span>
       </div>
 
       <div class="if-table-wrapper">
@@ -214,7 +295,7 @@
                     {{ payment.document.document_number }}
                   </a>
                 </td>
-                <td class="text-end"><strong>${{ payment.amount }}</strong></td>
+                <td class="text-end"><strong>{{ payment.amount|clp }}</strong></td>
                 <td>{{ payment.source_reference|default:"Sin referencia" }}</td>
               </tr>
             {% empty %}
@@ -286,11 +367,11 @@
               <strong>{{ promise.promise_date|date:"d/m/Y" }}</strong>
 
               {% if promise.status == "ACTIVE" %}
-                <span class="if-badge if-badge-success">Vigente</span>
+                <span class="if-pill if-pill-status-success">Vigente</span>
               {% elif promise.status == "EXPIRED" %}
-                <span class="if-badge if-badge-danger">Vencida</span>
+                <span class="if-pill if-pill-status-danger">Vencida</span>
               {% elif promise.status == "FULFILLED" %}
-                <span class="if-badge if-badge-success">Cumplida</span>
+                <span class="if-pill if-pill-status-success">Cumplida</span>
               {% elif promise.status == "CANCELLED" %}
                 <span class="if-badge">Cancelada</span>
               {% else %}
@@ -298,7 +379,7 @@
               {% endif %}
             </div>
 
-            <p><strong>Monto:</strong> ${{ promise.promised_amount }}</p>
+            <p><strong>Monto:</strong> {{ promise.promised_amount|clp }}</p>
             <p><strong>Pago confirmado:</strong> {% if promise.payment_confirmed %}Sí{% else %}No{% endif %}</p>
 
             <p>

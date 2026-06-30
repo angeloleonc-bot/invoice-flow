@@ -668,15 +668,12 @@ body {
 /* Topbar */
 
 .if-topbar {
-  min-height: 72px;
+  min-height: 32px;
   background: rgba(255, 255, 255, .86);
   border-bottom: 1px solid var(--if-border);
   backdrop-filter: blur(12px);
 }
 
-.if-topbar .container-xl {
-  gap: 1rem;
-}
 
 .if-topbar-left {
   min-width: 0;
@@ -806,7 +803,9 @@ body {
   }
 
   .if-topbar .container-xl {
-    align-items: flex-start;
+    gap: 1rem;
+    min-height: 52px;
+    align-items: center;
   }
 
   .if-user-meta {
@@ -2443,7 +2442,7 @@ a.if-action-link:hover {
   grid-template-columns: 9px 1fr;
   gap: 0.75rem;
   align-items: flex-start;
-  padding: 0.8rem 0.9rem;
+  padding: 0.9rem 0.95rem;
   background: #fff;
   border: 1px solid #edf2f7;
   border-radius: 14px;
@@ -2459,13 +2458,15 @@ a.if-action-link:hover {
   color: #102033;
   font-size: 0.88rem;
   line-height: 1.25;
-  margin-bottom: 0.18rem;
+  margin-bottom: 0.38rem;
 }
 
 .if-dashboard-alert-item small {
+  display: block;
   color: #64748b;
   font-size: 0.74rem;
   font-weight: 650;
+  line-height: 1.35;
 }
 
 .if-dashboard-alert-dot {
@@ -3068,4 +3069,370 @@ a.if-action-link:hover {
 .if-aging-row:visited {
     color: inherit;
     text-decoration: none;
+}
+
+/* ETAPA 22.1 - KPI normalization */
+
+.if-card-kpi,
+.if-kpi-premium {
+  min-height: 145px;
+  padding: 1.15rem 1.2rem;
+}
+
+.if-kpi-premium {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.if-card-kpi .if-stat-icon,
+.if-kpi-premium .if-stat-icon {
+  width: 38px;
+  height: 38px;
+  margin-bottom: .65rem;
+  font-size: 1rem;
+  flex: 0 0 auto;
+}
+
+.if-card-kpi .if-stat-label,
+.if-kpi-premium .if-stat-label {
+  min-height: 16px;
+  color: var(--if-text-muted);
+  font-size: .72rem;
+  font-weight: 750;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+.if-card-kpi .if-stat-value,
+.if-kpi-premium .if-stat-value {
+  min-height: 34px;
+  margin-top: .35rem;
+  color: var(--if-text);
+  font-size: 1.55rem;
+  font-weight: 800;
+  letter-spacing: -.035em;
+  line-height: 1.12;
+}
+
+.if-card-kpi .if-stat-value-text,
+.if-kpi-premium .if-stat-value-text {
+  font-size: 1.15rem;
+  letter-spacing: -.02em;
+  line-height: 1.2;
+}
+
+.if-card-kpi .if-kpi-divider,
+.if-kpi-premium .if-kpi-divider {
+  width: 100%;
+  height: 1px;
+  margin: .75rem 0 .35rem;
+  background: var(--if-border);
+}
+
+.if-card-kpi .if-stat-trend,
+.if-kpi-premium .if-stat-trend {
+  margin-top: 0;
+  color: var(--if-text-muted);
+  font-size: .76rem;
+  line-height: 1.25;
+}
+
+.if-work-kpis .if-stat-value,
+.if-document-hero .if-kpi-premium .if-stat-value,
+.if-customer-kpis .if-stat-value {
+  font-size: 1.55rem;
+}
+
+.if-document-hero .if-kpi-premium,
+.if-customer-kpis .if-kpi-premium {
+  min-height: 145px;
+  padding: 1.15rem 1.2rem;
+}
+
+/* ETAPA 22.1 - Badge normalization */
+
+.if-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: auto;
+  min-height: 20px;
+  margin: .08rem .12rem .08rem 0;
+  padding: .18rem .5rem;
+  border: 1px solid var(--if-border);
+  border-radius: 999px;
+  font-size: .7rem;
+  font-weight: 650;
+  line-height: 1.15;
+  letter-spacing: .015em;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.if-badge-soft {
+  color: var(--if-text-muted);
+  background: #F4F8F8;
+  border-color: var(--if-border);
+}
+
+.if-badge-success {
+  color: #2E7D5B;
+  background: #EAF7F1;
+  border-color: #CFEBDD;
+}
+
+.if-badge-warning {
+  color: #946B2E;
+  background: #FFF6E8;
+  border-color: #F2DFBC;
+}
+
+.if-badge-danger {
+  color: #A94B4B;
+  background: #FDEEEE;
+  border-color: #F5D1D1;
+}
+
+.if-badge-info {
+  color: #2F5F88;
+  background: #EAF4FC;
+  border-color: #CFE4F5;
+}
+
+.if-badge-xs {
+  min-height: 18px;
+  padding: .12rem .4rem;
+  font-size: .66rem;
+  font-weight: 600;
+}
+
+/* ETAPA 22.1 - Operational pill system */
+
+.if-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: auto;
+  min-height: 20px;
+  margin: .08rem .12rem .08rem 0;
+  padding: .18rem .5rem;
+  border: 1px solid var(--if-border);
+  border-radius: 999px;
+  font-size: .7rem;
+  font-weight: 650;
+  line-height: 1.15;
+  letter-spacing: .015em;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.if-pill-status-danger,
+.if-pill-risk-critical {
+  color: #A94B4B;
+  background: #FDEEEE;
+  border-color: #F5D1D1;
+}
+
+.if-pill-status-warning,
+.if-pill-risk-medium {
+  color: #946B2E;
+  background: #FFF6E8;
+  border-color: #F2DFBC;
+}
+
+.if-pill-risk-high {
+  color: #B65F18;
+  background: #FFF1E6;
+  border-color: #F6C89F;
+}
+
+.if-pill-status-success {
+  color: #2E7D5B;
+  background: #EAF7F1;
+  border-color: #CFEBDD;
+}
+
+.if-pill-status-info,
+.if-pill-risk-low {
+  color: #2F5F88;
+  background: #EAF4FC;
+  border-color: #CFE4F5;
+}
+
+/* ETAPA 22.1 - Secondary CTA normalization */
+
+.if-card-header > a.if-action-link,
+.if-ops-critical-summary > a.if-action-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 .8rem;
+  gap: .4rem;
+  color: var(--if-primary-dark);
+  background: var(--if-primary-soft);
+  border: 1px solid #BFE7E2;
+  border-radius: 999px;
+  font-size: .8rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.if-card-header > a.if-action-link:hover,
+.if-ops-critical-summary > a.if-action-link:hover {
+  color: #2F8F85;
+  background: #DDF3F0;
+  border-color: #9EDBD4;
+  text-decoration: none;
+}
+
+.if-secondary-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 .8rem;
+  gap: .4rem;
+  color: var(--if-primary-dark);
+  background: var(--if-primary-soft);
+  border: 1px solid #BFE7E2;
+  border-radius: 999px;
+  font-size: .8rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.if-secondary-cta:hover {
+  color: #2F8F85;
+  background: #DDF3F0;
+  border-color: #9EDBD4;
+  text-decoration: none;
+}
+
+.if-card-header-action {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ETAPA 22.1 - Dashboard alert card spacing */
+
+.if-dashboard-alert-feed {
+  padding-top: 0.9rem;
+}
+
+.if-dashboard-alert-feed .if-dashboard-alert-item + .if-dashboard-alert-item {
+  margin-top: 0.75rem;
+}
+
+/* ETAPA 22.1 - Toast feedback */
+
+.if-toast-stack {
+  position: fixed;
+  top: 72px;
+  right: 24px;
+  z-index: 1080;
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+  width: min(420px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.if-toast {
+  display: grid;
+  grid-template-columns: 34px 1fr 28px;
+  gap: .75rem;
+  align-items: flex-start;
+  padding: .9rem .95rem;
+  background: rgba(255, 255, 255, .96);
+  border: 1px solid var(--if-border);
+  border-radius: 18px;
+  box-shadow: 0 18px 44px rgba(37, 49, 60, .14);
+  backdrop-filter: blur(10px);
+  pointer-events: auto;
+}
+
+.if-toast-icon {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  color: var(--if-primary-dark);
+  background: var(--if-primary-soft);
+}
+
+.if-toast-body strong,
+.if-toast-body span {
+  display: block;
+}
+
+.if-toast-body strong {
+  color: var(--if-text);
+  font-size: .86rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.if-toast-body span {
+  margin-top: .18rem;
+  color: var(--if-text-muted);
+  font-size: .8rem;
+  line-height: 1.35;
+}
+
+.if-toast-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: var(--if-text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+}
+
+.if-toast-close:hover {
+  color: var(--if-text);
+  background: #F4F8F8;
+}
+
+.if-toast-success .if-toast-icon {
+  color: #2E7D5B;
+  background: #EAF7F1;
+}
+
+.if-toast-warning .if-toast-icon {
+  color: #946B2E;
+  background: #FFF6E8;
+}
+
+.if-toast-error .if-toast-icon,
+.if-toast-danger .if-toast-icon {
+  color: #A94B4B;
+  background: #FDEEEE;
+}
+
+.if-badge-nc-partial {
+    background: #FFF3CD;
+    color: #8A5A00;
+    border: 1px solid #F0C36D;
+}
+
+.if-badge-nc-total {
+    background: #D1FAE5;
+    color: #065F46;
+    border: 1px solid #6EE7B7;
+}
+
+.if-table .if-muted i {
+  margin-right: .35rem;
 }

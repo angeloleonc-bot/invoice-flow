@@ -42,6 +42,8 @@ class CustomerContact(models.Model):
     position = models.CharField(max_length=100, blank=True)
     notes = models.TextField(blank=True)
     is_primary = models.BooleanField(default=False)
+    do_not_contact = models.BooleanField(default=False)
+    send_frequency = models.CharField(max_length=30, blank=True)
 
     class Meta:
         verbose_name = "Contacto de cliente"
@@ -139,10 +141,19 @@ class Document(models.Model):
     trans_id = models.CharField(max_length=100)
     document_type = models.CharField(max_length=30, choices=DOCUMENT_TYPE_CHOICES, default=DOCUMENT_TYPE_INVOICE)
     document_number = models.CharField(max_length=100)
+    source_doc_entry = models.CharField(max_length=100, blank=True)
+    source_base_folio = models.CharField(max_length=100, blank=True)
+    document_subtype = models.CharField(max_length=30, blank=True)
     issue_date = models.DateField()
     due_date = models.DateField()
     original_amount = models.DecimalField(max_digits=18, decimal_places=2)
     balance_amount = models.DecimalField(max_digits=18, decimal_places=2)
+    payment_terms = models.CharField(max_length=100, blank=True)
+    seller_name = models.CharField(max_length=150, blank=True)
+    market_place = models.CharField(max_length=150, blank=True)
+    is_claimed = models.BooleanField(default=False)
+    is_refactored = models.BooleanField(default=False)
+    source_snapshot_date = models.DateTimeField(null=True, blank=True)
     status = models.ForeignKey(DocumentStatus, on_delete=models.PROTECT, related_name="documents")
     sub_status = models.ForeignKey(DocumentSubStatus, on_delete=models.SET_NULL, null=True, blank=True, related_name="documents")
     tags = models.ManyToManyField(DocumentTag, blank=True, related_name="documents")
@@ -267,3 +278,60 @@ class PaymentRecord(models.Model):
 
     def __str__(self):
         return f"Pago {self.amount} - {self.document}"
+    
+class CreditNoteApplication(models.Model):
+    customer = models.ForeignKey(
+        Customer,
+        on_delete=models.CASCADE,
+        related_name="credit_note_applications",
+    )
+    document = models.ForeignKey(
+        Document,
+        on_delete=models.CASCADE,
+        related_name="credit_note_applications",
+    )
+
+    credit_trans_id = models.CharField(max_length=100)
+    credit_document_number = models.CharField(max_length=100)
+    source_base_folio = models.CharField(max_length=100, blank=True)
+    credit_doc_entry = models.CharField(max_length=100, blank=True)
+
+    target_invoice_number = models.CharField(max_length=100)
+    reference_type = models.CharField(max_length=50, blank=True)
+    credit_type = models.CharField(max_length=50, blank=True)
+
+    credit_amount = models.DecimalField(max_digits=18, decimal_places=2)
+    invoice_amount = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+
+    status = models.CharField(max_length=30, blank=True)
+    reason = models.CharField(max_length=150, blank=True)
+    comment = models.TextField(blank=True)
+
+    issue_date = models.DateField(null=True, blank=True)
+    source_snapshot_date = models.DateTimeField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Aplicación de nota de crédito"
+        verbose_name_plural = "Aplicaciones de notas de crédito"
+        ordering = ["-issue_date", "-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["credit_trans_id", "document"],
+                name="unique_credit_note_application_by_trans_id_document",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["customer"]),
+            models.Index(fields=["document"]),
+            models.Index(fields=["credit_trans_id"]),
+            models.Index(fields=["credit_document_number"]),
+            models.Index(fields=["target_invoice_number"]),
+            models.Index(fields=["status"]),
+            models.Index(fields=["issue_date"]),
+        ]
+
+    def __str__(self):
+        return f"NC {self.credit_document_number} → Factura {self.target_invoice_number}"

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-
+{% load money %}
 {% block title %}Carga por cobrador | Invoice Flow{% endblock %}
 
 {% block content %}
@@ -11,7 +11,7 @@
   </div>
 </div>
 
-{% include "portfolio/_assignment_nav.html" %}
+{% include "portfolio/_assignment_nav.html" with active_tab="workloads" %}
 
 <div class="if-dashboard-kpis mt-3">
   <div class="if-card-kpi if-kpi-premium">
@@ -25,7 +25,7 @@
   <div class="if-card-kpi if-kpi-premium">
     <span class="if-stat-icon"><i class="bi bi-cash-stack"></i></span>
     <div class="if-stat-label">Saldo sin asignar</div>
-    <div class="if-stat-value">${{ unassigned_balance|floatformat:0 }}</div>
+    <div class="if-stat-value">{{ unassigned_balance|clp }}</div>
     <div class="if-kpi-divider"></div>
     <div class="if-stat-trend">Monto aún no distribuido</div>
   </div>
@@ -58,7 +58,7 @@
       <h2 class="if-card-title">Recomendación automática</h2>
       <p class="if-card-subtitle">Mejor cobrador disponible según carga, saldo y cartera crítica.</p>
     </div>
-    <span class="if-badge if-badge-success">{{ recommendation.workload_percentage }}% carga</span>
+    <span class="if-pill if-pill-status-success">{{ recommendation.workload_percentage }}% carga</span>
   </div>
 
   <div class="if-card-body">
@@ -99,14 +99,14 @@
                 <div class="if-muted">Responsable operativo</div>
               </td>
               <td class="text-end"><strong>{{ item.active_documents }}</strong></td>
-              <td class="text-end"><strong>${{ item.assigned_balance|floatformat:0 }}</strong></td>
+              <td class="text-end"><strong>{{ item.assigned_balance|clp }}</strong></td>
               <td class="text-end">
-                <span class="if-badge {% if item.critical_documents %}if-badge-danger{% else %}if-badge-success{% endif %}">
+                <span class="if-pill {% if item.critical_documents %}if-pill-status-danger{% else %}if-pill-status-success{% endif %}">
                   {{ item.critical_documents }}
                 </span>
               </td>
               <td class="text-end">
-                <span class="if-badge {% if item.overdue_promises %}if-badge-warning{% else %}if-badge-success{% endif %}">
+                <span class="if-pill {% if item.overdue_promises %}if-pill-status-warning{% else %}if-pill-status-success{% endif %}">
                   {{ item.overdue_promises }}
                 </span>
               </td>

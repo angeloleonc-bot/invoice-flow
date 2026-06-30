@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-
+{% load money %}
 {% block title %}Documentos sin asignar | Invoice Flow{% endblock %}
 
 {% block content %}
@@ -11,7 +11,7 @@
   </div>
 </div>
 
-{% include "portfolio/_assignment_nav.html" %}
+{% include "portfolio/_assignment_nav.html" with active_tab="unassigned" %}
 
 <form method="post" action="{% url 'portfolio:assign_documents' %}">
   {% csrf_token %}
@@ -28,7 +28,7 @@
     <div class="if-card-kpi if-kpi-premium">
       <span class="if-stat-icon"><i class="bi bi-cash-stack"></i></span>
       <div class="if-stat-label">Saldo sin asignar</div>
-      <div class="if-stat-value">${{ total_balance|floatformat:0 }}</div>
+      <div class="if-stat-value">{{ total_balance|clp }}</div>
       <div class="if-kpi-divider"></div>
       <div class="if-stat-trend">Monto aún no distribuido</div>
     </div>
@@ -117,7 +117,7 @@
                   <span class="if-badge if-badge-soft">{{ document.status.name }}</span>
                 </td>
                 <td class="text-end">
-                  <strong>${{ document.balance_amount|floatformat:0 }}</strong>
+                  <strong>{{ document.balance_amount|clp }}</strong>
                 </td>
                 <td class="text-end">
                   <a href="{% url 'management:document_detail' document.id %}" class="if-action-link">

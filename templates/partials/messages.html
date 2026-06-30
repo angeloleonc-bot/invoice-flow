@@ -1,8 +1,37 @@
 {% if messages %}
-  <div class="container-xl mt-3">
+  <div class="if-toast-stack" aria-live="polite" aria-atomic="true">
     {% for message in messages %}
-      <div class="alert alert-info">
-        {{ message }}
+      <div class="if-toast if-toast-{{ message.tags|default:'info' }}">
+        <div class="if-toast-icon">
+          {% if "success" in message.tags %}
+            <i class="bi bi-check2"></i>
+          {% elif "error" in message.tags or "danger" in message.tags %}
+            <i class="bi bi-x-lg"></i>
+          {% elif "warning" in message.tags %}
+            <i class="bi bi-exclamation-triangle"></i>
+          {% else %}
+            <i class="bi bi-info-circle"></i>
+          {% endif %}
+        </div>
+
+        <div class="if-toast-body">
+          <strong>
+            {% if "success" in message.tags %}
+              Acción completada
+            {% elif "error" in message.tags or "danger" in message.tags %}
+              No se pudo completar
+            {% elif "warning" in message.tags %}
+              Atención requerida
+            {% else %}
+              Información
+            {% endif %}
+          </strong>
+          <span>{{ message }}</span>
+        </div>
+
+        <button type="button" class="if-toast-close" aria-label="Cerrar">
+          <i class="bi bi-x"></i>
+        </button>
       </div>
     {% endfor %}
   </div>

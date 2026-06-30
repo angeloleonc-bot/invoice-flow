@@ -1,5 +1,6 @@
 {% extends "base.html" %}
-
+{% load money %}
+{% load operational_ui %}
 {% block title %}Gestión | Invoice Flow{% endblock %}
 
 {% block content %}
@@ -14,19 +15,34 @@
 </div>
 
 <div class="if-work-kpis">
-  <div class="if-card-kpi">
+  <div class="if-card-kpi if-kpi-premium">
+    <span class="if-stat-icon">
+      <i class="bi bi-file-earmark-text"></i>
+    </span>
     <div class="if-stat-label">Documentos</div>
     <div class="if-stat-value">{{ total_documents }}</div>
+    <div class="if-kpi-divider"></div>
+    <div class="if-stat-trend">Total en bandeja operacional</div>
   </div>
 
-  <div class="if-card-kpi">
+  <div class="if-card-kpi if-kpi-premium">
+    <span class="if-stat-icon if-stat-icon-danger">
+      <i class="bi bi-exclamation-triangle"></i>
+    </span>
     <div class="if-stat-label">Alta prioridad</div>
     <div class="if-stat-value">{{ high_priority_count }}</div>
+    <div class="if-kpi-divider"></div>
+    <div class="if-stat-trend">Documentos con mayor riesgo</div>
   </div>
 
-  <div class="if-card-kpi">
+  <div class="if-card-kpi if-kpi-premium">
+    <span class="if-stat-icon if-stat-icon-warning">
+      <i class="bi bi-lightning-charge"></i>
+    </span>
     <div class="if-stat-label">Requieren acción</div>
     <div class="if-stat-value">{{ requires_action_count }}</div>
+    <div class="if-kpi-divider"></div>
+    <div class="if-stat-trend">Gestión prioritaria pendiente</div>
   </div>
 </div>
 
@@ -138,9 +154,9 @@
   <td>
     <div class="if-work-context">
       <div class="if-work-context-main">
-        <span class="if-priority-pill {% if item.priority_score >= 80 %}is-danger{% elif item.priority_score > 0 %}is-warning{% else %}is-muted{% endif %}">
-          Score {{ item.priority_score|default:0 }}
-        </span>
+<span class="if-pill {{ item.priority_score|risk_pill_class }}">
+  Score {{ item.priority_score|default:0 }}
+</span>
 
         {% if item.priority_score > 0 %}
           <strong>{{ item.main_priority_reason }}</strong>
@@ -160,7 +176,7 @@
   </td>
 
   <td class="text-end">
-    <strong>${{ item.document.balance_amount|floatformat:0 }}</strong>
+    <strong>{{ item.document.balance_amount|clp }}</strong>
   </td>
 
   <td>{{ item.document.due_date|date:"d/m/Y" }}</td>

@@ -6,6 +6,7 @@ from datetime import datetime, time
 from .models import Customer, CustomerContact, Document, DocumentAssignment, PaymentRecord
 from apps.management.models import CollectionAction, PaymentPromise, PromiseDocument
 from .services.workload import WorkloadRecommendationService, WorkloadService
+from apps.portfolio.models import CreditNoteApplication
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -41,11 +42,29 @@ def customer_detail(request, customer_id):
     documents = (
         Document.objects.filter(customer=customer)
         .select_related("customer", "status", "sub_status")
-        .prefetch_related("tags")
+        .prefetch_related(
+            "tags",
+            "credit_note_applications",
+        )
         .order_by("due_date", "document_number")
     )
 
     document_ids = list(documents.values_list("id", flat=True))
+
+    credit_notes = (
+        CreditNoteApplication.objects
+        .filter(document_id__in=document_ids)
+        .select_related("document", "customer")
+        .order_by("-issue_date", "-created_at")
+    )
+
+    credit_note_kpis = credit_notes.aggregate(
+        total_credit_notes=Sum("credit_amount"),
+        total_credit_note_count=Count("id"),
+    )
+
+    total_credit_notes = credit_note_kpis["total_credit_notes"] or 0
+    total_credit_note_count = credit_note_kpis["total_credit_note_count"] or 0
 
     document_kpis = documents.aggregate(
         total_balance=Sum("balance_amount"),
@@ -95,6 +114,8 @@ def customer_detail(request, customer_id):
                 "description": action.description,
                 "document": action.document,
                 "amount": None,
+                "status": None,
+                "reason": None,
             }
         )
 
@@ -103,11 +124,34 @@ def customer_detail(request, customer_id):
             {
                 "type": "promesa",
                 "label": "Promesa",
-                "date": timezone.make_aware(datetime.combine(promise.promise_date, time.min)),
+                "date": timezone.make_aware(
+                    datetime.combine(promise.promise_date, time.min)
+                ),
                 "title": promise.status,
                 "description": promise.notes,
                 "document": None,
                 "amount": promise.promised_amount,
+                "status": promise.status,
+                "reason": None,
+            }
+        )
+
+    for nc in credit_notes:
+        timeline.append(
+            {
+                "type": "credit_note",
+                "label": "Nota de crédito",
+                "date": (
+                    timezone.make_aware(datetime.combine(nc.issue_date, time.min))
+                    if nc.issue_date
+                    else timezone.now()
+                ),
+                "title": f"NC {nc.credit_document_number} aplicada",
+                "description": nc.comment,
+                "document": nc.document,
+                "amount": nc.credit_amount,
+                "status": nc.status,
+                "reason": nc.reason,
             }
         )
 
@@ -135,9 +179,11 @@ def customer_detail(request, customer_id):
             "last_action": last_action,
             "payments": payments,
             "total_paid": total_paid,
+            "credit_notes": credit_notes,
+            "total_credit_notes": total_credit_notes,
+            "total_credit_note_count": total_credit_note_count,
         },
     )
-
 
 def unassigned_documents(request):
     User = get_user_model()

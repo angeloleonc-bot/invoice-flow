@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-
+{% load money %}
 {% block title %}Documentos | Invoice Flow{% endblock %}
 
 {% block content %}
@@ -62,7 +62,7 @@
               </td>
 
               <td>
-                <span class="if-badge if-badge-success">{{ document.status.name }}</span>
+                <span class="if-pill if-pill-status-success">{{ document.status.name }}</span>
               </td>
 
               <td>
@@ -74,7 +74,7 @@
               </td>
 
               <td class="text-end">
-                <strong>${{ document.balance_amount }}</strong>
+                <strong>{{ document.balance_amount|clp }}</strong>
               </td>
 
               <td>{{ document.due_date|date:"d/m/Y" }}</td>

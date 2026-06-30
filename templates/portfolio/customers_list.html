@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-
+{% load money %}
 {% block title %}Clientes | Invoice Flow{% endblock %}
 
 {% block content %}
@@ -85,7 +85,7 @@
 
               <td class="text-end">
                 <strong>
-                  ${{ customer.total_balance|default_if_none:"0" }}
+                  {{ customer.total_balance|clp }}
                 </strong>
               </td>
 

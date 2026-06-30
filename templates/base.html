@@ -33,5 +33,23 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/js/tabler.min.js"></script>
+
+  <script>
+  document.addEventListener("DOMContentLoaded", function () {
+    document.querySelectorAll(".if-toast").forEach(function (toast) {
+      const closeButton = toast.querySelector(".if-toast-close");
+
+      if (closeButton) {
+        closeButton.addEventListener("click", function () {
+          toast.remove();
+        });
+      }
+
+      setTimeout(function () {
+        toast.remove();
+      }, 4200);
+    });
+  });
+</script>
 </body>
 </html>

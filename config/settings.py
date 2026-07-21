@@ -132,7 +132,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = "America/Santiago"
 
 USE_I18N = True
 
@@ -172,3 +172,32 @@ INACTIVITY_TIMEOUT_MINUTES = 30
 ABSOLUTE_SESSION_TIMEOUT_HOURS = 60
 
 WORKLIST_HIGH_BALANCE_THRESHOLD = 1000000
+
+# ============================================================
+# AWS S3 — Adjuntos operacionales privados
+# ============================================================
+
+AWS_ACCESS_KEY_ID = config("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = config("AWS_SECRET_ACCESS_KEY")
+AWS_SESSION_TOKEN = config("AWS_SESSION_TOKEN", default=None)
+
+AWS_STORAGE_BUCKET_NAME = config("AWS_STORAGE_BUCKET_NAME")
+AWS_S3_REGION_NAME = config("AWS_S3_REGION_NAME", default="us-east-1")
+
+AWS_S3_ATTACHMENT_PREFIX = config(
+    "AWS_S3_ATTACHMENT_PREFIX",
+    default="operational-attachments",
+)
+
+AWS_S3_PRESIGNED_URL_EXPIRATION = config(
+    "AWS_S3_PRESIGNED_URL_EXPIRATION",
+    default=300,
+    cast=int,
+)
+
+OPERATIONAL_ATTACHMENT_MAX_SIZE = 30 * 1024 * 1024
+
+AWS_SESSION_TOKEN = config(
+    "AWS_SESSION_TOKEN",
+    default=None,
+)

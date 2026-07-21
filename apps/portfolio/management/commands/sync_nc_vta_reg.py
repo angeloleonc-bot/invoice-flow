@@ -124,12 +124,24 @@ class Command(BaseCommand):
         total_credit_notes = totals["total_credit_notes"] or Decimal("0")
         invoice_amount = totals["invoice_amount"] or document.original_amount
 
-        new_balance = invoice_amount - total_credit_notes
+        raw_balance = invoice_amount - total_credit_notes
 
-        update_fields = ["original_amount", "balance_amount", "updated_at"]
+        if raw_balance < 0:
+            new_balance = Decimal("0")
+            overpayment_amount = abs(raw_balance)
+        else:
+            new_balance = raw_balance
+            overpayment_amount = Decimal("0")
+
+        # Ignorar diferencias de hasta $1 por redondeo
+        if overpayment_amount <= Decimal("1.00"):
+            overpayment_amount = Decimal("0")
+
+        update_fields = ["original_amount", "balance_amount", "overpayment_amount", "updated_at"]
 
         document.original_amount = invoice_amount
         document.balance_amount = new_balance
+        document.overpayment_amount = overpayment_amount
 
         if new_balance <= 0:
             closed_status = DocumentStatus.objects.filter(
@@ -150,7 +162,7 @@ class Command(BaseCommand):
                 document.sub_status = covered_by_nc_substatus
                 update_fields.append("sub_status")
 
-        document.save(update_fields=update_fields)
+        document.save(update_fields=list(dict.fromkeys(update_fields)))
 
 
 

@@ -148,6 +148,11 @@ class Document(models.Model):
     due_date = models.DateField()
     original_amount = models.DecimalField(max_digits=18, decimal_places=2)
     balance_amount = models.DecimalField(max_digits=18, decimal_places=2)
+    overpayment_amount = models.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+        default=0,
+    )
     payment_terms = models.CharField(max_length=100, blank=True)
     seller_name = models.CharField(max_length=150, blank=True)
     market_place = models.CharField(max_length=150, blank=True)
@@ -335,3 +340,39 @@ class CreditNoteApplication(models.Model):
 
     def __str__(self):
         return f"NC {self.credit_document_number} → Factura {self.target_invoice_number}"
+    
+class DocumentSupport(models.Model):
+    id = models.BigIntegerField(
+        primary_key=True,
+        db_column="Id_Pk",
+    )
+    document_number = models.IntegerField(
+        null=True,
+        blank=True,
+        db_column="doc_num",
+    )
+    url = models.TextField(
+        null=True,
+        blank=True,
+        db_column="url",
+    )
+    onedrive_item_id = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        db_column="onedrive_item_id",
+    )
+    is_deleted = models.BooleanField(
+        default=False,
+        db_column="eliminado",
+    )
+
+    class Meta:
+        managed = False
+        db_table = "Fact_scan_url2"
+        ordering = ["id"]
+        verbose_name = "Respaldo documental"
+        verbose_name_plural = "Respaldos documentales"
+
+    def __str__(self):
+        return f"Respaldo {self.document_number} ({self.id})"

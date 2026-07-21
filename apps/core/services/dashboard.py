@@ -1,11 +1,15 @@
 from datetime import timedelta
 from decimal import Decimal
-
-from django.db.models import Case, Count, Max, Q, Sum, When
+from django.urls import reverse
+from django.db.models import Case, Count, Max, Prefetch, Q, Sum, When
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
-from apps.management.models import CollectionAction, PaymentPromise
+from apps.management.models import (
+    CollectionAction,
+    PaymentPromise,
+    PromiseDocument,
+)
 from apps.management.services.prioritization import WorklistPriorityService
 from apps.portfolio.models import Document, DocumentAssignment, PaymentRecord
 
@@ -97,15 +101,11 @@ class DashboardService:
             total=Coalesce(Sum("amount"), Decimal("0"))
         )["total"]
 
-        overdue_promises = PaymentPromise.objects.filter(
-            promise_date__lt=self.today,
-            payment_confirmed=False,
-            status__in=[
-                PaymentPromise.Status.PENDING,
-                PaymentPromise.Status.ACTIVE,
-                PaymentPromise.Status.EXPIRED,
-            ],
-        ).count()
+        overdue_promises = (
+            self._operational_promises_queryset()
+            .filter(promise_date__lt=self.today)
+            .count()
+        )
 
         high_priority_documents = sum(
             1
@@ -189,6 +189,7 @@ class DashboardService:
                 PaymentPromise.objects
                 .filter(
                     promise_documents__document_id__in=assigned_document_ids,
+                    promise_documents__document__balance_amount__gt=0,
                     promise_date__lt=self.today,
                     payment_confirmed=False,
                     status__in=[
@@ -255,29 +256,85 @@ class DashboardService:
             prioritized_documents,
             key=lambda item: (
                 -item.get("priority_score", 0),
-                item.get("document").due_date if item.get("document") else self.today,
+                item.get("document").due_date
+                if item.get("document")
+                else self.today,
             ),
         )
 
-        return sorted_documents[:limit]
+        result = []
+
+        for item in sorted_documents[:limit]:
+            level = self._get_priority_level(
+                item.get("priority_score", 0)
+            )
+
+            enriched_item = {
+                **item,
+                "priority_level_key": level["key"],
+                "priority_level_label": level["label"],
+                "priority_level_description": level["description"],
+                "priority_reasons_text": " · ".join(
+                    item.get("priority_reasons", [])[:3]
+                ),
+            }
+
+            result.append(enriched_item)
+
+        return result
+    
+    def _get_priority_level(self, score):
+        """
+        Traduce el puntaje técnico a una categoría comprensible.
+        El score continúa usándose internamente para ordenar.
+        """
+        if score >= 120:
+            return {
+                "key": "critical",
+                "label": "Crítico",
+                "description": "Requiere atención inmediata",
+            }
+
+        if score >= 90:
+            return {
+                "key": "high",
+                "label": "Alto",
+                "description": "Requiere gestión prioritaria",
+            }
+
+        if score >= 50:
+            return {
+                "key": "medium",
+                "label": "Medio",
+                "description": "Requiere seguimiento",
+            }
+
+        return {
+            "key": "attention",
+            "label": "Atención",
+            "description": "Revisar cuando corresponda",
+        }
 
     def get_commitments(self, limit=15):
+        open_promise_documents = (
+            PromiseDocument.objects
+            .filter(document__balance_amount__gt=0)
+            .select_related("document")
+            .order_by("document__due_date", "document__document_number")
+        )
+
         promises = (
-            PaymentPromise.objects
+            self._operational_promises_queryset()
             .select_related("customer")
-            .prefetch_related("promise_documents__document")
-            .filter(
-                payment_confirmed=False,
-                status__in=[
-                    PaymentPromise.Status.PENDING,
-                    PaymentPromise.Status.ACTIVE,
-                    PaymentPromise.Status.EXPIRED,
-                ],
+            .prefetch_related(
+                Prefetch(
+                    "promise_documents",
+                    queryset=open_promise_documents,
+                    to_attr="open_promise_documents",
+                )
             )
             .filter(
-                Q(promise_date__lt=self.today)
-                | Q(promise_date=self.today)
-                | Q(promise_date__lte=self.today + timedelta(days=7))
+                promise_date__lte=self.today + timedelta(days=7),
             )
             .order_by("promise_date", "-created_at")[:limit]
         )
@@ -295,20 +352,32 @@ class DashboardService:
                 status_label = "Próxima"
                 status_key = "upcoming"
 
-            first_document = None
-            promise_document = promise.promise_documents.first()
-            if promise_document:
-                first_document = promise_document.document
+            open_documents = promise.open_promise_documents
 
-            commitments.append({
-                "promise": promise,
-                "customer": promise.customer,
-                "document": first_document,
-                "promise_date": promise.promise_date,
-                "promised_amount": promise.promised_amount,
-                "status_label": status_label,
-                "status_key": status_key,
-            })
+            if not open_documents:
+                continue
+
+            first_document = open_documents[0].document
+
+            commitments.append(
+                {
+                    "promise": promise,
+                    "customer": promise.customer,
+                    "document": first_document,
+                    "promise_date": promise.promise_date,
+                    "promised_amount": promise.promised_amount,
+                    "status_label": status_label,
+                    "status_key": status_key,
+                    "open_document_count": len(open_documents),
+                    "url": (
+                        reverse(
+                            "portfolio:customer_detail",
+                            kwargs={"customer_id": promise.customer_id},
+                        )
+                        + "?view=promises"
+                    ),
+                }
+            )
 
         return commitments
 
@@ -426,15 +495,11 @@ class DashboardService:
             .count()
         )
 
-        overdue_promises = PaymentPromise.objects.filter(
-            promise_date__lt=self.today,
-            payment_confirmed=False,
-            status__in=[
-                PaymentPromise.Status.PENDING,
-                PaymentPromise.Status.ACTIVE,
-                PaymentPromise.Status.EXPIRED,
-            ],
-        ).count()
+        overdue_promises = (
+            self._operational_promises_queryset()
+            .filter(promise_date__lt=self.today)
+            .count()
+        )
 
         last_action_by_document = (
             CollectionAction.objects
@@ -480,6 +545,27 @@ class DashboardService:
                 "severity": "danger" if high_priority_documents else "ok",
             },
         ]
+    
+    def _operational_promises_queryset(self):
+        """
+        Promesas que todavía tienen impacto real en cobranza.
+
+        Una promesa deja de ser operacional para el Dashboard cuando
+        todos sus documentos asociados tienen saldo igual o menor a cero.
+        """
+        return (
+            PaymentPromise.objects
+            .filter(
+                payment_confirmed=False,
+                status__in=[
+                    PaymentPromise.Status.PENDING,
+                    PaymentPromise.Status.ACTIVE,
+                    PaymentPromise.Status.EXPIRED,
+                ],
+                promise_documents__document__balance_amount__gt=0,
+            )
+            .distinct()
+        )
 
     def _get_prioritized_documents(self):
         if self._prioritized_documents_cache is not None:

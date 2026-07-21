@@ -1,0 +1,59 @@
+{% load money %}
+
+<section class="if-ar-account">
+        <div class="if-ar-account-head">
+          <div>
+            <h2>Estado de cuenta</h2>
+            <p>Documentos asociados al cliente para conversación de cobranza.</p>
+          </div>
+
+<nav class="if-ar-account-tabs">
+  <a class="{% if account_view == 'pending' %}is-active{% endif %}" href="?view=pending">Pendientes</a>
+  <a class="{% if account_view == 'paid' %}is-active{% endif %}" href="?view=paid">Pagados</a>
+  <a class="{% if account_view == 'partial' %}is-active{% endif %}" href="?view=partial">Parciales</a>
+  <a class="{% if account_view == 'promises' %}is-active{% endif %}" href="?view=promises">Promesas</a>
+  <a class="{% if account_view == 'all' %}is-active{% endif %}" href="?view=all">Todos</a>
+</nav>
+        </div>
+
+        <div class="if-account-selection-bar" data-selection-bar hidden>
+  <span data-selection-count>0 documentos seleccionados</span>
+
+  <div>
+    <button type="button" class="if-secondary-cta" data-open-action-modal>
+      Registrar gestión
+    </button>
+
+    <button type="button" class="if-secondary-cta" data-open-promise-modal>
+      Registrar compromiso
+    </button>
+  </div>
+</div>
+
+       <div class="if-ar-document-list">
+  {% for document in documents %}
+    {% include "portfolio/components/_document_card.html" with document=document %}
+  {% empty %}
+    <div class="if-empty-compact">Cliente sin documentos para esta vista.</div>
+  {% endfor %}
+</div>
+
+{% if account_documents_count > 10 %}
+  <div class="if-ar-account-more">
+    {% if account_show_all %}
+      <a href="?view={{ account_view }}" class="if-ar-inline-link">
+        Mostrar solo los primeros 10 documentos
+      </a>
+    {% else %}
+      <span>
+        Mostrando <strong>10</strong> de
+        <strong>{{ account_documents_count }}</strong> documentos.
+      </span>
+
+      <a href="?view={{ account_view }}&show=all" class="if-ar-inline-link">
+        Ver todos →
+      </a>
+    {% endif %}
+  </div>
+{% endif %}
+      </section>

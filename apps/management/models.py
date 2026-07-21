@@ -1,6 +1,11 @@
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import ValidationError
+from django.contrib.contenttypes.fields import GenericRelation
+
 
 
 class CollectionAction(models.Model):
@@ -40,6 +45,14 @@ class CollectionAction(models.Model):
     title = models.CharField(max_length=150)
     description = models.TextField(blank=True)
     metadata = models.JSONField(default=dict, blank=True)
+
+    attachments = GenericRelation(
+        "management.OperationalAttachment",
+        content_type_field="content_type",
+        object_id_field="object_id",
+        related_query_name="collection_action",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -73,6 +86,14 @@ class PaymentPromise(models.Model):
     )
     payment_confirmed = models.BooleanField(default=False)
     notes = models.TextField(blank=True)
+
+    attachments = GenericRelation(
+        "management.OperationalAttachment",
+        content_type_field="content_type",
+        object_id_field="object_id",
+        related_query_name="payment_promise",
+    )
+
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -129,6 +150,79 @@ class PromiseDocument(models.Model):
 
     def __str__(self):
         return f"{self.promise} → {self.document}"
+    
+class OperationalAttachment(models.Model):
+    content_type = models.ForeignKey(
+        ContentType,
+        on_delete=models.CASCADE,
+        related_name="operational_attachments",
+    )
+    object_id = models.PositiveBigIntegerField()
+
+    attached_to = GenericForeignKey(
+        "content_type",
+        "object_id",
+    )
+
+    original_filename = models.CharField(max_length=255)
+    storage_key = models.CharField(max_length=700, unique=True)
+
+    mime_type = models.CharField(max_length=150)
+    extension = models.CharField(max_length=20)
+    size_bytes = models.PositiveBigIntegerField()
+
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="operational_attachments_uploaded",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Adjunto operacional"
+        verbose_name_plural = "Adjuntos operacionales"
+        indexes = [
+            models.Index(
+                fields=["content_type", "object_id"],
+                name="mgmt_attach_target_idx",
+            ),
+            models.Index(
+                fields=["created_at"],
+                name="mgmt_attach_created_idx",
+            ),
+            models.Index(
+                fields=["uploaded_by"],
+                name="mgmt_attach_user_idx",
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+
+        allowed_models = {
+            "collectionaction",
+            "paymentpromise",
+        }
+
+        if (
+            self.content_type_id
+            and self.content_type.model not in allowed_models
+        ):
+            raise ValidationError(
+                {
+                    "content_type": (
+                        "Los adjuntos solo pueden asociarse a una gestión "
+                        "o a una promesa de pago."
+                    )
+                }
+            )
+
+    def __str__(self):
+        return self.original_filename
     
 class PriorityRule(models.Model):
     code = models.CharField(max_length=80, unique=True)
@@ -224,11 +318,17 @@ class OperationalAlert(models.Model):
     class Meta:
         ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=["alert_type", "status"]),
-            models.Index(fields=["severity", "status"]),
-            models.Index(fields=["created_at"]),
-            models.Index(fields=["due_at"]),
-        ]
+        models.Index(fields=["alert_type", "status"]),
+        models.Index(fields=["severity", "status"]),
+        models.Index(fields=["status", "-created_at"]),
+        models.Index(fields=["status", "due_at"]),
+        models.Index(fields=["assigned_to", "status", "-created_at"]),
+        models.Index(fields=["document", "status"]),
+        models.Index(fields=["promise", "status"]),
+        models.Index(fields=["created_at"]),
+        models.Index(fields=["due_at"]),
+    ]
 
     def __str__(self):
         return f"{self.get_severity_display()} - {self.title}"
+    

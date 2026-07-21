@@ -12,4 +12,5 @@ urlpatterns = [
     path("alerts/<int:alert_id>/resolve/", views.alert_resolve, name="alert_resolve"),
     path("alerts/<int:alert_id>/postpone/", views.alert_postpone, name="alert_postpone"),
     path("alerts/<int:alert_id>/dismiss/", views.alert_dismiss, name="alert_dismiss"),
+    path("attachments/<int:attachment_id>/download/",views.operational_attachment_download,name="operational_attachment_download",),
 ]

@@ -1,0 +1,107 @@
+{% load money %}
+{% load humanize_if %}
+
+<aside class="if-ar-console">
+
+  <section class="if-card if-console-section if-customer-summary-panel">
+    <div class="if-card-header">
+      <div>
+        <h2 class="if-card-title">Resumen operacional</h2>
+        <p class="if-card-subtitle">Contexto inmediato del cliente.</p>
+      </div>
+    </div>
+
+    <div class="if-card-body">
+
+      {% if latest_promises %}
+        <article class="if-customer-summary-card is-promise">
+
+          <div class="if-customer-summary-card-top">
+            <span class="if-pill if-pill-status-success">
+              Vigente
+            </span>
+
+            <time>
+              {{ latest_promises.0.promise_date|date:"d/m/Y" }}
+            </time>
+          </div>
+
+          <strong class="if-customer-summary-amount">
+            {{ latest_promises.0.promised_amount|clp }}
+          </strong>
+
+          <p>
+            {{ latest_promises.0.promise_date|human_due }}
+          </p>
+
+          {% if latest_promises.0.notes %}
+            <p class="if-customer-summary-note">
+              {{ latest_promises.0.notes }}
+            </p>
+          {% endif %}
+
+        </article>
+      {% else %}
+        <article class="if-customer-summary-card is-empty">
+
+          <div class="if-customer-summary-card-top">
+            <span class="if-pill if-pill-status-soft">
+              Sin compromiso
+            </span>
+          </div>
+
+          <strong>Sin promesa vigente</strong>
+          <p>No hay compromisos activos.</p>
+
+        </article>
+      {% endif %}
+
+      <div class="if-customer-summary-list">
+
+        <div>
+          <span>Último pago</span>
+
+          {% if latest_payments %}
+            <strong>{{ latest_payments.0.amount|clp }}</strong>
+            <small>{{ latest_payments.0.payment_date|date:"d/m/Y" }}</small>
+          {% else %}
+            <strong>Sin pagos registrados</strong>
+            <small>No existe un pago reciente.</small>
+          {% endif %}
+        </div>
+
+        <div>
+          <span>Responsable</span>
+          <strong>
+            {{ request.user.get_full_name|default:request.user.username }}
+          </strong>
+          <small>Ejecutivo actual.</small>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <section class="if-card if-console-section">
+    <div class="if-card-header">
+      <div>
+        <h2 class="if-card-title">Contacto principal</h2>
+        <p class="if-card-subtitle">Datos para gestionar al cliente.</p>
+      </div>
+    </div>
+
+    <div class="if-side-list">
+      <div>
+        <span>Email</span>
+        <strong>{{ customer.email|default:"Sin email registrado" }}</strong>
+      </div>
+
+      <div>
+        <span>Teléfono</span>
+        <strong>{{ customer.phone|default:"Sin teléfono registrado" }}</strong>
+      </div>
+    </div>
+  </section>
+
+</aside>

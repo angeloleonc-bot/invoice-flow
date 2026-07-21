@@ -1,192 +1,498 @@
 {% extends "base.html" %}
 {% load money %}
-{% load operational_ui %}
+{% load humanize_if %}
+
 {% block title %}Gestión | Invoice Flow{% endblock %}
 
 {% block content %}
-<div class="if-page-header">
+<div class="if-page-header if-portfolio-header">
   <div>
     <div class="if-eyebrow">Gestión operacional</div>
-    <h1 class="if-page-title">Mi worklist priorizada</h1>
+    <h1 class="if-page-title">Cartera de clientes</h1>
     <p class="if-page-subtitle">
-      Bandeja operacional enfocada en documentos que requieren seguimiento.
+      Vista consolidada por cliente para gestionar saldo, Aging y situación operacional.
     </p>
   </div>
 </div>
 
-<div class="if-work-kpis">
-  <div class="if-card-kpi if-kpi-premium">
-    <span class="if-stat-icon">
-      <i class="bi bi-file-earmark-text"></i>
+{% if is_supervisor %}
+<section class="if-portfolio-tabs">
+  <a
+    href="{% url 'management:my_work' %}?scope=my"
+    class="if-portfolio-tab {% if selected_scope == 'my' %}is-active{% endif %}"
+  >
+    Mi cartera
+  </a>
+
+  <a
+    href="{% url 'management:my_work' %}?scope=all"
+    class="if-portfolio-tab {% if selected_scope == 'all' %}is-active{% endif %}"
+  >
+    Toda la cartera
+  </a>
+</section>
+{% endif %}
+
+<section class="if-portfolio-kpis">
+  <article class="if-portfolio-kpi">
+    <span class="if-portfolio-kpi-icon">
+      <i class="bi bi-people"></i>
     </span>
-    <div class="if-stat-label">Documentos</div>
-    <div class="if-stat-value">{{ total_documents }}</div>
-    <div class="if-kpi-divider"></div>
-    <div class="if-stat-trend">Total en bandeja operacional</div>
-  </div>
+    <div>
+      <span class="if-portfolio-kpi-label">Clientes activos</span>
+      <strong>{{ kpi_active_customers }}</strong>
+      <small>Clientes visibles en esta cartera</small>
+    </div>
+  </article>
 
-  <div class="if-card-kpi if-kpi-premium">
-    <span class="if-stat-icon if-stat-icon-danger">
-      <i class="bi bi-exclamation-triangle"></i>
+  <article class="if-portfolio-kpi">
+    <span class="if-portfolio-kpi-icon">
+      <i class="bi bi-wallet2"></i>
     </span>
-    <div class="if-stat-label">Alta prioridad</div>
-    <div class="if-stat-value">{{ high_priority_count }}</div>
-    <div class="if-kpi-divider"></div>
-    <div class="if-stat-trend">Documentos con mayor riesgo</div>
-  </div>
+    <div>
+      <span class="if-portfolio-kpi-label">Saldo pendiente</span>
+      <strong>{{ kpi_pending_balance|clp }}</strong>
+      <small>Saldo consolidado de la cartera</small>
+    </div>
+  </article>
 
-  <div class="if-card-kpi if-kpi-premium">
-    <span class="if-stat-icon if-stat-icon-warning">
-      <i class="bi bi-lightning-charge"></i>
+  <article class="if-portfolio-kpi">
+    <span class="if-portfolio-kpi-icon">
+      <i class="bi bi-exclamation-circle"></i>
     </span>
-    <div class="if-stat-label">Requieren acción</div>
-    <div class="if-stat-value">{{ requires_action_count }}</div>
-    <div class="if-kpi-divider"></div>
-    <div class="if-stat-trend">Gestión prioritaria pendiente</div>
-  </div>
-</div>
+    <div>
+      <span class="if-portfolio-kpi-label">Requieren atención</span>
+      <strong>{{ kpi_attention_customers }}</strong>
+      <small>Clientes con señales operacionales</small>
+    </div>
+  </article>
 
-<section class="if-card mt-3 mb-3">
-  <div class="if-work-filters">
-    <a href="{% url 'management:my_work' %}?filter=all"
-       class="if-filter-chip {% if selected_filter == 'all' %}is-active{% endif %}">
-      Todos
-    </a>
-
-    <a href="{% url 'management:my_work' %}?filter=high_priority"
-       class="if-filter-chip {% if selected_filter == 'high_priority' %}is-active{% endif %}">
-      Alta prioridad
-    </a>
-
-    <a href="{% url 'management:my_work' %}?filter=requires_action"
-       class="if-filter-chip {% if selected_filter == 'requires_action' %}is-active{% endif %}">
-      Requieren acción
-    </a>
-
-    <a href="{% url 'management:my_work' %}?filter=overdue"
-       class="if-filter-chip {% if selected_filter == 'overdue' %}is-active{% endif %}">
-      Vencidos
-    </a>
-
-    <details class="if-filter-dropdown">
-      <summary class="if-filter-chip">
-        Más filtros
-      </summary>
-
-      <div class="if-filter-dropdown-menu">
-        <a href="{% url 'management:my_work' %}?filter=promise_expired"
-           class="if-filter-chip {% if selected_filter == 'promise_expired' %}is-active{% endif %}">
-          Promesas vencidas
-        </a>
-
-        <a href="{% url 'management:my_work' %}?filter=no_management_7_days"
-           class="if-filter-chip {% if selected_filter == 'no_management_7_days' %}is-active{% endif %}">
-          Sin gestión 7 días
-        </a>
-
-        <a href="{% url 'management:my_work' %}?filter=high_balance"
-           class="if-filter-chip {% if selected_filter == 'high_balance' %}is-active{% endif %}">
-          Alto saldo
-        </a>
-
-        <a href="{% url 'management:my_work' %}?attention=7"
-           class="if-filter-chip {% if selected_filter == 'attention_7' %}is-active{% endif %}">
-          Sin gestión &gt; 7 días
-        </a>
-
-        <a href="{% url 'management:my_work' %}?attention=14"
-           class="if-filter-chip {% if selected_filter == 'attention_14' %}is-active{% endif %}">
-          Sin gestión &gt; 14 días
-        </a>
-
-        <a href="{% url 'management:my_work' %}?attention=30"
-           class="if-filter-chip {% if selected_filter == 'attention_30' %}is-active{% endif %}">
-          Sin gestión &gt; 30 días
-        </a>
-      </div>
-    </details>
-  </div>
+  <article class="if-portfolio-kpi">
+    <span class="if-portfolio-kpi-icon">
+      <i class="bi bi-calendar-x"></i>
+    </span>
+    <div>
+      <span class="if-portfolio-kpi-label">Promesas vencidas</span>
+      <strong>{{ kpi_expired_promises }}</strong>
+      <small>Clientes con compromiso vencido</small>
+    </div>
+  </article>
 </section>
 
-<section class="if-card">
+<section class="if-card if-portfolio-filter-card">
+  <form method="get" class="if-portfolio-filters">
+    <input type="hidden" name="scope" value="{{ selected_scope }}">
+
+    <input
+  type="hidden"
+  name="page_size"
+  value="{{ selected_page_size }}"
+>
+
+    {% if selected_sort %}
+  <input type="hidden" name="sort" value="{{ selected_sort }}">
+  <input type="hidden" name="dir" value="{{ selected_direction }}">
+{% endif %}
+
+    <div class="if-portfolio-filter-field">
+      <label for="customer">Buscar cliente</label>
+      <input
+        id="customer"
+        type="text"
+        name="customer"
+        value="{{ search_customer }}"
+        placeholder="Nombre del cliente"
+      >
+    </div>
+
+    <div class="if-portfolio-filter-field">
+      <label for="rut">Buscar RUT</label>
+      <input
+        id="rut"
+        type="text"
+        name="rut"
+        value="{{ search_rut }}"
+        placeholder="RUT"
+      >
+    </div>
+
+    {% if is_supervisor and selected_scope == 'all' %}
+    <div class="if-portfolio-filter-field">
+      <label for="collector">Cobrador</label>
+      <select id="collector" name="collector">
+        <option value="">Todos</option>
+        {% for collector in collectors %}
+          <option
+            value="{{ collector.id }}"
+            {% if selected_collector == collector.id|stringformat:"s" %}selected{% endif %}
+          >
+            {{ collector.get_full_name|default:collector.username }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+
+    <div class="if-portfolio-filter-field">
+      <label for="filter">Estado</label>
+      <select id="filter" name="filter">
+        <option value="">Todos</option>
+        <option value="with_promises" {% if selected_filter == 'with_promises' %}selected{% endif %}>
+          Con promesas
+        </option>
+        <option value="without_management" {% if selected_filter == 'without_management' %}selected{% endif %}>
+          Sin gestión
+        </option>
+        <option value="with_credit" {% if selected_filter == 'with_credit' %}selected{% endif %}>
+          Con saldo a favor
+        </option>
+        <option value="critical" {% if selected_filter == 'critical' %}selected{% endif %}>
+          Cliente crítico
+        </option>
+      </select>
+    </div>
+
+    <div class="if-portfolio-filter-actions">
+      <button type="submit" class="if-button-primary">
+        <i class="bi bi-search"></i>
+        Filtrar
+      </button>
+
+      <a
+        href="{% url 'management:my_work' %}?scope={{ selected_scope }}"
+        class="if-button-secondary"
+      >
+        Limpiar
+      </a>
+    </div>
+  </form>
+</section>
+
+<section class="if-card if-portfolio-grid-card">
   <div class="if-card-header">
     <div>
-      <h2 class="if-card-title">Documentos para gestionar</h2>
+      <h2 class="if-card-title">Gestión por cliente</h2>
       <p class="if-card-subtitle">
-        Ordenados por score de prioridad descendente.
+        Cada fila consolida la cartera financiera y operacional de un cliente.
       </p>
     </div>
   </div>
 
-  {% if work_items %}
-    <div class="if-table-wrapper">
-      <table class="if-table if-work-table if-listing-table">
+  {% if customers %}
+    <div class="if-portfolio-table-wrapper">
+      <table class="if-table if-portfolio-table">
         <thead>
-<tr>
-  <th>Documento / Cliente</th>
-  <th>Contexto operativo</th>
-  <th class="text-end">Saldo</th>
-  <th>Vencimiento</th>
-  <th>Responsable</th>
-  <th class="text-end">Acción</th>
-</tr>
-        </thead>
+  <tr>
+    <th class="if-portfolio-customer-column">
+      <a
+        href="{{ sort_urls.customer }}"
+        class="if-sort-control {% if selected_sort == 'customer' %}is-active{% endif %}"
+      >
+        <span>Cliente</span>
+
+        {% if selected_sort == "customer" and selected_direction == "asc" %}
+          <i class="bi bi-arrow-up"></i>
+        {% elif selected_sort == "customer" and selected_direction == "desc" %}
+          <i class="bi bi-arrow-down"></i>
+        {% else %}
+          <i class="bi bi-arrow-down-up"></i>
+        {% endif %}
+      </a>
+    </th>
+
+    <th class="text-end if-portfolio-balance-column">
+      <a
+        href="{{ sort_urls.total_balance }}"
+        class="if-sort-control if-sort-control-end {% if selected_sort == 'total_balance' %}is-active{% endif %}"
+      >
+        <span>Saldo pend.</span>
+
+        {% if selected_sort == "total_balance" and selected_direction == "asc" %}
+          <i class="bi bi-arrow-up"></i>
+        {% elif selected_sort == "total_balance" and selected_direction == "desc" %}
+          <i class="bi bi-arrow-down"></i>
+        {% else %}
+          <i class="bi bi-arrow-down-up"></i>
+        {% endif %}
+      </a>
+    </th>
+
+    <th class="text-end">
+      <a
+        href="{{ sort_urls.current_balance }}"
+        class="if-sort-control if-sort-control-end {% if selected_sort == 'current_balance' %}is-active{% endif %}"
+        title="Saldo pendiente cuyo vencimiento aún no ha ocurrido"
+      >
+        <span>Vigente</span>
+
+        {% if selected_sort == "current_balance" and selected_direction == "asc" %}
+          <i class="bi bi-arrow-up"></i>
+        {% elif selected_sort == "current_balance" and selected_direction == "desc" %}
+          <i class="bi bi-arrow-down"></i>
+        {% else %}
+          <i class="bi bi-arrow-down-up"></i>
+        {% endif %}
+      </a>
+    </th>
+
+    <th class="text-end">
+      <a
+        href="{{ sort_urls.aging_0_15 }}"
+        class="if-sort-control if-sort-control-end {% if selected_sort == 'aging_0_15' %}is-active{% endif %}"
+        title="Saldo vencido entre 0 y 15 días"
+      >
+        <span>0–15</span>
+
+        {% if selected_sort == "aging_0_15" and selected_direction == "asc" %}
+          <i class="bi bi-arrow-up"></i>
+        {% elif selected_sort == "aging_0_15" and selected_direction == "desc" %}
+          <i class="bi bi-arrow-down"></i>
+        {% else %}
+          <i class="bi bi-arrow-down-up"></i>
+        {% endif %}
+      </a>
+    </th>
+
+    <th class="text-end">
+      <a
+        href="{{ sort_urls.aging_16_30 }}"
+        class="if-sort-control if-sort-control-end {% if selected_sort == 'aging_16_30' %}is-active{% endif %}"
+        title="Saldo vencido entre 16 y 30 días"
+      >
+        <span>16–30</span>
+
+        {% if selected_sort == "aging_16_30" and selected_direction == "asc" %}
+          <i class="bi bi-arrow-up"></i>
+        {% elif selected_sort == "aging_16_30" and selected_direction == "desc" %}
+          <i class="bi bi-arrow-down"></i>
+        {% else %}
+          <i class="bi bi-arrow-down-up"></i>
+        {% endif %}
+      </a>
+    </th>
+
+    <th class="text-end">
+      <a
+        href="{{ sort_urls.aging_31_45 }}"
+        class="if-sort-control if-sort-control-end {% if selected_sort == 'aging_31_45' %}is-active{% endif %}"
+        title="Saldo vencido entre 31 y 45 días"
+      >
+        <span>31–45</span>
+
+        {% if selected_sort == "aging_31_45" and selected_direction == "asc" %}
+          <i class="bi bi-arrow-up"></i>
+        {% elif selected_sort == "aging_31_45" and selected_direction == "desc" %}
+          <i class="bi bi-arrow-down"></i>
+        {% else %}
+          <i class="bi bi-arrow-down-up"></i>
+        {% endif %}
+      </a>
+    </th>
+
+    <th class="text-end">
+      <a
+        href="{{ sort_urls.aging_46_60 }}"
+        class="if-sort-control if-sort-control-end {% if selected_sort == 'aging_46_60' %}is-active{% endif %}"
+        title="Saldo vencido entre 46 y 60 días"
+      >
+        <span>46–60</span>
+
+        {% if selected_sort == "aging_46_60" and selected_direction == "asc" %}
+          <i class="bi bi-arrow-up"></i>
+        {% elif selected_sort == "aging_46_60" and selected_direction == "desc" %}
+          <i class="bi bi-arrow-down"></i>
+        {% else %}
+          <i class="bi bi-arrow-down-up"></i>
+        {% endif %}
+      </a>
+    </th>
+
+    <th class="text-end">
+      <a
+        href="{{ sort_urls.aging_61_90 }}"
+        class="if-sort-control if-sort-control-end {% if selected_sort == 'aging_61_90' %}is-active{% endif %}"
+        title="Saldo vencido entre 61 y 90 días"
+      >
+        <span>61–90</span>
+
+        {% if selected_sort == "aging_61_90" and selected_direction == "asc" %}
+          <i class="bi bi-arrow-up"></i>
+        {% elif selected_sort == "aging_61_90" and selected_direction == "desc" %}
+          <i class="bi bi-arrow-down"></i>
+        {% else %}
+          <i class="bi bi-arrow-down-up"></i>
+        {% endif %}
+      </a>
+    </th>
+
+    <th class="text-end">
+      <a
+        href="{{ sort_urls.aging_91_120 }}"
+        class="if-sort-control if-sort-control-end {% if selected_sort == 'aging_91_120' %}is-active{% endif %}"
+        title="Saldo vencido entre 91 y 120 días"
+      >
+        <span>91–120</span>
+
+        {% if selected_sort == "aging_91_120" and selected_direction == "asc" %}
+          <i class="bi bi-arrow-up"></i>
+        {% elif selected_sort == "aging_91_120" and selected_direction == "desc" %}
+          <i class="bi bi-arrow-down"></i>
+        {% else %}
+          <i class="bi bi-arrow-down-up"></i>
+        {% endif %}
+      </a>
+    </th>
+
+    <th class="text-end">
+      <a
+        href="{{ sort_urls.aging_121_plus }}"
+        class="if-sort-control if-sort-control-end {% if selected_sort == 'aging_121_plus' %}is-active{% endif %}"
+      >
+        <span>121+</span>
+
+        {% if selected_sort == "aging_121_plus" and selected_direction == "asc" %}
+          <i class="bi bi-arrow-up"></i>
+        {% elif selected_sort == "aging_121_plus" and selected_direction == "desc" %}
+          <i class="bi bi-arrow-down"></i>
+        {% else %}
+          <i class="bi bi-arrow-down-up"></i>
+        {% endif %}
+      </a>
+    </th>
+
+    <th>
+      <a
+        href="{{ sort_urls.latest_event }}"
+        class="if-sort-control {% if selected_sort == 'latest_event' %}is-active{% endif %}"
+      >
+        <span>Último hito</span>
+
+        {% if selected_sort == "latest_event" and selected_direction == "asc" %}
+          <i class="bi bi-arrow-up"></i>
+        {% elif selected_sort == "latest_event" and selected_direction == "desc" %}
+          <i class="bi bi-arrow-down"></i>
+        {% else %}
+          <i class="bi bi-arrow-down-up"></i>
+        {% endif %}
+      </a>
+    </th>
+
+    <th class="if-portfolio-actions-header">
+      
+    </th>
+  </tr>
+</thead>
 
         <tbody>
-          {% for item in work_items %}
-           <tr>
-  <td>
-    <div class="if-work-primary">
-      <strong>{{ item.document.document_number }}</strong>
-      <div class="if-muted">{{ item.customer.name }}</div>
-      <div class="if-muted mt-1">
-        {{ item.document.get_document_type_display }}
-        {% if item.document.status %}
-          · {{ item.document.status.name }}
-        {% endif %}
-        {% if item.document.sub_status %}
-          · {{ item.document.sub_status.name }}
-        {% endif %}
-      </div>
+          {% for customer in customers %}
+          <tr
+  class="if-portfolio-customer-row"
+  data-customer-url="{% url 'portfolio:customer_detail' customer.id %}"
+  title="Doble clic para abrir Cliente 360"
+>
+  <td class="if-portfolio-customer-cell">
+    <div class="if-portfolio-customer">
+      <strong>{{ customer.name }}</strong>
+
+      <span class="if-portfolio-customer-rut">
+        {{ customer.rut }}
+      </span>
+
+<small class="if-portfolio-customer-collector">
+  <i class="bi bi-person"></i>
+  {{ customer.collector_display }}
+</small>
     </div>
   </td>
 
+  <td class="text-end if-portfolio-total">
+    <strong>{{ customer.total_balance|clp }}</strong>
+
+    {% if customer.total_overpayment > 0 %}
+      <small>
+        Saldo a favor {{ customer.total_overpayment|clp }}
+      </small>
+    {% endif %}
+  </td>
+
+  <td class="text-end if-aging-amount">
+    {{ customer.current_balance|clp }}
+  </td>
+
+  <td class="text-end if-aging-amount">
+    {{ customer.aging_0_15|clp }}
+  </td>
+
+  <td class="text-end if-aging-amount">
+    {{ customer.aging_16_30|clp }}
+  </td>
+
+  <td class="text-end if-aging-amount">
+    {{ customer.aging_31_45|clp }}
+  </td>
+
+  <td class="text-end if-aging-amount">
+    {{ customer.aging_46_60|clp }}
+  </td>
+
+  <td class="text-end if-aging-amount">
+    {{ customer.aging_61_90|clp }}
+  </td>
+
+  <td class="text-end if-aging-amount">
+    {{ customer.aging_91_120|clp }}
+  </td>
+
+  <td class="text-end if-aging-amount">
+    {{ customer.aging_121_plus|clp }}
+  </td>
+
   <td>
-    <div class="if-work-context">
-      <div class="if-work-context-main">
-<span class="if-pill {{ item.priority_score|risk_pill_class }}">
-  Score {{ item.priority_score|default:0 }}
-</span>
+  {% if customer.promise_date %}
+    <div class="if-portfolio-latest-event">
+      <span class="if-portfolio-latest-event-label">
+        Promesa
+      </span>
 
-        {% if item.priority_score > 0 %}
-          <strong>{{ item.main_priority_reason }}</strong>
-        {% else %}
-          <span class="if-muted">Sin prioridad especial</span>
-        {% endif %}
-      </div>
+      <strong>
+        {{ customer.promise_amount|clp }}
+      </strong>
 
-      {% if item.priority_reasons %}
-        <div class="if-reason-list">
-          {% for reason in item.priority_reasons %}
-            <span class="if-badge if-badge-soft if-badge-xs">{{ reason }}</span>
-          {% endfor %}
-        </div>
-      {% endif %}
+      <small>
+        {{ customer.promise_status_label }}
+        · {{ customer.promise_date|human_due }}
+      </small>
     </div>
-  </td>
 
-  <td class="text-end">
-    <strong>{{ item.document.balance_amount|clp }}</strong>
-  </td>
+  {% elif customer.last_action_date %}
+    <div class="if-portfolio-latest-event">
+      <span class="if-portfolio-latest-event-label">
+        Última gestión
+      </span>
 
-  <td>{{ item.document.due_date|date:"d/m/Y" }}</td>
+      <strong>
+        {{ customer.last_action_type_label|default:"Gestión registrada" }}
+      </strong>
 
-  <td>{{ item.assigned_to.get_username }}</td>
+      <small>
+        {{ customer.last_action_date|human_datetime }}
+      </small>
+    </div>
 
-  <td class="text-end">
-    <a href="{% url 'management:document_detail' item.document.id %}" class="if-action-link">
+  {% else %}
+    <span class="if-portfolio-empty-value">
+      Sin gestión
+    </span>
+  {% endif %}
+</td>
+
+  <td class="if-portfolio-actions-cell">
+    <a
+      href="{% url 'portfolio:customer_detail' customer.id %}"
+      class="if-portfolio-action"
+    >
+      Ver
       <i class="bi bi-arrow-right"></i>
-      Gestionar
     </a>
   </td>
 </tr>
@@ -194,17 +500,156 @@
         </tbody>
       </table>
     </div>
+<footer class="if-portfolio-pagination">
+  <div class="if-portfolio-pagination-summary">
+    {% if selected_page_size == "all" %}
+      Mostrando todos los
+      <strong>{{ total_filtered_customers }}</strong>
+      clientes
+    {% else %}
+      Mostrando
+      <strong>{{ result_start }}–{{ result_end }}</strong>
+      de
+      <strong>{{ total_filtered_customers }}</strong>
+      clientes
+    {% endif %}
+  </div>
+
+  <div class="if-portfolio-pagination-controls">
+    <div class="if-page-size-control">
+      <span>Filas</span>
+
+      <a
+        href="{{ page_size_urls.25 }}"
+        class="{% if selected_page_size == '25' %}is-active{% endif %}"
+      >
+        25
+      </a>
+
+      <a
+        href="{{ page_size_urls.50 }}"
+        class="{% if selected_page_size == '50' %}is-active{% endif %}"
+      >
+        50
+      </a>
+
+      <a
+        href="{{ page_size_urls.100 }}"
+        class="{% if selected_page_size == '100' %}is-active{% endif %}"
+      >
+        100
+      </a>
+
+      <a
+        href="{{ page_size_urls.all }}"
+        class="{% if selected_page_size == 'all' %}is-active{% endif %}"
+      >
+        Todos
+      </a>
+    </div>
+
+    {% if page_obj and is_paginated %}
+      <nav
+        class="if-pagination-nav"
+        aria-label="Paginación de clientes"
+      >
+        {% if page_obj.has_previous %}
+          <a
+            href="?{{ pagination_query }}{% if pagination_query %}&{% endif %}page={{ page_obj.previous_page_number }}"
+            class="if-pagination-direction"
+          >
+            <i class="bi bi-chevron-left"></i>
+            Anterior
+          </a>
+        {% else %}
+          <span class="if-pagination-direction is-disabled">
+            <i class="bi bi-chevron-left"></i>
+            Anterior
+          </span>
+        {% endif %}
+
+        <div class="if-pagination-pages">
+          {% for page_number in pagination_page_range %}
+            {% if page_number == page_obj.paginator.ELLIPSIS %}
+              <span class="if-pagination-ellipsis">
+                {{ page_number }}
+              </span>
+
+            {% elif page_number == page_obj.number %}
+              <span class="if-pagination-page is-active">
+                {{ page_number }}
+              </span>
+
+            {% else %}
+              <a
+                href="?{{ pagination_query }}{% if pagination_query %}&{% endif %}page={{ page_number }}"
+                class="if-pagination-page"
+              >
+                {{ page_number }}
+              </a>
+            {% endif %}
+          {% endfor %}
+        </div>
+
+        {% if page_obj.has_next %}
+          <a
+            href="?{{ pagination_query }}{% if pagination_query %}&{% endif %}page={{ page_obj.next_page_number }}"
+            class="if-pagination-direction"
+          >
+            Siguiente
+            <i class="bi bi-chevron-right"></i>
+          </a>
+        {% else %}
+          <span class="if-pagination-direction is-disabled">
+            Siguiente
+            <i class="bi bi-chevron-right"></i>
+          </span>
+        {% endif %}
+      </nav>
+    {% endif %}
+  </div>
+</footer>
+
   {% else %}
     <div class="if-empty-state">
-      <h3>No hay documentos para gestionar</h3>
-      <p>Tu bandeja operacional no tiene documentos activos para el filtro seleccionado.</p>
+      <h3>No hay clientes para mostrar</h3>
+      <p>
+        No existen clientes en la cartera actual que coincidan con los filtros seleccionados.
+      </p>
 
-      <div class="mt-3">
-        <a href="{% url 'management:my_work' %}" class="if-button-primary">
-          Ver todos
-        </a>
-      </div>
+      <a
+        href="{% url 'management:my_work' %}?scope={{ selected_scope }}"
+        class="if-button-primary mt-3"
+      >
+        Limpiar filtros
+      </a>
     </div>
   {% endif %}
 </section>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const rows = document.querySelectorAll(
+    ".if-portfolio-customer-row[data-customer-url]"
+  );
+
+  rows.forEach(function (row) {
+    row.addEventListener("dblclick", function (event) {
+      if (
+        event.target.closest(
+          "a, button, input, select, textarea, label"
+        )
+      ) {
+        return;
+      }
+
+      const targetUrl = row.dataset.customerUrl;
+
+      if (targetUrl) {
+        window.location.href = targetUrl;
+      }
+    });
+  });
+});
+</script>
 {% endblock %}

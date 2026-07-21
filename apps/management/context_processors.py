@@ -11,9 +11,26 @@ def operational_alerts_context(request):
 
     active_alerts = OperationalAlertService.get_visible_active_alerts(request.user)
 
+    new_alerts_count = active_alerts.filter(
+        status=OperationalAlert.AlertStatus.NEW
+    ).count()
+
+    recent_alerts = list(
+        active_alerts.only(
+            "id",
+            "title",
+            "severity",
+            "created_at",
+            "status",
+            "due_at",
+            "assigned_to",
+            "customer",
+            "document",
+            "promise",
+        ).order_by("-created_at")[:5]
+    )
+
     return {
-        "navbar_new_alerts_count": active_alerts.filter(
-            status=OperationalAlert.AlertStatus.NEW
-        ).count(),
-        "navbar_recent_alerts": active_alerts.order_by("-created_at")[:5],
+        "navbar_new_alerts_count": new_alerts_count,
+        "navbar_recent_alerts": recent_alerts,
     }

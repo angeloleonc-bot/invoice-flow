@@ -1,0 +1,76 @@
+{% load money %}
+{% load humanize_if %}
+
+<section class="if-call-briefing-flat">
+
+  <article class="if-flat-conversation">
+
+    <div class="if-call-icon">
+      <i class="bi bi-chat-left-text"></i>
+    </div>
+
+    <div class="if-flat-conversation-body">
+
+      <span>Última gestión</span>
+
+      {% if last_action %}
+
+        <h3>{{ last_action.title|default:"Gestión registrada" }}</h3>
+
+        {% if last_action.description %}
+          <p>{{ last_action.description }}</p>
+        {% else %}
+          <p>La gestión no tiene una descripción adicional.</p>
+        {% endif %}
+
+        <div class="if-call-meta">
+          <small>
+            <i class="bi bi-calendar-event"></i>
+            {{ last_action.created_at|human_datetime }}
+          </small>
+
+          <small>
+            <i class="bi bi-person"></i>
+            {{ last_action.performed_by.get_full_name|default:last_action.performed_by.username }}
+          </small>
+        </div>
+
+      {% else %}
+
+        <h3>Sin gestiones registradas</h3>
+        <p>Este cliente todavía no tiene actividad de cobranza registrada.</p>
+
+      {% endif %}
+
+    </div>
+
+  </article>
+
+  <aside class="if-flat-briefing-stack">
+
+    <div>
+      <div class="if-briefing-mini-icon is-primary">
+        <i class="bi bi-bullseye"></i>
+      </div>
+
+      <span>Próximo paso</span>
+
+      {% if latest_promises %}
+        <strong>Confirmar compromiso</strong>
+        <p>
+          Vence {{ latest_promises.0.promise_date|human_due }}
+        </p>
+
+      {% elif total_balance > 0 %}
+        <strong>Gestionar saldo pendiente</strong>
+        <p>{{ total_balance|clp }} por regularizar.</p>
+
+      {% else %}
+        <strong>Sin acciones pendientes</strong>
+        <p>El cliente no mantiene deuda abierta.</p>
+      {% endif %}
+    </div>
+
+  </aside>
+
+</section>

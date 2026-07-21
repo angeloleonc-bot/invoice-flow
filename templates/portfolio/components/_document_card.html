@@ -1,0 +1,104 @@
+{% load money %}
+{% load humanize_if %}
+
+<article
+  class="if-ledger-row {% if document.balance_amount > 0 %}is-pending{% else %}is-paid{% endif %}"
+  data-account-document
+>
+  <label class="if-ledger-select">
+    <input
+      type="checkbox"
+      data-account-doc-checkbox
+      value="{{ document.id }}"
+      data-document-number="{{ document.document_number }}"
+      data-document-balance="{{ document.balance_amount|clp }}"
+      data-document-balance-raw="{{ document.balance_amount }}"
+    >
+  </label>
+
+  <div class="if-ledger-document">
+    <div class="if-ledger-title">
+      <span>{{ document.get_document_type_display }}</span>
+      <a href="{% url 'management:document_detail' document.id %}">
+        {{ document.document_number }}
+      </a>
+    </div>
+
+    <div class="if-ledger-subtitle">
+      Emitida {{ document.issue_date|date:"d/m/Y" }}
+    </div>
+
+    <div class="if-ledger-badges">
+      {% if document.balance_amount > 0 %}
+        <span class="if-badge if-badge-warning">Pendiente</span>
+      {% else %}
+        <span class="if-badge if-badge-success">Pagado</span>
+      {% endif %}
+
+      {% if document.promise_documents.count %}
+        <span class="if-badge if-badge-info">Promesa vigente</span>
+      {% endif %}
+
+      {% if document.payments.count %}
+        <span class="if-badge if-badge-soft">Pago parcial</span>
+      {% endif %}
+
+      {% if document.credit_note_applications.count %}
+        <span class="if-badge if-badge-warning">
+          {{ document.credit_note_applications.count }} Nota{% if document.credit_note_applications.count != 1 %}s{% endif %} de Crédito
+        </span>
+      {% endif %}
+
+      {% if document.overpayment_amount > 0 %}
+        <span class="if-badge if-badge-success">
+          Saldo a favor {{ document.overpayment_amount|clp }}
+        </span>
+      {% endif %}
+
+      {% for tag in document.tags.all %}
+        <span class="if-badge if-badge-soft">{{ tag.name }}</span>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="if-ledger-money">
+    <span>Monto</span>
+    <strong>{{ document.original_amount|clp }}</strong>
+  </div>
+
+  <div class="if-ledger-money is-balance">
+    <span>Saldo</span>
+    <strong>{{ document.balance_amount|clp }}</strong>
+  </div>
+
+<div class="if-ledger-due">
+  {% if document.balance_amount <= 0 %}
+    <span>Estado</span>
+    <strong>Cerrado</strong>
+
+    {% if document.credit_note_applications.count %}
+      <small>Cerrado con Nota de Crédito</small>
+
+    {% elif document.payments.count %}
+      <small>Cerrado mediante pago</small>
+
+    {% elif document.overpayment_amount > 0 %}
+      <small>Cerrado con saldo a favor</small>
+
+    {% else %}
+      <small>Sin gestión pendiente</small>
+    {% endif %}
+
+  {% else %}
+    <span>Vence</span>
+    <strong>{{ document.due_date|human_due }}</strong>
+    <small>{{ document.due_date|date:"d/m/Y" }}</small>
+  {% endif %}
+</div>
+
+  <div class="if-ledger-actions">
+    <a class="if-inline-action" href="{% url 'management:document_detail' document.id %}">
+      Ver detalle
+    </a>
+  </div>
+</article>

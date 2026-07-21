@@ -66,3 +66,27 @@ class PaymentPromiseForm(forms.ModelForm):
                 }
             ),
         }
+
+class WorkspacePaymentPromiseForm(forms.ModelForm):
+    class Meta:
+        model = PaymentPromise
+        fields = [
+            "promise_date",
+            "notes",
+        ]
+
+        widgets = {
+            "promise_date": forms.DateInput(
+                attrs={
+                    "class": "form-control",
+                    "type": "date",
+                }
+            ),
+            "notes": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 3,
+                    "placeholder": "Notas de la promesa de pago",
+                }
+            ),
+        }

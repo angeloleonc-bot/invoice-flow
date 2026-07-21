@@ -33,11 +33,12 @@ class OperationalAlertService:
     @classmethod
     def base_queryset(cls):
         return OperationalAlert.objects.select_related(
-            "customer",
-            "document",
-            "promise",
-            "assigned_to",
-        )
+        "customer",
+        "document",
+        "document__customer",
+        "promise",
+        "assigned_to",
+    )
 
     @classmethod
     def visible_alerts_for_user(cls, user):

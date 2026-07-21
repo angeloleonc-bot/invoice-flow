@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% load money %}
+{% load operational_ui %}
+{% block title %}Gestión | Invoice Flow{% endblock %}
+
+{% block content %}
+<div class="if-page-header">
+  <div>
+    <div class="if-eyebrow">Gestión operacional</div>
+    <h1 class="if-page-title">Mi worklist priorizada</h1>
+    <p class="if-page-subtitle">
+      Bandeja operacional enfocada en documentos que requieren seguimiento.
+    </p>
+  </div>
+</div>
+
+<div class="if-work-kpis">
+  <div class="if-card-kpi if-kpi-premium">
+    <span class="if-stat-icon">
+      <i class="bi bi-file-earmark-text"></i>
+    </span>
+    <div class="if-stat-label">Documentos</div>
+    <div class="if-stat-value">{{ total_documents }}</div>
+    <div class="if-kpi-divider"></div>
+    <div class="if-stat-trend">Total en bandeja operacional</div>
+  </div>
+
+  <div class="if-card-kpi if-kpi-premium">
+    <span class="if-stat-icon if-stat-icon-danger">
+      <i class="bi bi-exclamation-triangle"></i>
+    </span>
+    <div class="if-stat-label">Alta prioridad</div>
+    <div class="if-stat-value">{{ high_priority_count }}</div>
+    <div class="if-kpi-divider"></div>
+    <div class="if-stat-trend">Documentos con mayor riesgo</div>
+  </div>
+
+  <div class="if-card-kpi if-kpi-premium">
+    <span class="if-stat-icon if-stat-icon-warning">
+      <i class="bi bi-lightning-charge"></i>
+    </span>
+    <div class="if-stat-label">Requieren acción</div>
+    <div class="if-stat-value">{{ requires_action_count }}</div>
+    <div class="if-kpi-divider"></div>
+    <div class="if-stat-trend">Gestión prioritaria pendiente</div>
+  </div>
+</div>
+
+<section class="if-card mt-3 mb-3">
+  <div class="if-work-filters">
+    <a href="{% url 'management:my_work' %}?filter=all"
+       class="if-filter-chip {% if selected_filter == 'all' %}is-active{% endif %}">
+      Todos
+    </a>
+
+    <a href="{% url 'management:my_work' %}?filter=high_priority"
+       class="if-filter-chip {% if selected_filter == 'high_priority' %}is-active{% endif %}">
+      Alta prioridad
+    </a>
+
+    <a href="{% url 'management:my_work' %}?filter=requires_action"
+       class="if-filter-chip {% if selected_filter == 'requires_action' %}is-active{% endif %}">
+      Requieren acción
+    </a>
+
+    <a href="{% url 'management:my_work' %}?filter=overdue"
+       class="if-filter-chip {% if selected_filter == 'overdue' %}is-active{% endif %}">
+      Vencidos
+    </a>
+
+    <details class="if-filter-dropdown">
+      <summary class="if-filter-chip">
+        Más filtros
+      </summary>
+
+      <div class="if-filter-dropdown-menu">
+        <a href="{% url 'management:my_work' %}?filter=promise_expired"
+           class="if-filter-chip {% if selected_filter == 'promise_expired' %}is-active{% endif %}">
+          Promesas vencidas
+        </a>
+
+        <a href="{% url 'management:my_work' %}?filter=no_management_7_days"
+           class="if-filter-chip {% if selected_filter == 'no_management_7_days' %}is-active{% endif %}">
+          Sin gestión 7 días
+        </a>
+
+        <a href="{% url 'management:my_work' %}?filter=high_balance"
+           class="if-filter-chip {% if selected_filter == 'high_balance' %}is-active{% endif %}">
+          Alto saldo
+        </a>
+
+        <a href="{% url 'management:my_work' %}?attention=7"
+           class="if-filter-chip {% if selected_filter == 'attention_7' %}is-active{% endif %}">
+          Sin gestión &gt; 7 días
+        </a>
+
+        <a href="{% url 'management:my_work' %}?attention=14"
+           class="if-filter-chip {% if selected_filter == 'attention_14' %}is-active{% endif %}">
+          Sin gestión &gt; 14 días
+        </a>
+
+        <a href="{% url 'management:my_work' %}?attention=30"
+           class="if-filter-chip {% if selected_filter == 'attention_30' %}is-active{% endif %}">
+          Sin gestión &gt; 30 días
+        </a>
+      </div>
+    </details>
+  </div>
+</section>
+
+<section class="if-card">
+  <div class="if-card-header">
+    <div>
+      <h2 class="if-card-title">Documentos para gestionar</h2>
+      <p class="if-card-subtitle">
+        Ordenados por score de prioridad descendente.
+      </p>
+    </div>
+  </div>
+
+  {% if work_items %}
+    <div class="if-table-wrapper">
+      <table class="if-table if-work-table if-listing-table">
+        <thead>
+<tr>
+  <th>Documento / Cliente</th>
+  <th>Contexto operativo</th>
+  <th class="text-end">Saldo</th>
+  <th>Vencimiento</th>
+  <th>Responsable</th>
+  <th class="text-end">Acción</th>
+</tr>
+        </thead>
+
+        <tbody>
+          {% for item in work_items %}
+           <tr>
+  <td>
+    <div class="if-work-primary">
+      <strong>{{ item.document.document_number }}</strong>
+      <div class="if-muted">{{ item.customer.name }}</div>
+      <div class="if-muted mt-1">
+        {{ item.document.get_document_type_display }}
+        {% if item.document.status %}
+          · {{ item.document.status.name }}
+        {% endif %}
+        {% if item.document.sub_status %}
+          · {{ item.document.sub_status.name }}
+        {% endif %}
+      </div>
+    </div>
+  </td>
+
+  <td>
+    <div class="if-work-context">
+      <div class="if-work-context-main">
+<span class="if-pill {{ item.priority_score|risk_pill_class }}">
+  Score {{ item.priority_score|default:0 }}
+</span>
+
+        {% if item.priority_score > 0 %}
+          <strong>{{ item.main_priority_reason }}</strong>
+        {% else %}
+          <span class="if-muted">Sin prioridad especial</span>
+        {% endif %}
+      </div>
+
+      {% if item.priority_reasons %}
+        <div class="if-reason-list">
+          {% for reason in item.priority_reasons %}
+            <span class="if-badge if-badge-soft if-badge-xs">{{ reason }}</span>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+  </td>
+
+  <td class="text-end">
+    <strong>{{ item.document.balance_amount|clp }}</strong>
+  </td>
+
+  <td>{{ item.document.due_date|date:"d/m/Y" }}</td>
+
+  <td>{{ item.assigned_to.get_username }}</td>
+
+  <td class="text-end">
+    <a href="{% url 'management:document_detail' item.document.id %}" class="if-action-link">
+      <i class="bi bi-arrow-right"></i>
+      Gestionar
+    </a>
+  </td>
+</tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="if-empty-state">
+      <h3>No hay documentos para gestionar</h3>
+      <p>Tu bandeja operacional no tiene documentos activos para el filtro seleccionado.</p>
+
+      <div class="mt-3">
+        <a href="{% url 'management:my_work' %}" class="if-button-primary">
+          Ver todos
+        </a>
+      </div>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

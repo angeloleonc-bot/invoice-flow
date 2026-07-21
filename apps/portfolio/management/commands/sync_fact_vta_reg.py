@@ -73,8 +73,8 @@ class Command(BaseCommand):
                         "document_subtype": self._clean(row["DocSubType"]),
                         "issue_date": row["Fecha_Documento"].date(),
                         "due_date": row["Vencimiento_Documento"].date(),
-                        "original_amount": Decimal(row["Saldo_Doc"] or 0),
-                        "balance_amount": Decimal(row["Saldo_Doc"] or 0),
+                        "original_amount": Decimal(row["Total_Doc"] or 0),
+                        "balance_amount": Decimal(row["Total_Doc"] or 0),
                         "status": status,
                         "payment_terms": self._clean(row["Condicion_Pago"]),
                         "seller_name": self._clean(row["Vendedor_Doc"]),
@@ -136,7 +136,8 @@ class Command(BaseCommand):
                 Condicion_Pago,
                 Refacturacion,
                 Folio_Base,
-                Saldo_Doc,
+                Total_Doc,
+                ISNULL(Saldo_Pagado, 0) AS Saldo_Pagado,
                 Envio_Semanal,
                 Envio_Quincenal,
                 Envio_Mensual,
@@ -152,7 +153,6 @@ class Command(BaseCommand):
                 AND Num_doc IS NOT NULL
                 AND Fecha_Documento IS NOT NULL
                 AND Vencimiento_Documento IS NOT NULL
-                AND Saldo_Doc IS NOT NULL
         """
 
         with connection.cursor() as cursor:

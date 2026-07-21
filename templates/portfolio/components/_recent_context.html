@@ -1,0 +1,275 @@
+{% load money %}
+{% load humanize_if %}
+
+<section class="if-ar-recent">
+
+  <div class="if-card">
+
+    <div class="if-card-header">
+      <div>
+        <h2 class="if-card-title">Historia operacional</h2>
+        <p class="if-card-subtitle">
+          Actividad reciente del cliente en orden cronológico.
+        </p>
+      </div>
+    </div>
+
+    <div class="if-document-timeline if-customer-recent-timeline">
+
+      {% if recent_show_all %}
+
+        {% for event in timeline %}
+
+          <article class="if-timeline-entry">
+
+            <div class="if-timeline-entry-icon">
+              {% if event.type == "payment" %}
+                <i class="bi bi-cash-coin"></i>
+              {% elif event.type == "credit_note" %}
+                <i class="bi bi-receipt"></i>
+              {% elif event.type == "promesa" %}
+                <i class="bi bi-calendar-check"></i>
+              {% else %}
+                <i class="bi bi-chat-left-text"></i>
+              {% endif %}
+            </div>
+
+            <div class="if-timeline-entry-card">
+
+              <div class="if-timeline-entry-top">
+
+                <div>
+                  <span class="if-badge if-badge-soft">
+                    {{ event.label }}
+                  </span>
+
+                  {% if event.amount %}
+                    <span class="if-badge if-badge-success">
+                      {{ event.amount|clp }}
+                    </span>
+                  {% endif %}
+                </div>
+
+                <time title="{{ event.date|date:'d/m/Y H:i' }}">
+                  {{ event.date|human_datetime }}
+                </time>
+
+              </div>
+
+              <h3>{{ event.title }}</h3>
+
+              {% if event.document %}
+                <p>
+                  Documento
+                  <a
+                    class="if-link"
+                    href="{% url 'management:document_detail' event.document.id %}"
+                  >
+                    {{ event.document.document_number }}
+                  </a>
+                </p>
+              {% endif %}
+
+              {% if event.description %}
+                <p>{{ event.description }}</p>
+              {% endif %}
+
+              {% if event.attachments %}
+  <div class="if-timeline-attachments">
+    <div class="if-timeline-attachments-heading">
+      <i class="bi bi-paperclip"></i>
+
+      <span>
+        {{ event.attachments|length }}
+        archivo{{ event.attachments|length|pluralize }}
+      </span>
+    </div>
+
+    <div class="if-timeline-attachments-list">
+      {% for attachment in event.attachments %}
+        <a
+          href="{% url 'management:operational_attachment_download' attachment.id %}"
+          class="if-timeline-attachment"
+          title="Descargar {{ attachment.name }}"
+        >
+          <span class="if-timeline-attachment-icon">
+            <i class="bi {{ attachment.icon }}"></i>
+          </span>
+
+          <span class="if-timeline-attachment-copy">
+            <strong>{{ attachment.name }}</strong>
+
+            <small>
+              {{ attachment.extension|upper }}
+              ·
+              {{ attachment.size }}
+            </small>
+          </span>
+
+          <span class="if-timeline-attachment-action">
+            <i class="bi bi-download"></i>
+          </span>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+{% endif %}
+
+            </div>
+
+          </article>
+
+        {% empty %}
+          <div class="if-empty-compact">
+            Sin actividad registrada para este cliente.
+          </div>
+        {% endfor %}
+
+      {% else %}
+
+        {% for event in timeline|slice:":5" %}
+
+          <article class="if-timeline-entry">
+
+            <div class="if-timeline-entry-icon">
+              {% if event.type == "payment" %}
+                <i class="bi bi-cash-coin"></i>
+              {% elif event.type == "credit_note" %}
+                <i class="bi bi-receipt"></i>
+              {% elif event.type == "promesa" %}
+                <i class="bi bi-calendar-check"></i>
+              {% else %}
+                <i class="bi bi-chat-left-text"></i>
+              {% endif %}
+            </div>
+
+            <div class="if-timeline-entry-card">
+
+              <div class="if-timeline-entry-top">
+
+                <div>
+                  <span class="if-badge if-badge-soft">
+                    {{ event.label }}
+                  </span>
+
+                  {% if event.amount %}
+                    <span class="if-badge if-badge-success">
+                      {{ event.amount|clp }}
+                    </span>
+                  {% endif %}
+                </div>
+
+                <time title="{{ event.date|date:'d/m/Y H:i' }}">
+                  {{ event.date|human_datetime }}
+                </time>
+
+              </div>
+
+              <h3>{{ event.title }}</h3>
+
+              {% if event.document %}
+                <p>
+                  Documento
+                  <a
+                    class="if-link"
+                    href="{% url 'management:document_detail' event.document.id %}"
+                  >
+                    {{ event.document.document_number }}
+                  </a>
+                </p>
+              {% endif %}
+
+              {% if event.description %}
+                <p>{{ event.description }}</p>
+              {% endif %}
+
+              {% if event.attachments %}
+  <div class="if-timeline-attachments">
+    <div class="if-timeline-attachments-heading">
+      <i class="bi bi-paperclip"></i>
+
+      <span>
+        {{ event.attachments|length }}
+        archivo{{ event.attachments|length|pluralize }}
+      </span>
+    </div>
+
+    <div class="if-timeline-attachments-list">
+      {% for attachment in event.attachments %}
+        <a
+          href="{% url 'management:operational_attachment_download' attachment.id %}"
+          class="if-timeline-attachment"
+          title="Descargar {{ attachment.name }}"
+        >
+          <span class="if-timeline-attachment-icon">
+            <i class="bi {{ attachment.icon }}"></i>
+          </span>
+
+          <span class="if-timeline-attachment-copy">
+            <strong>{{ attachment.name }}</strong>
+
+            <small>
+              {{ attachment.extension|upper }}
+              ·
+              {{ attachment.size }}
+            </small>
+          </span>
+
+          <span class="if-timeline-attachment-action">
+            <i class="bi bi-download"></i>
+          </span>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+{% endif %}
+            </div>
+
+          </article>
+
+        {% empty %}
+          <div class="if-empty-compact">
+            Sin actividad reciente para este cliente.
+          </div>
+        {% endfor %}
+
+      {% endif %}
+
+    </div>
+
+    {% if recent_events_count > 5 %}
+
+      <div class="if-ar-account-more">
+
+        {% if recent_show_all %}
+          <a
+            href="?view={{ account_view }}"
+            class="if-ar-inline-link"
+          >
+            Ver menos
+          </a>
+
+        {% else %}
+          <span>
+            Mostrando
+            <strong>5</strong>
+            de
+            <strong>{{ recent_events_count }}</strong>
+            movimientos.
+          </span>
+
+          <a
+            href="?view={{ account_view }}&recent=all"
+            class="if-ar-inline-link"
+          >
+            Ver todos →
+          </a>
+        {% endif %}
+
+      </div>
+
+    {% endif %}
+
+  </div>
+
+</section>

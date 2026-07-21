@@ -1,0 +1,393 @@
+{% extends "base.html" %}
+{% load money %}
+{% load operational_ui %}
+{% block title %}Detalle Documento | Invoice Flow{% endblock %}
+
+{% block content %}
+<div class="if-document-header">
+  <div>
+    <div class="if-eyebrow">Documento 360</div>
+    <h1 class="if-page-title">{{ document.document_number }}</h1>
+    <p class="if-page-subtitle">{{ customer.name }} · Gestión operacional del documento asignado</p>
+  </div>
+
+  <a href="{% url 'management:my_work' %}" class="if-action-link">
+    <i class="bi bi-arrow-left"></i>
+    Volver a Gestión
+  </a>
+</div>
+
+<div class="if-document-hero">
+  <div class="if-card-kpi if-kpi-premium">
+    <span class="if-stat-icon"><i class="bi bi-receipt"></i></span>
+    <div class="if-stat-label">Documento</div>
+    <div class="if-stat-value">{{ document.document_number }}</div>
+    <div class="if-kpi-divider"></div>
+    <div class="if-stat-trend">Vence {{ document.due_date|date:"d/m/Y" }}</div>
+  </div>
+
+  <div class="if-card-kpi if-kpi-premium">
+    <span class="if-stat-icon"><i class="bi bi-building"></i></span>
+    <div class="if-stat-label">Cliente</div>
+    <div class="if-stat-value if-stat-value-text">{{ customer.name }}</div>
+    <div class="if-kpi-divider"></div>
+    <div class="if-stat-trend">RUT {{ customer.rut }}</div>
+  </div>
+
+<div class="if-card-kpi if-kpi-premium">
+  <span class="if-stat-icon"><i class="bi bi-cash-stack"></i></span>
+  <div class="if-stat-label">Saldo pendiente</div>
+  <div class="if-stat-value">{{ financial_summary.balance_amount|clp }}</div>
+  <div class="if-kpi-divider"></div>
+  <div class="if-stat-trend">
+    Pagado {{ financial_summary.total_paid|clp }} · NC {{ financial_summary.total_credit_notes|clp }}
+  </div>
+</div>
+
+<div class="if-card-kpi if-kpi-premium">
+  <span class="if-stat-icon if-stat-icon-success"><i class="bi bi-wallet2"></i></span>
+  <div class="if-stat-label">Saldo a favor</div>
+  <div class="if-stat-value">{{ financial_summary.overpayment_amount|clp }}</div>
+  <div class="if-kpi-divider"></div>
+  <div class="if-stat-trend">
+    {% if financial_summary.overpayment_amount > 0 %}
+      Cliente con excedente operacional
+    {% else %}
+      Sin saldo a favor
+    {% endif %}
+  </div>
+</div>
+
+  <div class="if-card-kpi if-kpi-premium">
+    <span class="if-stat-icon if-stat-icon-warning"><i class="bi bi-flag"></i></span>
+    <div class="if-stat-label">Estado</div>
+    <div class="if-stat-value if-stat-value-text">{{ document.status.name|default:"Sin estado" }}</div>
+    <div class="if-kpi-divider"></div>
+    <div class="if-stat-trend">{{ document.sub_status.name|default:"Sin subestado" }}</div>
+  </div>
+</div>
+
+
+
+<div class="if-document-layout">
+  <main class="if-document-main">
+    <section class="if-card">
+      <div class="if-card-header">
+        <div>
+          <h2 class="if-card-title">Registrar gestión</h2>
+          <p class="if-card-subtitle">Registra llamadas, correos, WhatsApp, notas u otras acciones.</p>
+        </div>
+      </div>
+
+      <div class="if-card-body">
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="form_type" value="action">
+
+          <div class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label">Tipo</label>
+              {{ form.action_type }}
+            </div>
+
+            <div class="col-md-9">
+              <label class="form-label">Título</label>
+              {{ form.title }}
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">Descripción</label>
+              {{ form.description }}
+            </div>
+
+            <div class="col-12 text-end">
+              <button type="submit" class="if-button-primary">
+                <i class="bi bi-plus-circle"></i>
+                Registrar gestión
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </section>
+
+   <section class="if-card mt-3">
+  <div class="if-card-header">
+    <div>
+      <h2 class="if-card-title">Timeline operacional</h2>
+      <p class="if-card-subtitle">Historial cronológico de eventos del documento.</p>
+    </div>
+  </div>
+
+  <div class="if-document-timeline">
+    {% if latest_timeline_events %}
+  {% for event in latest_timeline_events %}
+        <article class="if-timeline-entry">
+          <div class="if-timeline-entry-icon">
+            <i class="bi {{ event.icon }}"></i>
+          </div>
+
+      <div class="if-timeline-entry-card">
+        <div class="if-timeline-entry-top">
+          <span class="if-badge if-badge-soft">{{ event.label }}</span>
+          <time>{{ event.date|date:"d/m/Y" }}</time>
+        </div>
+
+        <h3>{{ event.title }}</h3>
+
+        {% if event.amount %}
+          <p><strong>Monto:</strong> {{ event.amount|clp }}</p>
+        {% endif %}
+
+        {% if event.status %}
+          <p><strong>Estado:</strong> {{ event.status }}</p>
+        {% endif %}
+
+        {% if event.reason %}
+          <p><strong>Causa:</strong> {{ event.reason }}</p>
+        {% endif %}
+
+        {% if event.description %}
+          <p>{{ event.description }}</p>
+        {% endif %}
+
+        {% if event.user %}
+          <div class="if-timeline-entry-user">
+            <i class="bi bi-person-circle"></i>
+            {{ event.user }}
+          </div>
+        {% else %}
+          <div class="if-timeline-entry-user">
+            <i class="bi bi-cpu"></i>
+            Sistema
+          </div>
+        {% endif %}
+      </div>
+    </article>
+  {% endfor %}
+{% else %}
+  <div class="if-empty-compact">No existen eventos registrados para este documento.</div>
+{% endif %}
+{% if timeline_events|length > latest_timeline_events|length %}
+  <div class="if-muted mt-2">
+    Mostrando últimos {{ latest_timeline_events|length }} eventos de {{ timeline_events|length }} registrados.
+  </div>
+{% endif %}
+  </div>
+</section>
+
+
+ <section id="financial-movements" class="if-card mt-3">
+  <div class="if-card-header">
+    <div>
+      <h2 class="if-card-title">Movimientos financieros</h2>
+      <p class="if-card-subtitle">
+        Pagos y notas de crédito aplicados al documento, ordenados cronológicamente.
+      </p>
+    </div>
+  </div>
+
+  <div class="if-card-body">
+    {% if latest_financial_movements %}
+      <table class="if-table if-table-modern">
+        <thead>
+          <tr>
+            <th>Tipo</th>
+            <th>Fecha</th>
+            <th>Referencia</th>
+            <th>Comentario ERP</th>
+            <th class="text-end">Monto</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for movement in latest_financial_movements %}
+            <tr>
+              <td>
+                <span class="if-badge {% if movement.type == 'payment' %}if-pill-status-success{% else %}if-badge-soft{% endif %}">
+                  <i class="bi {{ movement.icon }}"></i>
+                  {{ movement.label }}
+                </span>
+              </td>
+              <td>{{ movement.date|date:"d/m/Y" }}</td>
+              <td>{{ movement.reference|default:"Sin referencia" }}</td>
+              <td class="if-muted">{{ movement.description|default:"Sin comentario" }}</td>
+              <td class="text-end"><strong>{{ movement.amount|clp }}</strong></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      {% if financial_movements|length > latest_financial_movements|length %}
+        <div class="if-muted mt-2">
+          Mostrando últimos {{ latest_financial_movements|length }} movimientos de {{ financial_movements|length }} registrados.
+        </div>
+      {% endif %}
+    {% else %}
+      <div class="if-empty-compact">No existen movimientos financieros para este documento.</div>
+    {% endif %}
+  </div>
+</section>
+
+    <section class="if-card mt-3">
+      <div class="if-card-header">
+        <div>
+          <h2 class="if-card-title">Información del Documento</h2>
+          <p class="if-card-subtitle">Datos operacionales y clasificación actual.</p>
+        </div>
+      </div>
+
+      <div class="if-detail-grid">
+        <div><span>Número</span><strong>{{ document.document_number }}</strong></div>
+        <div><span>Cliente</span><strong>{{ customer.name }}</strong></div>
+        <div><span>Estado</span><strong>{{ document.status.name|default:"Sin estado" }}</strong></div>
+        <div><span>Subestado</span><strong>{{ document.sub_status.name|default:"Sin subestado" }}</strong></div>
+        <div><span>Fecha emisión</span><strong>{{ document.issue_date|date:"d/m/Y" }}</strong></div>
+        <div><span>Fecha vencimiento</span><strong>{{ document.due_date|date:"d/m/Y" }}</strong></div>
+      </div>
+
+      <div class="if-tags-row">
+        {% for tag in document.tags.all %}
+          <span class="if-badge if-badge-soft">{{ tag.name }}</span>
+        {% empty %}
+          <span class="if-muted">Sin tags</span>
+        {% endfor %}
+      </div>
+    </section>
+  </main>
+
+  <aside class="if-document-side">
+
+<section class="if-card">
+  <div class="if-card-header">
+    <div>
+      <h2 class="if-card-title">Responsable actual</h2>
+      <p class="if-card-subtitle">Asignación operacional activa.</p>
+    </div>
+  </div>
+
+  <div class="if-card-body">
+    {% if current_assignment %}
+      <div class="if-mini-card">
+        <div class="if-mini-card-top">
+          <strong>{{ current_assignment.assigned_to.get_full_name|default:current_assignment.assigned_to.username }}</strong>
+          <span class="if-badge if-badge-soft">{{ current_assignment.get_assignment_type_display }}</span>
+        </div>
+        <p>Asignado el {{ current_assignment.assigned_at|date:"d/m/Y H:i" }}</p>
+        <p>Asignado por {{ current_assignment.assigned_by.get_full_name|default:current_assignment.assigned_by.username }}</p>
+      </div>
+    {% else %}
+      <div class="if-muted">Este documento no tiene una asignación activa.</div>
+    {% endif %}
+
+    <div class="if-side-divider"></div>
+
+    <form method="post" class="if-side-form">
+      {% csrf_token %}
+      <input type="hidden" name="form_type" value="reassignment">
+
+      <label class="form-label">Reasignar a</label>
+      <select name="collector_id" class="form-select" required>
+        <option value="">Seleccionar cobrador</option>
+        {% for collector in collectors %}
+          <option value="{{ collector.id }}">
+            {{ collector.get_full_name|default:collector.username }}
+          </option>
+        {% endfor %}
+      </select>
+
+      <button type="submit" class="if-button-primary w-100 mt-3">
+        <i class="bi bi-arrow-left-right"></i>
+        Reasignar
+      </button>
+    </form>
+  </div>
+</section>
+
+
+    <section class="if-card mt-3">
+      <div class="if-card-header">
+        <div>
+          <h2 class="if-card-title">Cliente</h2>
+          <p class="if-card-subtitle">Información de contacto.</p>
+        </div>
+      </div>
+
+      <div class="if-side-list">
+        <div><span>Nombre</span><strong>{{ customer.name }}</strong></div>
+        <div><span>RUT</span><strong>{{ customer.rut }}</strong></div>
+        <div><span>Email</span><strong>{{ customer.email|default:"Sin email" }}</strong></div>
+        <div><span>Teléfono</span><strong>{{ customer.phone|default:"Sin teléfono" }}</strong></div>
+        <div><span>Cluster</span><strong>{{ customer.cluster|default:"Sin cluster" }}</strong></div>
+      </div>
+    </section>
+
+    <section class="if-card mt-3">
+      <div class="if-card-header">
+        <div>
+          <h2 class="if-card-title">Promesas</h2>
+          <p class="if-card-subtitle">Compromisos asociados al documento.</p>
+        </div>
+      </div>
+
+      <div class="if-card-body">
+        <form method="post" class="if-side-form">
+          {% csrf_token %}
+          <input type="hidden" name="form_type" value="promise">
+
+          <label class="form-label">Fecha compromiso</label>
+          {{ promise_form.promise_date }}
+
+          <label class="form-label mt-2">Monto compromiso</label>
+          {{ promise_form.promised_amount }}
+
+          <label class="form-label mt-2">Notas</label>
+          {{ promise_form.notes }}
+
+          <button type="submit" class="if-button-primary w-100 mt-3">
+            <i class="bi bi-calendar-plus"></i>
+            Registrar promesa
+          </button>
+        </form>
+
+        <div class="if-side-divider"></div>
+
+        <h3 class="if-side-title">Promesas activas</h3>
+        {% if active_promises %}
+          {% for link in active_promises %}
+            <div class="if-mini-card">
+              <div class="if-mini-card-top">
+                <span class="if-pill if-pill-status-success">{{ link.promise.get_status_display }}</span>
+                <small>{{ link.promise.promise_date|date:"d/m/Y" }}</small>
+              </div>
+              <strong>{{ link.promise.promised_amount|clp }}</strong>
+              <p>Pago confirmado: {% if link.promise.payment_confirmed %}Sí{% else %}No{% endif %}</p>
+              {% if link.promise.notes %}<p>{{ link.promise.notes }}</p>{% endif %}
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="if-muted">No existen promesas activas.</div>
+        {% endif %}
+
+        <h3 class="if-side-title mt-3">Promesas vencidas</h3>
+        {% if expired_promises %}
+          {% for link in expired_promises %}
+            <div class="if-mini-card">
+              <div class="if-mini-card-top">
+                <span class="if-pill if-pill-status-warning">{{ link.promise.get_status_display }}</span>
+                <small>{{ link.promise.promise_date|date:"d/m/Y" }}</small>
+              </div>
+              <strong>{{ link.promise.promised_amount|clp }}</strong>
+              <p>Pago confirmado: {% if link.promise.payment_confirmed %}Sí{% else %}No{% endif %}</p>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="if-muted">No existen promesas vencidas.</div>
+        {% endif %}
+      </div>
+    </section>
+
+    
+  </aside>
+</div>
+{% endblock %}

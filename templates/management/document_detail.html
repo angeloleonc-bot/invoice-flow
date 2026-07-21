@@ -1,341 +1,252 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% load money %}
 {% load operational_ui %}
-{% block title %}Detalle Documento | Invoice Flow{% endblock %}
+{% block title %}Documento {{ document.document_number }} | Invoice Flow{% endblock %}
 
 {% block content %}
-<div class="if-document-header">
+<div class="if-docv3">
+
+  <nav class="if-docv3-nav">
+    <a href="{% url 'portfolio:customer_detail' customer.id %}">
+      <i class="bi bi-arrow-left"></i>
+      Cuentas por Cobrar
+    </a>
+    <span>/</span>
+    <strong>Documento {{ document.document_number }}</strong>
+  </nav>
+
+  <header class="if-docv3-header">
+    <div class="if-docv3-client">
+      <span>Cliente</span>
+      <h1>{{ customer.name }}</h1>
+      <p>RUT {{ customer.rut|default:"Sin RUT" }}</p>
+    </div>
+
+    <div class="if-docv3-strip">
   <div>
-    <div class="if-eyebrow">Documento 360</div>
-    <h1 class="if-page-title">{{ document.document_number }}</h1>
-    <p class="if-page-subtitle">{{ customer.name }} · Gestión operacional del documento asignado</p>
+    <span>Documento</span>
+    <strong>{{ document.document_number }}</strong>
   </div>
 
-  <a href="{% url 'management:my_work' %}" class="if-action-link">
-    <i class="bi bi-arrow-left"></i>
-    Volver a Gestión
-  </a>
-</div>
-
-<div class="if-document-hero">
-  <div class="if-card-kpi if-kpi-premium">
-    <span class="if-stat-icon"><i class="bi bi-receipt"></i></span>
-    <div class="if-stat-label">Documento</div>
-    <div class="if-stat-value">{{ document.document_number }}</div>
-    <div class="if-kpi-divider"></div>
-    <div class="if-stat-trend">Vence {{ document.due_date|date:"d/m/Y" }}</div>
+  <div class="{% if document.balance_amount <= 0 %}is-success{% else %}is-warning{% endif %}">
+    <span>Estado</span>
+    <strong>{{ document.status.name|default:"Sin estado" }}</strong>
   </div>
 
-  <div class="if-card-kpi if-kpi-premium">
-    <span class="if-stat-icon"><i class="bi bi-building"></i></span>
-    <div class="if-stat-label">Cliente</div>
-    <div class="if-stat-value if-stat-value-text">{{ customer.name }}</div>
-    <div class="if-kpi-divider"></div>
-    <div class="if-stat-trend">RUT {{ customer.rut }}</div>
+  <div class="{% if document.balance_amount <= 0 %}is-success{% else %}is-warning{% endif %}">
+    <span>Saldo</span>
+    <strong>{{ financial_summary.balance_amount|clp }}</strong>
   </div>
 
-<div class="if-card-kpi if-kpi-premium">
-  <span class="if-stat-icon"><i class="bi bi-currency-dollar"></i></span>
-  <div class="if-stat-label">Saldo pendiente</div>
-  <div class="if-stat-value">{{ financial_summary.balance_amount|clp }}</div>
-  <div class="if-kpi-divider"></div>
-  <div class="if-stat-trend">
-    Original {{ financial_summary.original_amount|clp }} · NC {{ financial_summary.total_credit_notes|clp }}
+  <div class="{% if document.balance_amount <= 0 %}is-success{% else %}is-warning{% endif %}">
+    <span>Condición</span>
+    {% if document.balance_amount <= 0 %}
+      <strong>Cerrado</strong>
+    {% else %}
+      <strong>Abierto</strong>
+    {% endif %}
   </div>
 </div>
+  </header>
 
-  <div class="if-card-kpi if-kpi-premium">
-    <span class="if-stat-icon if-stat-icon-warning"><i class="bi bi-flag"></i></span>
-    <div class="if-stat-label">Estado</div>
-    <div class="if-stat-value if-stat-value-text">{{ document.status.name|default:"Sin estado" }}</div>
-    <div class="if-kpi-divider"></div>
-    <div class="if-stat-trend">{{ document.sub_status.name|default:"Sin subestado" }}</div>
-  </div>
-</div>
+  <div class="if-docv3-layout">
 
+    <main class="if-docv3-main">
 
-
-<div class="if-document-layout">
-  <main class="if-document-main">
-    <section class="if-card">
-      <div class="if-card-header">
-        <div>
-          <h2 class="if-card-title">Registrar gestión</h2>
-          <p class="if-card-subtitle">Registra llamadas, correos, WhatsApp, notas u otras acciones.</p>
-        </div>
-      </div>
-
-      <div class="if-card-body">
-        <form method="post">
-          {% csrf_token %}
-          <input type="hidden" name="form_type" value="action">
-
-          <div class="row g-3">
-            <div class="col-md-3">
-              <label class="form-label">Tipo</label>
-              {{ form.action_type }}
-            </div>
-
-            <div class="col-md-9">
-              <label class="form-label">Título</label>
-              {{ form.title }}
-            </div>
-
-            <div class="col-12">
-              <label class="form-label">Descripción</label>
-              {{ form.description }}
-            </div>
-
-            <div class="col-12 text-end">
-              <button type="submit" class="if-button-primary">
-                <i class="bi bi-plus-circle"></i>
-                Registrar gestión
-              </button>
-            </div>
+      <section class="if-docv3-summary">
+        <div class="if-docv3-summary-head">
+          <div>
+            <span>{{ document.get_document_type_display }}</span>
+            <h2>{{ document.document_number }}</h2>
+            <p>Emitida {{ document.issue_date|date:"d/m/Y" }} · Vence {{ document.due_date|date:"d/m/Y" }}</p>
           </div>
-        </form>
-      </div>
-    </section>
 
-   <section class="if-card mt-3">
-  <div class="if-card-header">
-    <div>
-      <h2 class="if-card-title">Timeline operacional</h2>
-      <p class="if-card-subtitle">Historial cronológico de eventos del documento.</p>
+          {% if document.balance_amount <= 0 %}
+            <span class="if-badge if-badge-success">Documento cerrado</span>
+          {% else %}
+            <span class="if-badge if-badge-warning">Pendiente</span>
+          {% endif %}
+        </div>
+
+        <div class="if-docv3-money">
+          <div>
+            <span>Monto original</span>
+            <strong>{{ financial_summary.original_amount|clp }}</strong>
+          </div>
+          <div>
+            <span>Pagos</span>
+            <strong>{{ financial_summary.total_paid|clp }}</strong>
+          </div>
+          <div>
+            <span>NC aplicada</span>
+            <strong>{{ financial_summary.total_credit_notes|clp }}</strong>
+          </div>
+          <div class="is-balance">
+            <span>Saldo actual</span>
+            <strong>{{ financial_summary.balance_amount|clp }}</strong>
+          </div>
+        </div>
+
+        <div class="if-docv3-signals">
+          {% if active_promises %}
+            <span class="if-badge if-badge-info">Promesa vigente</span>
+          {% endif %}
+          {% if financial_summary.total_paid > 0 %}
+            <span class="if-badge if-badge-soft">Pago parcial</span>
+          {% endif %}
+          {% if financial_summary.total_credit_notes > 0 %}
+            <span class="if-badge if-badge-warning">NC aplicada</span>
+          {% endif %}
+          {% if document.overpayment_amount > 0 %}
+            <span class="if-badge if-badge-success">Saldo a favor {{ document.overpayment_amount|clp }}</span>
+          {% endif %}
+          {% if document.sub_status %}
+            <span class="if-badge if-badge-soft">{{ document.sub_status.name }}</span>
+          {% endif %}
+        </div>
+      </section>
+
+
+
+
+      <section class="if-card mt-3">
+        <div class="if-card-header">
+          <div>
+            <h2 class="if-card-title">Contexto del documento</h2>
+            <p class="if-card-subtitle">Últimos eventos registrados.</p>
+          </div>
+        </div>
+
+        <div class="if-document-timeline">
+          {% if latest_timeline_events %}
+            {% for event in latest_timeline_events %}
+              <article class="if-timeline-entry">
+                <div class="if-timeline-entry-icon">
+                  <i class="bi {{ event.icon }}"></i>
+                </div>
+
+                <div class="if-timeline-entry-card">
+                  <div class="if-timeline-entry-top">
+                    <span class="if-badge if-badge-soft">{{ event.label }}</span>
+                    <time>{{ event.date|date:"d/m/Y" }}</time>
+                  </div>
+
+                  <h3>{{ event.title }}</h3>
+
+                  {% if event.amount %}
+                    <p><strong>Monto:</strong> {{ event.amount|clp }}</p>
+                  {% endif %}
+                  {% if event.status %}
+                    <p><strong>Estado:</strong> {{ event.status }}</p>
+                  {% endif %}
+                  {% if event.reason %}
+                    <p><strong>Causa:</strong> {{ event.reason }}</p>
+                  {% endif %}
+                  {% if event.description %}
+                    <p>{{ event.description }}</p>
+                  {% endif %}
+
+                  {% if event.attachments %}
+  <div class="if-timeline-attachments">
+    <div class="if-timeline-attachments-heading">
+      <i class="bi bi-paperclip"></i>
+
+      <span>
+        {{ event.attachments|length }}
+        archivo{{ event.attachments|length|pluralize }}
+      </span>
+    </div>
+
+    <div class="if-timeline-attachments-list">
+      {% for attachment in event.attachments %}
+        <a
+          href="{% url 'management:operational_attachment_download' attachment.id %}"
+          class="if-timeline-attachment"
+          title="Descargar {{ attachment.name }}"
+        >
+          <span class="if-timeline-attachment-icon">
+            <i class="bi {{ attachment.icon }}"></i>
+          </span>
+
+          <span class="if-timeline-attachment-copy">
+            <strong>{{ attachment.name }}</strong>
+
+            <small>
+              {{ attachment.extension|upper }}
+              ·
+              {{ attachment.size }}
+            </small>
+          </span>
+
+          <span class="if-timeline-attachment-action">
+            <i class="bi bi-download"></i>
+          </span>
+        </a>
+      {% endfor %}
     </div>
   </div>
-
-  <div class="if-document-timeline">
-    {% if timeline_events %}
-      {% for event in timeline_events %}
-        <article class="if-timeline-entry">
-          <div class="if-timeline-entry-icon">
-            <i class="bi {{ event.icon }}"></i>
-          </div>
-
-      <div class="if-timeline-entry-card">
-        <div class="if-timeline-entry-top">
-          <span class="if-badge if-badge-soft">{{ event.label }}</span>
-          <time>{{ event.date|date:"d/m/Y" }}</time>
-        </div>
-
-        <h3>{{ event.title }}</h3>
-
-        {% if event.amount %}
-          <p><strong>Monto:</strong> {{ event.amount|clp }}</p>
-        {% endif %}
-
-        {% if event.status %}
-          <p><strong>Estado:</strong> {{ event.status }}</p>
-        {% endif %}
-
-        {% if event.reason %}
-          <p><strong>Causa:</strong> {{ event.reason }}</p>
-        {% endif %}
-
-        {% if event.description %}
-          <p>{{ event.description }}</p>
-        {% endif %}
-
-        {% if event.user %}
-          <div class="if-timeline-entry-user">
-            <i class="bi bi-person-circle"></i>
-            {{ event.user }}
-          </div>
-        {% else %}
-          <div class="if-timeline-entry-user">
-            <i class="bi bi-cpu"></i>
-            Sistema
-          </div>
-        {% endif %}
-      </div>
-    </article>
-  {% endfor %}
-{% else %}
-  <div class="if-empty-compact">No existen eventos registrados para este documento.</div>
 {% endif %}
-
-  </div>
-</section>
-
-
- <section id="credit-notes" class="if-card mt-3">
-  <div class="if-card-header">
-    <div>
-      <h2 class="if-card-title">Notas de crédito aplicadas</h2>
-      <p class="if-card-subtitle">Ajustes financieros que impactan el saldo de este documento.</p>
-    </div>
-  </div>
-
-  <div class="if-card-body">
-    {% if credit_notes %}
-      <table class="if-table if-table-modern">
-        <thead>
-          <tr>
-            <th>NC</th>
-            <th>Fecha</th>
-            <th>Tipo</th>
-            <th>Estado</th>
-            <th class="text-end">Monto</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {% for nc in credit_notes %}
-            <tr>
-              <td><strong>{{ nc.credit_document_number }}</strong></td>
-              <td>{{ nc.issue_date|date:"d/m/Y" }}</td>
-              <td>{{ nc.credit_type|default:"-" }}</td>
-              <td>
-                <span class="if-badge {% if nc.status == 'Total' %}if-badge-nc-total{% else %}if-badge-nc-partial{% endif %}">
-                  {{ nc.status|default:"Sin estado" }}
-                </span>
-              </td>
-              <td class="text-end"><strong>{{ nc.credit_amount|clp }}</strong></td>
-            </tr>
-
-            {% if nc.comment %}
-              <tr>
-                <td colspan="5" class="if-muted">
-                  <i class="bi bi-chat-left-text"></i>
-                  {{ nc.comment }}
-                </td>
-              </tr>
-            {% endif %}
-          {% endfor %}
-        </tbody>
-      </table>
-    {% else %}
-      <div class="if-empty-compact">No existen notas de crédito aplicadas a este documento.</div>
-    {% endif %}
-  </div>
-</section>
-
-    <section class="if-card mt-3">
-      <div class="if-card-header">
-        <div>
-          <h2 class="if-card-title">Información del Documento</h2>
-          <p class="if-card-subtitle">Datos operacionales y clasificación actual.</p>
+                </div>
+              </article>
+            {% endfor %}
+          {% else %}
+            <div class="if-empty-compact">No existen eventos registrados para este documento.</div>
+          {% endif %}
         </div>
-      </div>
+      </section>
 
-      <div class="if-detail-grid">
-        <div><span>Número</span><strong>{{ document.document_number }}</strong></div>
-        <div><span>Cliente</span><strong>{{ customer.name }}</strong></div>
-        <div><span>Estado</span><strong>{{ document.status.name|default:"Sin estado" }}</strong></div>
-        <div><span>Subestado</span><strong>{{ document.sub_status.name|default:"Sin subestado" }}</strong></div>
-        <div><span>Fecha emisión</span><strong>{{ document.issue_date|date:"d/m/Y" }}</strong></div>
-        <div><span>Fecha vencimiento</span><strong>{{ document.due_date|date:"d/m/Y" }}</strong></div>
-      </div>
-
-      <div class="if-tags-row">
-        {% for tag in document.tags.all %}
-          <span class="if-badge if-badge-soft">{{ tag.name }}</span>
-        {% empty %}
-          <span class="if-muted">Sin tags</span>
-        {% endfor %}
-      </div>
-    </section>
-  </main>
-
-  <aside class="if-document-side">
-
-<section class="if-card">
-  <div class="if-card-header">
-    <div>
-      <h2 class="if-card-title">Responsable actual</h2>
-      <p class="if-card-subtitle">Asignación operacional activa.</p>
-    </div>
-  </div>
-
-  <div class="if-card-body">
-    {% if current_assignment %}
-      <div class="if-mini-card">
-        <div class="if-mini-card-top">
-          <strong>{{ current_assignment.assigned_to.get_full_name|default:current_assignment.assigned_to.username }}</strong>
-          <span class="if-badge if-badge-soft">{{ current_assignment.get_assignment_type_display }}</span>
+      <section id="financial-movements" class="if-card mt-3">
+        <div class="if-card-header">
+          <div>
+            <h2 class="if-card-title">Movimientos financieros</h2>
+            <p class="if-card-subtitle">Pagos y notas de crédito aplicados.</p>
+          </div>
         </div>
-        <p>Asignado el {{ current_assignment.assigned_at|date:"d/m/Y H:i" }}</p>
-        <p>Asignado por {{ current_assignment.assigned_by.get_full_name|default:current_assignment.assigned_by.username }}</p>
-      </div>
-    {% else %}
-      <div class="if-muted">Este documento no tiene una asignación activa.</div>
-    {% endif %}
 
-    <div class="if-side-divider"></div>
-
-    <form method="post" class="if-side-form">
-      {% csrf_token %}
-      <input type="hidden" name="form_type" value="reassignment">
-
-      <label class="form-label">Reasignar a</label>
-      <select name="collector_id" class="form-select" required>
-        <option value="">Seleccionar cobrador</option>
-        {% for collector in collectors %}
-          <option value="{{ collector.id }}">
-            {{ collector.get_full_name|default:collector.username }}
-          </option>
-        {% endfor %}
-      </select>
-
-      <button type="submit" class="if-button-primary w-100 mt-3">
-        <i class="bi bi-arrow-left-right"></i>
-        Reasignar
-      </button>
-    </form>
-  </div>
-</section>
-
-
-    <section class="if-card mt-3">
-      <div class="if-card-header">
-        <div>
-          <h2 class="if-card-title">Cliente</h2>
-          <p class="if-card-subtitle">Información de contacto.</p>
+        <div class="if-card-body">
+          {% if latest_financial_movements %}
+            <table class="if-table if-table-modern">
+              <thead>
+                <tr>
+                  <th>Tipo</th>
+                  <th>Fecha</th>
+                  <th>Referencia</th>
+                  <th>Comentario</th>
+                  <th class="text-end">Monto</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for movement in latest_financial_movements %}
+                  <tr>
+                    <td>{{ movement.label }}</td>
+                    <td>{{ movement.date|date:"d/m/Y" }}</td>
+                    <td>{{ movement.reference|default:"Sin referencia" }}</td>
+                    <td class="if-muted">{{ movement.description|default:"Sin comentario" }}</td>
+                    <td class="text-end"><strong>{{ movement.amount|clp }}</strong></td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          {% else %}
+            <div class="if-empty-compact">No existen movimientos financieros para este documento.</div>
+          {% endif %}
         </div>
-      </div>
+      </section>
 
-      <div class="if-side-list">
-        <div><span>Nombre</span><strong>{{ customer.name }}</strong></div>
-        <div><span>RUT</span><strong>{{ customer.rut }}</strong></div>
-        <div><span>Email</span><strong>{{ customer.email|default:"Sin email" }}</strong></div>
-        <div><span>Teléfono</span><strong>{{ customer.phone|default:"Sin teléfono" }}</strong></div>
-        <div><span>Cluster</span><strong>{{ customer.cluster|default:"Sin cluster" }}</strong></div>
-      </div>
-    </section>
+    </main>
 
-    <section class="if-card mt-3">
-      <div class="if-card-header">
-        <div>
-          <h2 class="if-card-title">Promesas</h2>
-          <p class="if-card-subtitle">Compromisos asociados al documento.</p>
+    <aside class="if-docv3-side">
+
+      {% if active_promises or expired_promises %}
+      <section class="if-card if-docv3-panel is-promise">
+        <div class="if-card-header">
+          <div>
+            <h2 class="if-card-title">Promesas</h2>
+            <p class="if-card-subtitle">Compromisos asociados.</p>
+          </div>
         </div>
-      </div>
 
-      <div class="if-card-body">
-        <form method="post" class="if-side-form">
-          {% csrf_token %}
-          <input type="hidden" name="form_type" value="promise">
-
-          <label class="form-label">Fecha compromiso</label>
-          {{ promise_form.promise_date }}
-
-          <label class="form-label mt-2">Monto compromiso</label>
-          {{ promise_form.promised_amount }}
-
-          <label class="form-label mt-2">Notas</label>
-          {{ promise_form.notes }}
-
-          <button type="submit" class="if-button-primary w-100 mt-3">
-            <i class="bi bi-calendar-plus"></i>
-            Registrar promesa
-          </button>
-        </form>
-
-        <div class="if-side-divider"></div>
-
-        <h3 class="if-side-title">Promesas activas</h3>
-        {% if active_promises %}
+        <div class="if-card-body">
           {% for link in active_promises %}
             <div class="if-mini-card">
               <div class="if-mini-card-top">
@@ -343,16 +254,46 @@
                 <small>{{ link.promise.promise_date|date:"d/m/Y" }}</small>
               </div>
               <strong>{{ link.promise.promised_amount|clp }}</strong>
-              <p>Pago confirmado: {% if link.promise.payment_confirmed %}Sí{% else %}No{% endif %}</p>
               {% if link.promise.notes %}<p>{{ link.promise.notes }}</p>{% endif %}
+              {% with attachments=link.promise.attachments.all %}
+  {% if attachments %}
+    <div class="if-promise-attachments">
+      <div class="if-promise-attachments-label">
+        <i class="bi bi-paperclip"></i>
+
+        <span>
+          {{ attachments|length }}
+          adjunto{{ attachments|length|pluralize }}
+        </span>
+      </div>
+
+      <div class="if-promise-attachments-list">
+        {% for attachment in attachments %}
+          <a
+            href="{% url 'management:operational_attachment_download' attachment.id %}"
+            class="if-promise-attachment"
+            title="Descargar {{ attachment.original_filename }}"
+          >
+            <span class="if-promise-attachment-icon">
+              <i class="bi bi-file-earmark"></i>
+            </span>
+
+            <span class="if-promise-attachment-name">
+              {{ attachment.original_filename }}
+            </span>
+
+            <span class="if-promise-attachment-download">
+              <i class="bi bi-download"></i>
+            </span>
+          </a>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+{% endwith %}
             </div>
           {% endfor %}
-        {% else %}
-          <div class="if-muted">No existen promesas activas.</div>
-        {% endif %}
 
-        <h3 class="if-side-title mt-3">Promesas vencidas</h3>
-        {% if expired_promises %}
           {% for link in expired_promises %}
             <div class="if-mini-card">
               <div class="if-mini-card-top">
@@ -360,42 +301,351 @@
                 <small>{{ link.promise.promise_date|date:"d/m/Y" }}</small>
               </div>
               <strong>{{ link.promise.promised_amount|clp }}</strong>
-              <p>Pago confirmado: {% if link.promise.payment_confirmed %}Sí{% else %}No{% endif %}</p>
             </div>
           {% endfor %}
-        {% else %}
-          <div class="if-muted">No existen promesas vencidas.</div>
-        {% endif %}
-      </div>
-    </section>
-
-    <section class="if-card mt-3">
-      <div class="if-card-header">
-        <div>
-          <h2 class="if-card-title">Pagos</h2>
-          <p class="if-card-subtitle">Total pagado: {{ total_paid }}</p>
         </div>
+      </section>
+      {% endif %}
+
+            {% if document_supports %}
+        <section class="if-card mt-3 if-document-supports">
+          <div class="if-card-header">
+            <div>
+              <h2 class="if-card-title">Respaldos documentales</h2>
+              <p class="if-card-subtitle">
+                Archivos escaneados.
+              </p>
+            </div>
+
+            <span class="if-badge if-badge-soft">
+              {{ document_supports|length }}
+            </span>
+          </div>
+
+          <div class="if-card-body">
+            <div class="if-document-support-list">
+              {% for support in document_supports %}
+                <article class="if-document-support-item">
+                  <div class="if-document-support-icon">
+                    <i class="bi bi-file-earmark-pdf"></i>
+                  </div>
+
+                  <div class="if-document-support-content">
+                    <div class="if-document-support-heading">
+                      <div>
+                        <strong>{{ support.title }}</strong>
+                        <span>{{ support.filename }}</span>
+                      </div>
+
+                      <span class="if-document-support-provider">
+                        {{ support.provider_label }}
+                      </span>
+                    </div>
+
+                    <a
+                      href="{{ support.url }}"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="if-document-support-action"
+                    >
+                      <span>Ver respaldo</span>
+                      <i class="bi bi-box-arrow-up-right"></i>
+                    </a>
+                  </div>
+                </article>
+              {% endfor %}
+            </div>
+          </div>
+        </section>
+      {% endif %}
+
+      <section class="if-card if-docv3-panel">
+        <div class="if-card-header">
+          <div>
+            <h2 class="if-card-title">Registrar gestión</h2>
+            <p class="if-card-subtitle">Acción operacional.</p>
+          </div>
+        </div>
+
+        <div class="if-card-body">
+          {% if document.balance_amount <= 0 %}
+            <div class="if-docv3-lock">
+              <strong>Documento cerrado</strong>
+              <span>No permite nuevas gestiones.</span>
+            </div>
+          {% else %}
+            <form
+  method="post"
+  enctype="multipart/form-data"
+  data-operational-upload-form
+>
+              {% csrf_token %}
+              {% if action_form.non_field_errors %}
+  <div class="alert alert-danger">
+    {% for error in action_form.non_field_errors %}
+      <div>{{ error }}</div>
+    {% endfor %}
+  </div>
+{% endif %}
+              <input type="hidden" name="form_type" value="action">
+<label class="form-label">Tipo</label>
+{{ form.action_type }}
+
+<label class="form-label">Título</label>
+{{ form.title }}
+
+<label class="form-label">Descripción</label>
+{{ form.description }}
+
+<div
+  class="if-upload-field"
+  data-operational-attachments
+>
+  <label class="form-label">
+    Adjuntos
+  </label>
+
+  <div class="if-upload-picker">
+    <input
+      type="file"
+      id="id_action_attachments"
+      name="attachments"
+      multiple
+      data-operational-attachment-input
+      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.webp,.tif,.tiff,.zip,.msg,.eml"
+    >
+
+    <div class="if-upload-picker-content">
+      <div class="if-upload-picker-icon">
+        <i class="bi bi-cloud-arrow-up"></i>
       </div>
 
-      <div class="if-card-body">
-        {% if payments %}
-          {% for payment in payments %}
-            <div class="if-mini-card">
-              <div class="if-mini-card-top">
-                <strong>{{ payment.payment_date|date:"d/m/Y" }}</strong>
-                <span>{{ payment.amount }}</span>
-              </div>
-              <p>Referencia: {{ payment.source_reference|default:"Sin referencia" }}</p>
-              {% if payment.external_payment_id %}
-                <p>ID externo: {{ payment.external_payment_id }}</p>
-              {% endif %}
-            </div>
-          {% endfor %}
-        {% else %}
-          <div class="if-muted">No existen pagos informados para este documento.</div>
-        {% endif %}
+      <div class="if-upload-picker-copy">
+        <strong>Seleccionar archivos</strong>
+        <span>
+          Puedes elegir varios y quitarlos antes de guardar.
+          Máximo 30 MB por archivo.
+        </span>
       </div>
-    </section>
-  </aside>
+    </div>
+  </div>
+
+  <p
+    class="if-upload-empty"
+    data-operational-attachment-empty
+  >
+    No hay archivos seleccionados.
+  </p>
+
+  <div
+    class="if-upload-list"
+    data-operational-attachment-list
+  ></div>
+
+  <div
+    class="if-upload-error"
+    data-operational-attachment-error
+    hidden
+  ></div>
+</div>
+    <div
+  class="if-upload-progress"
+  data-upload-progress
+  hidden
+>
+  <div class="if-upload-progress-track">
+    <div
+      class="if-upload-progress-bar"
+      data-upload-progress-bar
+      role="progressbar"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      aria-valuenow="0"
+    ></div>
+  </div>
+
+  <span
+    class="if-upload-progress-label"
+    data-upload-progress-label
+  >
+    Preparando carga…
+  </span>
+</div>
+
+<button
+  type="submit"
+  class="if-button-primary w-100 mt-3"
+  data-upload-submit
+>
+  Registrar gestión
+</button>
+            </form>
+          {% endif %}
+        </div>
+      </section>
+
+      <section class="if-card if-docv3-panel">
+        <div class="if-card-header">
+          <div>
+            <h2 class="if-card-title">Registrar compromiso</h2>
+            <p class="if-card-subtitle">Promesa de pago.</p>
+          </div>
+        </div>
+
+        <div class="if-card-body">
+          {% if document.balance_amount <= 0 %}
+            <div class="if-docv3-lock">
+              <strong>Documento cerrado</strong>
+              <span>No permite nuevos compromisos.</span>
+            </div>
+          {% else %}
+            <form
+  method="post"
+  enctype="multipart/form-data"
+  data-operational-upload-form
+>
+              {% csrf_token %}
+              {% if promise_form.non_field_errors %}
+  <div class="alert alert-danger">
+    {% for error in promise_form.non_field_errors %}
+      <div>{{ error }}</div>
+    {% endfor %}
+  </div>
+{% endif %}
+              <input type="hidden" name="form_type" value="promise">
+<label class="form-label">Fecha compromiso</label>
+{{ promise_form.promise_date }}
+
+<label class="form-label">Monto compromiso</label>
+{{ promise_form.promised_amount }}
+
+<label class="form-label">Notas</label>
+{{ promise_form.notes }}
+
+<div
+  class="if-upload-field"
+  data-operational-attachments
+>
+  <label class="form-label">
+    Adjuntos
+  </label>
+
+  <div class="if-upload-picker">
+    <input
+      type="file"
+      id="id_promise_attachments"
+      name="attachments"
+      multiple
+      data-operational-attachment-input
+      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.webp,.tif,.tiff,.zip,.msg,.eml"
+    >
+
+    <div class="if-upload-picker-content">
+      <div class="if-upload-picker-icon">
+        <i class="bi bi-cloud-arrow-up"></i>
+      </div>
+
+      <div class="if-upload-picker-copy">
+        <strong>Seleccionar archivos</strong>
+
+        <span>
+          Puedes elegir varios y quitarlos antes de guardar.
+          Máximo 30 MB por archivo.
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <p
+    class="if-upload-empty"
+    data-operational-attachment-empty
+  >
+    No hay archivos seleccionados.
+  </p>
+
+  <div
+    class="if-upload-list"
+    data-operational-attachment-list
+  ></div>
+
+  <div
+    class="if-upload-error"
+    data-operational-attachment-error
+    hidden
+  ></div>
+</div>
+              <div
+  class="if-upload-progress"
+  data-upload-progress
+  hidden
+>
+  <div class="if-upload-progress-track">
+    <div
+      class="if-upload-progress-bar"
+      data-upload-progress-bar
+      role="progressbar"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      aria-valuenow="0"
+    ></div>
+  </div>
+
+  <span
+    class="if-upload-progress-label"
+    data-upload-progress-label
+  >
+    Preparando carga…
+  </span>
+</div>
+
+<button
+  type="submit"
+  class="if-button-primary w-100 mt-3"
+  data-upload-submit
+>
+  Registrar compromiso
+</button>
+            </form>
+          {% endif %}
+        </div>
+      </section>
+
+      <section class="if-card if-docv3-panel">
+        <div class="if-card-header">
+          <div>
+            <h2 class="if-card-title">Responsable</h2>
+            <p class="if-card-subtitle">Asignación actual.</p>
+          </div>
+        </div>
+
+        <div class="if-card-body">
+          {% if current_assignment %}
+            <div class="if-mini-card">
+              <strong>{{ current_assignment.assigned_to.get_full_name|default:current_assignment.assigned_to.username }}</strong>
+              <p>{{ current_assignment.assigned_at|date:"d/m/Y H:i" }}</p>
+            </div>
+          {% else %}
+            <div class="if-muted">Sin asignación activa.</div>
+          {% endif %}
+
+          <div class="if-side-divider"></div>
+
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="form_type" value="reassignment">
+            <select name="collector_id" class="form-select" required>
+              <option value="">Seleccionar cobrador</option>
+              {% for collector in collectors %}
+                <option value="{{ collector.id }}">{{ collector.get_full_name|default:collector.username }}</option>
+              {% endfor %}
+            </select>
+            <button type="submit" class="if-button-primary w-100 mt-3">Reasignar</button>
+          </form>
+        </div>
+      </section>
+
+    </aside>
+
+  </div>
 </div>
 {% endblock %}

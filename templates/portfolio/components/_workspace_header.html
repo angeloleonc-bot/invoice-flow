@@ -1,0 +1,46 @@
+{% load money %}
+
+<header class="if-call-header">
+  <div class="if-call-header-client">
+    <p>Cartera / Cuentas por cobrar</p>
+
+    <h1>{{ customer.name }}</h1>
+
+    <span>
+      RUT: {{ customer.rut|default:"Sin RUT" }}
+      {% if customer.cluster %}
+        · Cluster: {{ customer.cluster }}
+      {% endif %}
+    </span>
+  </div>
+
+  <div class="if-call-header-metrics">
+
+    <div class="{% if customer.is_active %}is-success{% else %}is-muted{% endif %}">
+      <i class="bi bi-circle-fill"></i>
+      <span>Estado</span>
+      <strong>
+        {% if customer.is_active %}
+          Activo
+        {% else %}
+          Inactivo
+        {% endif %}
+      </strong>
+    </div>
+
+    <div class="{% if total_balance > 0 %}is-warning{% else %}is-success{% endif %}">
+      <i class="bi bi-wallet2"></i>
+      <span>Saldo pendiente</span>
+      <strong>{{ total_balance|clp }}</strong>
+    </div>
+
+    {% if total_overpayment > 0 %}
+      <div class="is-success">
+        <i class="bi bi-patch-check"></i>
+        <span>Saldo a favor</span>
+        <strong>{{ total_overpayment|clp }}</strong>
+      </div>
+    {% endif %}
+
+  </div>
+</header>

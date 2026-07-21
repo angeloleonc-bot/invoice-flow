@@ -4,293 +4,609 @@
 {% block title %}Dashboard Supervisor | Invoice Flow{% endblock %}
 
 {% block content %}
-<div class="if-page-header">
-  <div>
-    <div class="if-eyebrow">Supervisor operacional</div>
-    <h1 class="if-page-title">Dashboard Supervisor</h1>
-    <p class="if-page-subtitle">
-      Salud operacional de cartera, recuperación, riesgo y carga del equipo.
-    </p>
-  </div>
-</div>
+<div class="if-supervisor-dashboard">
 
-<div class="if-dashboard-kpis">
-  <div class="if-card-kpi if-kpi-premium">
-    <span class="if-stat-icon"><i class="bi bi-cash-stack"></i></span>
-    <div class="if-stat-label">Total por cobrar</div>
-    <div class="if-stat-value">{{ kpis.total_receivable|clp }}</div>
-    <div class="if-kpi-divider"></div>
-    <div class="if-stat-trend">Cartera vigente y vencida</div>
-  </div>
+  {# ========================================================= #}
+  {# HEADER                                                    #}
+  {# ========================================================= #}
 
-  <div class="if-card-kpi if-kpi-premium">
-    <span class="if-stat-icon"><i class="bi bi-graph-up-arrow"></i></span>
-    <div class="if-stat-label">Recuperado del mes</div>
-    <div class="if-stat-value">{{ kpis.recovered_month|clp }}</div>
-    <div class="if-kpi-divider"></div>
-    <div class="if-stat-trend">Pagos registrados del mes</div>
-  </div>
+  <header class="if-supervisor-header">
+    <div>
+      <span class="if-supervisor-eyebrow">
+        <span class="if-live-dot"></span>
+        Supervisor operacional
+      </span>
 
-  <div class="if-card-kpi if-kpi-premium">
-    <span class="if-stat-icon if-stat-icon-warning"><i class="bi bi-calendar-x"></i></span>
-    <div class="if-stat-label">Promesas vencidas</div>
-    <div class="if-stat-value">{{ kpis.overdue_promises }}</div>
-    <div class="if-kpi-divider"></div>
-    <div class="if-stat-trend">Compromisos sin confirmar</div>
-  </div>
+      <h1>Vista general de cartera</h1>
 
-  <div class="if-card-kpi if-kpi-premium">
-    <span class="if-stat-icon if-stat-icon-danger"><i class="bi bi-exclamation-triangle"></i></span>
-    <div class="if-stat-label">Alta prioridad</div>
-    <div class="if-stat-value">{{ kpis.high_priority_documents }}</div>
-    <div class="if-kpi-divider"></div>
-    <div class="if-stat-trend">Documentos con riesgo operacional</div>
-  </div>
-</div>
-
-<div class="if-ops-control-strip mt-3">
-  <div class="if-ops-group">
-    <span class="if-ops-label">Control operacional</span>
-
-    <div class="if-ops-metric"><i class="bi bi-bell"></i><strong>{{ operational_alert_summary.new }}</strong><span>Nuevas</span></div>
-    <div class="if-ops-metric"><i class="bi bi-exclamation-octagon"></i><strong>{{ operational_alert_summary.critical }}</strong><span>Críticas</span></div>
-    <div class="if-ops-metric"><i class="bi bi-clock-history"></i><strong>{{ operational_alert_summary.aged }}</strong><span>Envejecidas</span></div>
-    <div class="if-ops-metric"><i class="bi bi-arrow-clockwise"></i><strong>{{ operational_alert_summary.reopened }}</strong><span>Reabiertas</span></div>
-  </div>
-
-  <div class="if-ops-critical-summary">
-    <span class="if-ops-critical-title">
-      <i class="bi bi-person-exclamation"></i>
-      Clientes críticos
-    </span>
-    <span class="if-ops-critical-values">
-      <strong>{{ critical_customer_summary.without_management }}</strong> sin gestión ·
-      <strong>{{ critical_customer_summary.overdue_promises }}</strong> promesa vencida ·
-      <strong>{{ critical_customer_summary.without_responsible }}</strong> sin responsable
-    </span>
-  </div>
-
-  <a href="{% url 'management:alerts_center' %}" class="if-secondary-cta ms-auto">
-    Ver centro
-    <i class="bi bi-arrow-right"></i>
-  </a>
-</div>
-
-<div class="if-dashboard-grid mt-3">
-  <section class="if-card">
-    <div class="if-card-header">
-      <div>
-        <h2 class="if-card-title">Documentos críticos</h2>
-        <p class="if-card-subtitle">Prioridad operacional inmediata.</p>
-      </div>
+      <p>
+        Seguimiento financiero, prioridades operacionales y desempeño del equipo.
+      </p>
     </div>
 
-    <div class="if-compact-list">
-      {% for item in critical_documents %}
-        <div class="if-compact-row">
-          <div class="if-row-main">
-            <strong>{{ item.customer.name }}</strong>
-            <span>{{ item.document.document_number }} · {{ item.days_overdue }} días mora</span>
-          </div>
+    <a href="{% url 'management:alerts_center' %}"
+       class="if-supervisor-header-action">
+      <i class="bi bi-bell"></i>
+      Centro de alertas
 
-          <div class="if-row-meta">
-            <span class="if-pill {{ item.priority_score|risk_pill_class }}">
-  Riesgo {{ item.priority_score }}
-</span>
-            <strong class="if-row-amount">{{ item.document.balance_amount|clp }}</strong>
-<a href="{% url 'management:document_detail' item.document.id %}" class="if-row-icon-action" title="Ver detalle">
-  <i class="bi bi-arrow-right"></i>
-</a>
-          </div>
-        </div>
-      {% empty %}
-        <div class="if-empty-compact">No hay documentos críticos.</div>
-      {% endfor %}
-    </div>
-  </section>
-
-  <section class="if-card">
-    <div class="if-card-header">
-      <div>
-        <h2 class="if-card-title">Próximos compromisos</h2>
-        <p class="if-card-subtitle">Promesas vencidas, de hoy o próximas.</p>
-      </div>
-    </div>
-
-<div class="if-compact-list">
-  {% for item in commitments %}
-    <div class="if-compact-row">
-      <div class="if-row-main">
-        <strong>{{ item.customer.name }}</strong>
-        <span>{{ item.promise_date|date:"d/m/Y" }}</span>
-      </div>
-
-<div class="if-row-meta">
-  <span class="if-pill {{ item.status_key|status_pill_class }}">
-    {{ item.status_label }}
-  </span>
-
-  <strong class="if-row-amount">{{ item.promised_amount|clp }}</strong>
-
-  {% if item.document %}
-    <a href="{% url 'management:document_detail' item.document.id %}" class="if-row-icon-action" title="Ver detalle">
-      <i class="bi bi-arrow-right"></i>
+      {% if operational_alert_summary.new %}
+        <span>{{ operational_alert_summary.new }}</span>
+      {% endif %}
     </a>
-  {% else %}
-    <span class="if-muted">Sin documento</span>
-  {% endif %}
-</div>
-    </div>
-  {% empty %}
-    <div class="if-empty-compact">No hay compromisos próximos.</div>
-  {% endfor %}
-</div>
-  </section>
-</div>
+  </header>
 
-<div class="if-dashboard-grid mt-3">
-  <section class="if-card if-dashboard-alerts-card">
-    <div class="if-card-header">
-      <div>
-        <h2 class="if-card-title">Riesgo operacional</h2>
-        <p class="if-card-subtitle">Alertas recientes que requieren atención.</p>
-      </div>
-    </div>
 
-    <div class="if-dashboard-alert-feed">
-      {% for alert in recent_operational_alerts %}
-        <a class="if-dashboard-alert-item" href="{% url 'management:alerts_center' %}">
-          <span class="if-dashboard-alert-dot if-dashboard-alert-dot-{{ alert.severity|lower }}"></span>
-          <span>
-            <strong>{{ alert.title }}</strong>
-            <small>
-              {{ alert.get_severity_display }} ·
-              {% if alert.assigned_to %}
-                {{ alert.assigned_to.get_full_name|default:alert.assigned_to.username }} ·
-              {% else %}
-                Sin responsable ·
-              {% endif %}
-              {{ alert.created_at|date:"d/m/Y H:i" }}
-            </small>
-          </span>
-        </a>
-      {% empty %}
-        <div class="if-empty-compact">No hay alertas operacionales activas.</div>
-      {% endfor %}
-    </div>
-  </section>
+  {# ========================================================= #}
+  {# HERO FINANCIERO                                           #}
+  {# ========================================================= #}
 
-  <section class="if-card">
-    <div class="if-card-header">
-      <div>
-        <h2 class="if-card-title">Aging cartera</h2>
-        <p class="if-card-subtitle">Concentración por tramo de mora.</p>
-      </div>
-    </div>
+  <section class="if-financial-hero">
 
-<div class="if-aging-list">
-  {% for bucket in aging %}
-    <a href="{{ bucket.url }}" class="if-aging-row">
-      <div class="if-aging-meta">
-        <strong>{{ bucket.label }}</strong>
-        <span>
-          {{ bucket.count }} docs · {{ bucket.balance|clp }}
+    <div class="if-financial-hero-main">
+      <div class="if-financial-hero-heading">
+        <span class="if-section-overline">Cartera administrada</span>
+
+        <span class="if-financial-status">
+          <i class="bi bi-activity"></i>
+          Estado actual
         </span>
       </div>
 
-      <div class="if-aging-context">
-        <div class="if-aging-bar">
-          <span style="--if-bar-width: {% widthratio bucket.count total_aging_documents 100 %}%;">
+      <div class="if-financial-main-value">
+        {{ kpis.total_receivable|clp }}
+      </div>
+
+      <p class="if-financial-main-description">
+        Total vigente y vencido actualmente bajo gestión.
+      </p>
+
+      <div class="if-financial-main-footer">
+        <div>
+          <span>Recuperado este mes</span>
+          <strong>{{ kpis.recovered_month|clp }}</strong>
+        </div>
+
+        <div class="if-financial-progress">
+          <span>
+            Pagos registrados durante el período actual
           </span>
+
+          <div class="if-financial-progress-track">
+            <span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="if-financial-signals">
+
+      <a href="#compromisos"
+         class="if-financial-signal if-financial-signal-warning">
+        <span class="if-financial-signal-icon">
+          <i class="bi bi-calendar-x"></i>
+        </span>
+
+        <div>
+          <span>Promesas vencidas</span>
+          <strong>{{ kpis.overdue_promises }}</strong>
+          <small>Compromisos sin confirmar</small>
         </div>
 
-        <small>
-          {{ bucket.count }} de {{ total_aging_documents }} documentos
-        </small>
+        <i class="bi bi-arrow-up-right"></i>
+      </a>
+
+      <a href="#documentos-criticos"
+         class="if-financial-signal if-financial-signal-danger">
+        <span class="if-financial-signal-icon">
+          <i class="bi bi-exclamation-triangle"></i>
+        </span>
+
+        <div>
+          <span>Alta prioridad</span>
+          <strong>{{ kpis.high_priority_documents }}</strong>
+          <small>Documentos con riesgo</small>
+        </div>
+
+        <i class="bi bi-arrow-up-right"></i>
+      </a>
+
+      <a href="{% url 'management:alerts_center' %}"
+         class="if-financial-signal">
+        <span class="if-financial-signal-icon">
+          <i class="bi bi-bell"></i>
+        </span>
+
+        <div>
+          <span>Alertas críticas</span>
+          <strong>{{ operational_alert_summary.critical }}</strong>
+          <small>
+            {{ operational_alert_summary.aged }} envejecidas
+          </small>
+        </div>
+
+        <i class="bi bi-arrow-up-right"></i>
+      </a>
+
+    </div>
+  </section>
+
+
+  {# ========================================================= #}
+  {# RESUMEN OPERACIONAL                                       #}
+  {# ========================================================= #}
+
+  <section class="if-operational-summary">
+    <div class="if-operational-summary-title">
+      <span class="if-summary-icon">
+        <i class="bi bi-command"></i>
+      </span>
+
+      <div>
+        <strong>Control operacional</strong>
+        <span>Señales que requieren supervisión</span>
       </div>
+    </div>
+
+    <div class="if-operational-summary-metrics">
+      <div>
+        <strong>{{ operational_alert_summary.new }}</strong>
+        <span>Nuevas</span>
+      </div>
+
+      <div>
+        <strong>{{ operational_alert_summary.reopened }}</strong>
+        <span>Reabiertas</span>
+      </div>
+
+      <div>
+        <strong>{{ critical_customer_summary.without_management }}</strong>
+        <span>Sin gestión</span>
+      </div>
+
+      <div>
+        <strong>{{ critical_customer_summary.without_responsible }}</strong>
+        <span>Sin responsable</span>
+      </div>
+
+      <div>
+        <strong>{{ critical_customer_summary.overdue_promises }}</strong>
+        <span>Promesa vencida</span>
+      </div>
+    </div>
+
+    <a href="{% url 'management:alerts_center' %}">
+      Revisar
+      <i class="bi bi-arrow-right"></i>
     </a>
-  {% empty %}
-    <div class="if-empty-compact">
-      No hay documentos para analizar aging.
-    </div>
-  {% endfor %}
-</div>
-</section>
-</div>
+  </section>
 
-<section class="if-card mt-3">
-  <div class="if-card-header">
-    <div>
-      <h2 class="if-card-title">Carga operacional equipo</h2>
-      <p class="if-card-subtitle">Vista compacta de carga por cobrador.</p>
-    </div>
 
-<div class="if-card-header-action ms-auto">
-  <a href="{% url 'portfolio:assignment_workloads' %}" class="if-secondary-cta">
-    Ver balance
-    <i class="bi bi-arrow-right"></i>
-  </a>
-</div>
-  </div>
+  {# ========================================================= #}
+  {# FOCO OPERACIONAL                                          #}
+  {# ========================================================= #}
 
-  <div class="if-team-compact-list">
-    {% for item in team_workload %}
-      <div class="if-team-compact-row">
-        <div class="if-team-compact-main">
-          <strong>{{ item.collector_name }}</strong>
-          <div class="if-row-metrics">
-            <span><i class="bi bi-files"></i>{{ item.active_documents }} docs</span>
-            <span><i class="bi bi-cash"></i>{{ item.assigned_balance|clp }}</span>
-            <span><i class="bi bi-exclamation-triangle"></i>{{ item.critical_documents }} críticos</span>
-            <span><i class="bi bi-calendar-x"></i>{{ item.overdue_promises }} promesas</span>
-          </div>
+  <div class="if-dashboard-focus-grid">
+
+    {# DOCUMENTOS CRÍTICOS #}
+
+    <section class="if-saas-panel if-saas-panel-primary"
+             id="documentos-criticos">
+
+      <header class="if-saas-panel-header">
+        <div>
+          <span class="if-section-overline">Atención inmediata</span>
+          <h2>Documentos críticos</h2>
+          <p>
+            Casos priorizados por riesgo, antigüedad y estado de gestión.
+          </p>
         </div>
 
-        <div class="if-team-compact-bar">
-          <div class="if-metric-bar">
-            <span style="--if-bar-width: {{ item.workload_percentage }}%;"></span>
-          </div>
-        </div>
+        <span class="if-panel-counter">
+          {{ kpis.high_priority_documents }}
+        </span>
+      </header>
 
-        <strong class="if-team-compact-value">{{ item.workload_percentage }}%</strong>
+      <div class="if-critical-document-list">
+        {% for item in critical_documents|slice:":5" %}
+          <article class="if-critical-document">
+
+            <div class="if-critical-document-indicator
+                        if-critical-document-indicator-{{ item.priority_level_key }}">
+            </div>
+
+            <div class="if-critical-document-content">
+              <div class="if-critical-document-top">
+                <div class="if-critical-document-client">
+                  <strong title="{{ item.customer.name }}">
+                    {{ item.customer.name }}
+                  </strong>
+
+                  <span>
+                    Factura {{ item.document.document_number }}
+                  </span>
+                </div>
+
+                <strong class="if-critical-document-amount">
+                  {{ item.document.balance_amount|clp }}
+                </strong>
+              </div>
+
+              <div class="if-critical-document-bottom">
+                <div class="if-critical-document-context">
+                  <span>
+                    <i class="bi bi-clock-history"></i>
+                    {{ item.days_overdue }} días de mora
+                  </span>
+
+                  {% if item.priority_reason %}
+                    <span class="if-critical-reason"
+                          title="{{ item.priority_reasons_text }}">
+                      {{ item.priority_reason }}
+                    </span>
+                  {% endif %}
+                </div>
+
+                <div class="if-critical-document-actions">
+                  <span class="if-priority-level
+                               if-priority-level-{{ item.priority_level_key }}"
+                        title="Puntaje interno: {{ item.priority_score }} · {{ item.priority_level_description }}">
+                    {{ item.priority_level_label }}
+                  </span>
+
+                  <a href="{% url 'management:document_detail' item.document.id %}"
+                     class="if-circle-action"
+                     title="Ver documento">
+                    <i class="bi bi-arrow-right"></i>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </article>
+        {% empty %}
+          <div class="if-modern-empty">
+            <span>
+              <i class="bi bi-check2-circle"></i>
+            </span>
+            <strong>Sin documentos críticos</strong>
+            <p>No existen casos de atención inmediata.</p>
+          </div>
+        {% endfor %}
       </div>
-    {% empty %}
-      <div class="if-empty-compact">No hay carga operacional asignada.</div>
-    {% endfor %}
-  </div>
-</section>
-
-<section class="if-card mt-3">
-  <div class="if-card-header">
+      {% if critical_documents|length > 5 %}
+  <div class="if-critical-list-footer">
     <div>
-      <h2 class="if-card-title">Rendimiento del equipo</h2>
-      <p class="if-card-subtitle">Recuperación mensual y riesgo operativo por cobrador.</p>
+      <span>Mostrando los 5 casos con mayor prioridad</span>
+      <small>
+        Hay {{ critical_documents|length }} documentos críticos en total.
+      </small>
     </div>
+
+    <a href="{% url 'management:alerts_center' %}">
+      Ver todos
+      <i class="bi bi-arrow-right"></i>
+    </a>
+  </div>
+{% endif %}
+    </section>
+
+
+    {# COLUMNA LATERAL #}
+
+    <aside class="if-dashboard-side-column">
+
+      <section class="if-saas-panel"
+               id="compromisos">
+
+        <header class="if-saas-panel-header if-saas-panel-header-compact">
+          <div>
+            <span class="if-section-overline">Agenda de cobranza</span>
+            <h2>Próximos compromisos</h2>
+          </div>
+        </header>
+
+        <div class="if-commitment-modern-list">
+          {% for item in commitments %}
+            <article class="if-commitment-modern-row">
+              <div class="if-commitment-date">
+                <span>{{ item.promise_date|date:"d" }}</span>
+                <small>{{ item.promise_date|date:"M" }}</small>
+              </div>
+
+              <div class="if-commitment-modern-content">
+                <strong title="{{ item.customer.name }}">
+                  {{ item.customer.name }}
+                </strong>
+
+                <span>
+                  {{ item.promised_amount|clp }}
+
+                  {% if item.open_document_count %}
+                    · {{ item.open_document_count }}
+                    doc{% if item.open_document_count != 1 %}s{% endif %}
+                  {% endif %}
+                </span>
+              </div>
+
+              <div class="if-commitment-modern-action">
+                <span class="if-pill {{ item.status_key|status_pill_class }}">
+                  {{ item.status_label }}
+                </span>
+
+                <a href="{{ item.url }}"
+                   class="if-circle-action"
+                   title="Ver cliente">
+                  <i class="bi bi-arrow-right"></i>
+                </a>
+              </div>
+            </article>
+          {% empty %}
+            <div class="if-modern-empty if-modern-empty-small">
+              <span>
+                <i class="bi bi-calendar-check"></i>
+              </span>
+              <strong>Sin compromisos próximos</strong>
+            </div>
+          {% endfor %}
+        </div>
+      </section>
+
+
+      <section class="if-saas-panel if-customer-risk-panel">
+        <div class="if-customer-risk-heading">
+          <span>
+            <i class="bi bi-person-exclamation"></i>
+          </span>
+
+          <div>
+            <strong>Clientes que requieren revisión</strong>
+            <p>Situaciones sin cobertura operacional suficiente.</p>
+          </div>
+        </div>
+
+        <div class="if-customer-risk-grid">
+          <div>
+            <strong>{{ critical_customer_summary.without_management }}</strong>
+            <span>Sin gestión</span>
+          </div>
+
+          <div>
+            <strong>{{ critical_customer_summary.overdue_promises }}</strong>
+            <span>Promesa vencida</span>
+          </div>
+
+          <div>
+            <strong>{{ critical_customer_summary.without_responsible }}</strong>
+            <span>Sin responsable</span>
+          </div>
+        </div>
+      </section>
+
+    </aside>
   </div>
 
-  <div class="if-team-compact-list">
-    {% for collector in team_performance %}
-      <div class="if-team-compact-row">
-        <div class="if-team-compact-main">
-          <strong>{{ collector.collector_name }}</strong>
-          <div class="if-row-metrics">
-            <span><i class="bi bi-files"></i>{{ collector.assigned_documents }} docs</span>
-            <span><i class="bi bi-calendar-x"></i>{{ collector.overdue_promises }} promesas vencidas</span>
-            <span><i class="bi bi-exclamation-triangle"></i>{{ collector.high_priority_documents }} alta prioridad</span>
-          </div>
+
+  {# ========================================================= #}
+  {# INTELIGENCIA OPERACIONAL                                  #}
+  {# ========================================================= #}
+
+  <div class="if-dashboard-insights-grid">
+
+    <section class="if-saas-panel">
+      <header class="if-saas-panel-header">
+        <div>
+          <span class="if-section-overline">Actividad reciente</span>
+          <h2>Riesgo operacional</h2>
+          <p>Alertas activas que podrían afectar la recuperación.</p>
         </div>
 
-        <div class="if-team-compact-bar">
-          <div class="if-metric-bar">
-            <span style="--if-bar-width: {% widthratio collector.payments collector.assigned_balance 100 %}%;"></span>
-          </div>
-        </div>
+        <a href="{% url 'management:alerts_center' %}"
+           class="if-text-action">
+          Ver todas
+          <i class="bi bi-arrow-right"></i>
+        </a>
+      </header>
 
-        <strong class="if-team-compact-value">{{ collector.payments|clp }}</strong>
+      <div class="if-modern-alert-list">
+        {% for alert in recent_operational_alerts %}
+          <a href="{% url 'management:alerts_center' %}"
+             class="if-modern-alert-row">
+
+            <span class="if-modern-alert-severity
+                         if-modern-alert-severity-{{ alert.severity|lower }}">
+            </span>
+
+            <div class="if-modern-alert-content">
+              <strong>{{ alert.title }}</strong>
+
+              <span>
+                {% if alert.assigned_to %}
+                  {{ alert.assigned_to.get_full_name|default:alert.assigned_to.username }}
+                {% else %}
+                  Sin responsable
+                {% endif %}
+                · {{ alert.created_at|date:"d/m/Y H:i" }}
+              </span>
+            </div>
+
+            <span class="if-modern-alert-label">
+              {{ alert.get_severity_display }}
+            </span>
+
+            <i class="bi bi-chevron-right"></i>
+          </a>
+        {% empty %}
+          <div class="if-modern-empty">
+            <span>
+              <i class="bi bi-shield-check"></i>
+            </span>
+            <strong>Operación sin alertas activas</strong>
+            <p>No se encontraron eventos recientes.</p>
+          </div>
+        {% endfor %}
       </div>
-    {% empty %}
-      <div class="if-empty-compact">No hay cobradores con documentos asignados.</div>
-    {% endfor %}
+    </section>
+
+
+    <section class="if-saas-panel">
+      <header class="if-saas-panel-header">
+        <div>
+          <span class="if-section-overline">Distribución de cartera</span>
+          <h2>Aging</h2>
+          <p>Saldo y volumen distribuido por tramo de mora.</p>
+        </div>
+      </header>
+
+      <div class="if-modern-aging-list">
+        {% for bucket in aging %}
+          <a href="{{ bucket.url }}"
+             class="if-modern-aging-row">
+
+            <div class="if-modern-aging-heading">
+              <div>
+                <strong>{{ bucket.label }}</strong>
+                <span>{{ bucket.count }} documentos</span>
+              </div>
+
+              <strong>{{ bucket.balance|clp }}</strong>
+            </div>
+
+            <div class="if-modern-aging-progress">
+              <span style="--if-bar-width: {% widthratio bucket.count total_aging_documents 100 %}%;">
+              </span>
+            </div>
+
+            <small>
+              {% widthratio bucket.count total_aging_documents 100 %}%
+              de los documentos analizados
+            </small>
+          </a>
+        {% empty %}
+          <div class="if-modern-empty">
+            <span>
+              <i class="bi bi-bar-chart"></i>
+            </span>
+            <strong>Sin información de aging</strong>
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+
   </div>
-</section>
+
+
+  {# ========================================================= #}
+  {# EQUIPO                                                    #}
+  {# ========================================================= #}
+
+  <section class="if-saas-panel if-team-overview-panel">
+
+    <header class="if-saas-panel-header">
+      <div>
+        <span class="if-section-overline">Gestión del equipo</span>
+        <h2>Carga y rendimiento</h2>
+        <p>
+          Capacidad asignada, recuperación mensual y exposición operacional.
+        </p>
+      </div>
+
+      <a href="{% url 'portfolio:assignment_workloads' %}"
+         class="if-secondary-cta">
+        Ver balance
+        <i class="bi bi-arrow-right"></i>
+      </a>
+    </header>
+
+    <div class="if-team-overview-grid">
+
+      <div class="if-team-overview-column">
+        <div class="if-team-column-heading">
+          <div>
+            <strong>Carga operacional</strong>
+            <span>Distribución actual por cobrador</span>
+          </div>
+
+          <i class="bi bi-people"></i>
+        </div>
+
+        <div class="if-modern-team-list">
+          {% for item in team_workload %}
+            <article class="if-modern-team-row">
+              <div class="if-modern-team-avatar">
+                {{ item.collector_name|slice:":1"|upper }}
+              </div>
+
+              <div class="if-modern-team-main">
+                <div class="if-modern-team-name">
+                  <strong>{{ item.collector_name }}</strong>
+                  <span>{{ item.workload_percentage }}%</span>
+                </div>
+
+                <div class="if-modern-team-progress">
+                  <span style="--if-bar-width: {{ item.workload_percentage }}%;">
+                  </span>
+                </div>
+
+                <div class="if-modern-team-metrics">
+                  <span>{{ item.active_documents }} docs</span>
+                  <span>{{ item.assigned_balance|clp }}</span>
+                  <span>{{ item.critical_documents }} críticos</span>
+                </div>
+              </div>
+            </article>
+          {% empty %}
+            <div class="if-modern-empty if-modern-empty-small">
+              <strong>Sin carga operacional asignada</strong>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+
+      <div class="if-team-overview-column">
+        <div class="if-team-column-heading">
+          <div>
+            <strong>Rendimiento mensual</strong>
+            <span>Recuperación y exposición por cobrador</span>
+          </div>
+
+          <i class="bi bi-graph-up-arrow"></i>
+        </div>
+
+        <div class="if-modern-team-list">
+          {% for collector in team_performance %}
+            <article class="if-modern-team-row">
+              <div class="if-modern-team-avatar">
+                {{ collector.collector_name|slice:":1"|upper }}
+              </div>
+
+              <div class="if-modern-team-main">
+                <div class="if-modern-team-name">
+                  <strong>{{ collector.collector_name }}</strong>
+                  <span>{{ collector.payments|clp }}</span>
+                </div>
+
+                <div class="if-modern-team-progress">
+                  <span style="--if-bar-width: {% widthratio collector.payments collector.assigned_balance 100 %}%;">
+                  </span>
+                </div>
+
+                <div class="if-modern-team-metrics">
+                  <span>{{ collector.assigned_documents }} docs</span>
+                  <span>{{ collector.overdue_promises }} promesas</span>
+                  <span>{{ collector.high_priority_documents }} críticos</span>
+                </div>
+              </div>
+            </article>
+          {% empty %}
+            <div class="if-modern-empty if-modern-empty-small">
+              <strong>Sin rendimiento disponible</strong>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+</div>
 {% endblock %}

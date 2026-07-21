@@ -161,29 +161,133 @@ MEDIA_ROOT = BASE_DIR / "media"
 AUTH_USER_MODEL = "accounts.User"
 
 
+# ============================================================
+# Microsoft Entra ID — Identidad y autorización
+# ============================================================
+
+ENTRA_AUTH_ENABLED = (
+    os.getenv("ENTRA_AUTH_ENABLED", "False").strip().lower()
+    in {"1", "true", "yes", "on"}
+)
+
+ENTRA_TENANT_ID = os.getenv(
+    "ENTRA_TENANT_ID",
+    "",
+).strip()
+
+ENTRA_CLIENT_ID = os.getenv(
+    "ENTRA_CLIENT_ID",
+    "",
+).strip()
+
+ENTRA_CLIENT_SECRET = os.getenv(
+    "ENTRA_CLIENT_SECRET",
+    "",
+).strip()
+
+ENTRA_REDIRECT_URI = os.getenv(
+    "ENTRA_REDIRECT_URI",
+    "http://localhost:8000/accounts/auth/callback/",
+).strip()
+
+ENTRA_AUTHORITY = (
+    f"https://login.microsoftonline.com/{ENTRA_TENANT_ID}"
+    if ENTRA_TENANT_ID
+    else ""
+)
+
+ENTRA_ACCESS_GROUP_ID = os.getenv(
+    "ENTRA_ACCESS_GROUP_ID",
+    "",
+).strip().lower()
+
+ENTRA_SCOPES = tuple(
+    scope
+    for scope in os.getenv(
+        "ENTRA_SCOPES",
+        "openid profile email User.Read GroupMember.Read.All",
+    ).split()
+    if scope
+)
+
 ENTRA_GROUP_ROLE_MAPPING = {
     group_id.strip().lower(): role_code
     for group_id, role_code in {
-        os.getenv("ENTRA_GROUP_ADMIN_ID", ""): "ADMINISTRADOR",
-        os.getenv("ENTRA_GROUP_SUPERVISOR_ID", ""): "SUPERVISOR",
-        os.getenv("ENTRA_GROUP_COLLECTOR_ID", ""): "COBRADOR",
-        os.getenv("ENTRA_GROUP_AUDITOR_ID", ""): "CONSULTA_AUDITORIA",
+        os.getenv(
+            "ENTRA_GROUP_ADMIN_ID",
+            "",
+        ): "ADMINISTRADOR",
+        os.getenv(
+            "ENTRA_GROUP_SUPERVISOR_ID",
+            "",
+        ): "SUPERVISOR",
+        os.getenv(
+            "ENTRA_GROUP_COLLECTOR_ID",
+            "",
+        ): "COBRADOR",
+        os.getenv(
+            "ENTRA_GROUP_AUDITOR_ID",
+            "",
+        ): "CONSULTA_AUDITORIA",
     }.items()
     if group_id.strip()
 }
 
+IDENTITY_REVALIDATION_MINUTES = int(
+    os.getenv(
+        "IDENTITY_REVALIDATION_MINUTES",
+        "15",
+    )
+)
+
+IDENTITY_REVALIDATION_GRACE_MINUTES = int(
+    os.getenv(
+        "IDENTITY_REVALIDATION_GRACE_MINUTES",
+        "5",
+    )
+)
+
+ENTRA_GLOBAL_LOGOUT_ENABLED = (
+    os.getenv(
+        "ENTRA_GLOBAL_LOGOUT_ENABLED",
+        "False",
+    ).strip().lower()
+    in {"1", "true", "yes", "on"}
+)
+
+DEV_LOGIN_ENABLED = (
+    os.getenv(
+        "DEV_LOGIN_ENABLED",
+        "False",
+    ).strip().lower()
+    in {"1", "true", "yes", "on"}
+)
+
+
+# ============================================================
 # Session policy
+# ============================================================
+
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = False
 SESSION_COOKIE_SAMESITE = "Lax"
 
-SESSION_COOKIE_AGE = 60 * 60 * 10  # 10 hours absolute timeout
+INACTIVITY_TIMEOUT_MINUTES = int(
+    os.getenv(
+        "INACTIVITY_TIMEOUT_MINUTES",
+        "30",
+    )
+)
+
+ABSOLUTE_SESSION_TIMEOUT_HOURS = int(
+    os.getenv(
+        "ABSOLUTE_SESSION_TIMEOUT_HOURS",
+        "10",
+    )
+)
+
+SESSION_COOKIE_AGE = ABSOLUTE_SESSION_TIMEOUT_HOURS * 60 * 60
 SESSION_SAVE_EVERY_REQUEST = True
-
-INACTIVITY_TIMEOUT_MINUTES = 30
-ABSOLUTE_SESSION_TIMEOUT_HOURS = 60
-
-WORKLIST_HIGH_BALANCE_THRESHOLD = 1000000
 
 # ============================================================
 # AWS S3 — Adjuntos operacionales privados

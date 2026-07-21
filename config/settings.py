@@ -160,6 +160,18 @@ MEDIA_ROOT = BASE_DIR / "media"
 # Authentication / identity
 AUTH_USER_MODEL = "accounts.User"
 
+
+ENTRA_GROUP_ROLE_MAPPING = {
+    group_id.strip().lower(): role_code
+    for group_id, role_code in {
+        os.getenv("ENTRA_GROUP_ADMIN_ID", ""): "ADMINISTRADOR",
+        os.getenv("ENTRA_GROUP_SUPERVISOR_ID", ""): "SUPERVISOR",
+        os.getenv("ENTRA_GROUP_COLLECTOR_ID", ""): "COBRADOR",
+        os.getenv("ENTRA_GROUP_AUDITOR_ID", ""): "CONSULTA_AUDITORIA",
+    }.items()
+    if group_id.strip()
+}
+
 # Session policy
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = False

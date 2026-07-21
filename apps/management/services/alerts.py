@@ -8,6 +8,9 @@ from apps.management.services.prioritization import WorklistPriorityService
 from apps.portfolio.models import Document, DocumentAssignment
 from apps.portfolio.constants import DOCUMENT_TAG_CRITICAL_CUSTOMER
 
+from apps.accounts.models import Role
+from apps.accounts.services.role_service import RoleService
+
 
 class OperationalAlertService:
     ACTIVE_STATUSES = [
@@ -24,11 +27,13 @@ class OperationalAlertService:
 
     REOPEN_MIN_DAYS = 3
 
-    FULL_VISIBILITY_ROLES = [
-        "ADMINISTRADOR",
-        "SUPERVISOR",
-        "CONSULTA_AUDITORIA",
-    ]
+    FULL_VISIBILITY_ROLES = frozenset(
+        {
+            Role.ADMINISTRADOR,
+            Role.SUPERVISOR,
+            Role.CONSULTA_AUDITORIA,
+        }
+    )
 
     @classmethod
     def base_queryset(cls):
@@ -508,9 +513,9 @@ class OperationalAlertService:
         ).distinct()
 
         if user:
-            role = getattr(user, "role", None)
+            role = cls.get_effective_role(user)
 
-            if role == "COBRADOR":
+            if role == Role.COBRADOR:
                 qs = qs.filter(
                     assignments__assigned_to=user,
                     assignments__is_active=True,
@@ -604,18 +609,9 @@ class OperationalAlertService:
     
     @classmethod
     def get_effective_role(cls, user):
-        role = getattr(user, "role", None)
+        """
+        Compatibilidad temporal para consumidores existentes.
 
-        if role:
-            return role
-
-        if getattr(user, "username", None) == "dev.corporate.user":
-            return "SUPERVISOR"
-
-        if getattr(user, "is_superuser", False):
-            return "ADMINISTRADOR"
-
-        if getattr(user, "is_staff", False):
-            return "SUPERVISOR"
-
-        return None
+        Toda resolución de roles debe realizarse mediante RoleService.
+        """
+        return RoleService.get_effective_role_code(user)

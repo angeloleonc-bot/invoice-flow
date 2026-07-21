@@ -1,0 +1,28 @@
+[Unit]
+Description=Invoice Flow operational database synchronization
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+
+User=invoiceflow
+Group=docker
+
+WorkingDirectory=/opt/invoice-flow
+EnvironmentFile=/etc/invoice-flow/sync.env
+
+ExecStart=/opt/invoice-flow/scripts/run_operational_sync.sh
+
+TimeoutStartSec=30min
+KillSignal=SIGTERM
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=invoice-flow-sync
+
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

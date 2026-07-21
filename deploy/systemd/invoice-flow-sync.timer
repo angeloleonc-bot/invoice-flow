@@ -1,0 +1,15 @@
+[Unit]
+Description=Run Invoice Flow operational synchronization every 30 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=30min
+
+Persistent=true
+AccuracySec=1min
+RandomizedDelaySec=30s
+
+Unit=invoice-flow-sync.service
+
+[Install]
+WantedBy=timers.target

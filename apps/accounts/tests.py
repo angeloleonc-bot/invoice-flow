@@ -738,3 +738,332 @@ class IdentityServiceTests(TestCase):
             role_codes,
             {Role.SUPERVISOR},
         )
+
+from unittest.mock import Mock, patch
+
+from django.contrib.auth import get_user_model
+from django.test import TestCase, override_settings
+from django.urls import reverse
+
+from apps.accounts.contracts import (
+    ExternalIdentity,
+    IdentityProvider,
+)
+from apps.accounts.models import Role
+from apps.accounts.services.identity_service import (
+    IdentityServiceResult,
+)
+
+
+AuthViewUser = get_user_model()
+
+
+AUTH_VIEW_SETTINGS = {
+    "ENTRA_AUTH_ENABLED": True,
+    "DEV_LOGIN_ENABLED": True,
+    "ENTRA_GLOBAL_LOGOUT_ENABLED": False,
+    "ENTRA_AUTHORITY": (
+        "https://login.microsoftonline.com/"
+        "11111111-1111-1111-1111-111111111111"
+    ),
+    "ENTRA_POST_LOGOUT_REDIRECT_URI": (
+        "http://localhost:8000/accounts/login/"
+    ),
+    "INACTIVITY_TIMEOUT_MINUTES": 30,
+    "LOGIN_REDIRECT_URL": "/",
+}
+
+
+@override_settings(**AUTH_VIEW_SETTINGS)
+class EntraAuthenticationViewTests(TestCase):
+    def setUp(self):
+        self.user = AuthViewUser.objects.create_user(
+            username="entra-view-user",
+            email="entra-view-user@example.com",
+            password="temporary-password",
+        )
+
+        self.role_resolution = Mock()
+        self.role_resolution.role_codes = frozenset(
+            {
+                Role.SUPERVISOR,
+            }
+        )
+
+        self.identity = ExternalIdentity(
+            provider=(
+                IdentityProvider.MICROSOFT_ENTRA_ID
+            ),
+            external_id=(
+                "99999999-9999-9999-9999-999999999999"
+            ),
+            tenant_id=(
+                "11111111-1111-1111-1111-111111111111"
+            ),
+            username="entra-view-user@example.com",
+            email="entra-view-user@example.com",
+            first_name="Entra",
+            last_name="User",
+            display_name="Entra User",
+            group_ids=frozenset(),
+            claims={},
+        )
+
+    def test_login_page_is_available(self):
+        response = self.client.get(
+            reverse("accounts:login")
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+    @patch(
+        "apps.accounts.views.AzureIdentityAdapter"
+    )
+    def test_entra_login_stores_flow_in_session(
+        self,
+        adapter_class,
+    ):
+        adapter = adapter_class.return_value
+        adapter.initiate_auth_code_flow.return_value = {
+            "auth_uri": (
+                "https://login.microsoftonline.com/"
+                "example/authorize"
+            ),
+            "state": "secure-state",
+        }
+
+        response = self.client.get(
+            reverse("accounts:entra_login"),
+            {
+                "next": "/portfolio/",
+            },
+        )
+
+        self.assertEqual(
+            response.status_code,
+            302,
+        )
+
+        self.assertEqual(
+            response.url,
+            (
+                "https://login.microsoftonline.com/"
+                "example/authorize"
+            ),
+        )
+
+        session = self.client.session
+
+        self.assertIn(
+            "entra_auth_code_flow",
+            session,
+        )
+
+        self.assertEqual(
+            session["entra_auth_next"],
+            "/portfolio/",
+        )
+
+    def test_entra_login_rejects_external_next_url(self):
+        with patch(
+            "apps.accounts.views.AzureIdentityAdapter"
+        ) as adapter_class:
+            adapter = adapter_class.return_value
+            adapter.initiate_auth_code_flow.return_value = {
+                "auth_uri": (
+                    "https://login.microsoftonline.com/"
+                    "example/authorize"
+                ),
+                "state": "secure-state",
+            }
+
+            self.client.get(
+                reverse("accounts:entra_login"),
+                {
+                    "next": "https://malicious.example/",
+                },
+            )
+
+        session = self.client.session
+
+        self.assertEqual(
+            session["entra_auth_next"],
+            "/",
+        )
+
+    @patch(
+        "apps.accounts.views.IdentityService.authorize"
+    )
+    @patch(
+        "apps.accounts.views.AzureIdentityAdapter"
+    )
+    def test_callback_logs_user_in(
+        self,
+        adapter_class,
+        authorize_mock,
+    ):
+        session = self.client.session
+        session["entra_auth_code_flow"] = {
+            "state": "secure-state",
+        }
+        session["entra_auth_next"] = "/portfolio/"
+        session.save()
+
+        adapter = adapter_class.return_value
+        adapter.complete_auth_code_flow.return_value = (
+            self.identity
+        )
+
+        authorize_mock.return_value = (
+            IdentityServiceResult(
+                user=self.user,
+                identity=self.identity,
+                role_resolution=self.role_resolution,
+                created=False,
+                linked=False,
+            )
+        )
+
+        response = self.client.get(
+            reverse("accounts:entra_callback"),
+            {
+                "code": "authorization-code",
+                "state": "secure-state",
+            },
+        )
+
+        self.assertEqual(
+            response.status_code,
+            302,
+        )
+
+        self.assertEqual(
+            response.url,
+            "/portfolio/",
+        )
+
+        self.assertEqual(
+            int(
+                self.client.session[
+                    "_auth_user_id"
+                ]
+            ),
+            self.user.pk,
+        )
+
+        self.assertIn(
+            "identity_last_validated_at",
+            self.client.session,
+        )
+
+    @patch(
+        "apps.accounts.views.AzureIdentityAdapter"
+    )
+    def test_callback_without_flow_returns_to_login(
+        self,
+        adapter_class,
+    ):
+        from apps.accounts.contracts import (
+            IdentityFailureReason,
+            IdentityValidationError,
+        )
+
+        adapter = adapter_class.return_value
+
+        adapter.complete_auth_code_flow.side_effect = (
+            IdentityValidationError(
+                "Invalid state.",
+                reason=(
+                    IdentityFailureReason.INVALID_STATE
+                ),
+            )
+        )
+
+        response = self.client.get(
+            reverse("accounts:entra_callback"),
+            {
+                "code": "authorization-code",
+                "state": "invalid-state",
+            },
+        )
+
+        self.assertEqual(
+            response.status_code,
+            302,
+        )
+
+        self.assertEqual(
+            response.url,
+            reverse("accounts:login"),
+        )
+
+        self.assertNotIn(
+            "_auth_user_id",
+            self.client.session,
+        )
+
+    def test_logout_requires_post(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse("accounts:logout")
+        )
+
+        self.assertEqual(
+            response.status_code,
+            405,
+        )
+
+    def test_local_logout_clears_session(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            reverse("accounts:logout")
+        )
+
+        self.assertEqual(
+            response.status_code,
+            302,
+        )
+
+        self.assertEqual(
+            response.url,
+            reverse("accounts:login"),
+        )
+
+        self.assertNotIn(
+            "_auth_user_id",
+            self.client.session,
+        )
+
+    @override_settings(
+        ENTRA_GLOBAL_LOGOUT_ENABLED=True
+    )
+    def test_global_logout_redirects_to_microsoft(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            reverse("accounts:logout")
+        )
+
+        self.assertEqual(
+            response.status_code,
+            302,
+        )
+
+        self.assertTrue(
+            response.url.startswith(
+                AUTH_VIEW_SETTINGS[
+                    "ENTRA_AUTHORITY"
+                ]
+                + "/oauth2/v2.0/logout?"
+            )
+        )
+
+        self.assertIn(
+            "post_logout_redirect_uri=",
+            response.url,
+        )

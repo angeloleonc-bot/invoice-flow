@@ -233,6 +233,11 @@ ENTRA_GROUP_ROLE_MAPPING = {
     if group_id.strip()
 }
 
+ENTRA_POST_LOGOUT_REDIRECT_URI = os.getenv(
+    "ENTRA_POST_LOGOUT_REDIRECT_URI",
+    "http://localhost:8000/accounts/login/",
+).strip()
+
 IDENTITY_REVALIDATION_MINUTES = int(
     os.getenv(
         "IDENTITY_REVALIDATION_MINUTES",
@@ -263,6 +268,10 @@ DEV_LOGIN_ENABLED = (
     in {"1", "true", "yes", "on"}
 )
 
+
+LOGIN_URL = "accounts:login"
+LOGIN_REDIRECT_URL = "/"
+LOGOUT_REDIRECT_URL = "accounts:login"
 
 # ============================================================
 # Session policy

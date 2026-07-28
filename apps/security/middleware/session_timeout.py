@@ -30,11 +30,11 @@ class CorporateSessionMiddleware:
     SESSION_KEY_NEXT_URL = "next_url"
 
     PUBLIC_PATH_PREFIXES = (
-        "/auth/login/",
-        "/auth/logout/",
-        "/auth/dev-login/",
-        "/auth/start/",
-        "/auth/callback-placeholder/",
+        "/accounts/login/",
+        "/accounts/logout/",
+        "/accounts/dev-login/",
+        "/accounts/auth/entra/",
+        "/accounts/auth/callback/",
         "/admin/login/",
         "/static/",
         "/media/",

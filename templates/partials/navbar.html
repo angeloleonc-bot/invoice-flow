@@ -44,6 +44,20 @@
           <strong>Usuario</strong>
           <small>Supervisor</small>
         </span>
+        <form
+  method="post"
+  action="{% url 'accounts:logout' %}"
+  class="if-logout-form"
+>
+  {% csrf_token %}
+
+  <button
+    type="submit"
+    class="if-logout-button"
+  >
+    Cerrar sesión
+  </button>
+</form>
       </div>
     </div>
   </div>

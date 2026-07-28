@@ -1,3 +1,4 @@
+from __future__ import annotations
 from django.contrib import messages
 from django.contrib.auth import login, logout, get_user_model
 from django.shortcuts import redirect, render
@@ -13,6 +14,395 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 from django.views.decorators.http import require_GET
 
+import time
+import logging
+import secrets
+from urllib.parse import urlencode, urlparse
+
+from django.conf import settings
+from django.contrib.auth import login as django_login
+from django.contrib.auth import logout as django_logout
+from django.http import HttpRequest, HttpResponse
+from django.shortcuts import redirect, render
+from django.urls import reverse
+from django.views.decorators.http import require_GET, require_POST
+
+from apps.accounts.adapters.azure_identity import AzureIdentityAdapter
+from apps.accounts.contracts import (
+    IdentityConfigurationError,
+    IdentityProviderError,
+    IdentityValidationError,
+)
+from apps.accounts.services.identity_service import IdentityService
+
+
+logger = logging.getLogger(__name__)
+
+
+ENTRA_AUTH_FLOW_SESSION_KEY = "entra_auth_code_flow"
+ENTRA_AUTH_NEXT_SESSION_KEY = "entra_auth_next"
+ENTRA_AUTH_STARTED_AT_SESSION_KEY = "entra_auth_started_at"
+
+DEFAULT_LOGIN_REDIRECT_URL = "/"
+
+
+def _safe_next_url(
+    request: HttpRequest,
+    candidate: str | None,
+) -> str:
+    value = str(candidate or "").strip()
+
+    default_url = str(
+        getattr(
+            settings,
+            "LOGIN_REDIRECT_URL",
+            "/",
+        )
+    )
+
+    if not value:
+        return default_url
+
+    parsed = urlparse(value)
+
+    if parsed.scheme or parsed.netloc:
+        return default_url
+
+    if not value.startswith("/") or value.startswith("//"):
+        return default_url
+
+    return value
+
+
+def _clear_entra_flow(request: HttpRequest) -> None:
+    request.session.pop(
+        ENTRA_AUTH_FLOW_SESSION_KEY,
+        None,
+    )
+    request.session.pop(
+        ENTRA_AUTH_NEXT_SESSION_KEY,
+        None,
+    )
+    request.session.pop(
+        ENTRA_AUTH_STARTED_AT_SESSION_KEY,
+        None,
+    )
+
+
+@require_GET
+def login_view(request: HttpRequest) -> HttpResponse:
+    """
+    Página de entrada a Invoice Flow.
+
+    En desarrollo puede conservarse el acceso local.
+    En producción, Entra será el mecanismo normal de autenticación.
+    """
+
+    if request.user.is_authenticated:
+        return redirect(
+            _safe_next_url(
+                request,
+                request.GET.get("next"),
+            )
+        )
+
+    context = {
+        "entra_auth_enabled": settings.ENTRA_AUTH_ENABLED,
+        "dev_login_enabled": settings.DEV_LOGIN_ENABLED,
+        "next_url": _safe_next_url(
+            request,
+            request.GET.get("next"),
+        ),
+    }
+
+    return render(
+        request,
+        "accounts/login.html",
+        context,
+    )
+
+
+@require_GET
+def entra_login_view(
+    request: HttpRequest,
+) -> HttpResponse:
+    """
+    Inicia Authorization Code Flow con Microsoft Entra ID.
+    """
+
+    if not settings.ENTRA_AUTH_ENABLED:
+        messages.error(
+            request,
+            "La autenticación corporativa no está habilitada.",
+        )
+        return redirect("accounts:login")
+
+    if request.user.is_authenticated:
+        return redirect(
+            _safe_next_url(
+                request,
+                request.GET.get("next"),
+            )
+        )
+
+    _clear_entra_flow(request)
+
+    next_url = _safe_next_url(
+        request,
+        request.GET.get("next"),
+    )
+
+    state = secrets.token_urlsafe(32)
+
+    try:
+        adapter = AzureIdentityAdapter()
+
+        flow = adapter.initiate_auth_code_flow(
+            state=state,
+        )
+    except (
+        IdentityConfigurationError,
+        IdentityProviderError,
+    ) as exc:
+        logger.exception(
+            "No fue posible iniciar el login con Entra.",
+            extra={
+                "reason": getattr(
+                    exc,
+                    "reason",
+                    None,
+                ),
+            },
+        )
+
+        messages.error(
+            request,
+            "No fue posible iniciar el acceso corporativo. "
+            "Inténtalo nuevamente.",
+        )
+
+        return redirect("accounts:login")
+
+    request.session[
+        ENTRA_AUTH_FLOW_SESSION_KEY
+    ] = flow
+
+    request.session[
+        ENTRA_AUTH_NEXT_SESSION_KEY
+    ] = next_url
+
+    request.session[
+        ENTRA_AUTH_STARTED_AT_SESSION_KEY
+    ] = int(time.time())
+
+    request.session.modified = True
+
+    auth_uri = str(flow.get("auth_uri", "")).strip()
+
+    if not auth_uri:
+        _clear_entra_flow(request)
+
+        messages.error(
+            request,
+            "Microsoft Entra no entregó una URL de acceso válida.",
+        )
+
+        return redirect("accounts:login")
+
+    return redirect(auth_uri)
+
+
+@require_GET
+def entra_callback_view(
+    request: HttpRequest,
+) -> HttpResponse:
+    """
+    Completa el callback de Entra, autoriza en Django e inicia sesión.
+    """
+
+    if not settings.ENTRA_AUTH_ENABLED:
+        _clear_entra_flow(request)
+
+        messages.error(
+            request,
+            "La autenticación corporativa no está habilitada.",
+        )
+
+        return redirect("accounts:login")
+
+    auth_code_flow = request.session.pop(
+        ENTRA_AUTH_FLOW_SESSION_KEY,
+        None,
+    )
+
+    next_url = _safe_next_url(
+        request,
+        request.session.pop(
+            ENTRA_AUTH_NEXT_SESSION_KEY,
+            None,
+        ),
+    )
+
+    request.session.pop(
+        ENTRA_AUTH_STARTED_AT_SESSION_KEY,
+        None,
+    )
+
+    auth_response = request.GET.dict()
+
+    try:
+        adapter = AzureIdentityAdapter()
+
+        identity = adapter.complete_auth_code_flow(
+            auth_code_flow=auth_code_flow or {},
+            auth_response=auth_response,
+        )
+
+        authorization = IdentityService.authorize(
+            identity
+        )
+
+        django_login(
+            request,
+            authorization.user,
+            backend=(
+                "django.contrib.auth.backends."
+                "ModelBackend"
+            ),
+        )
+
+        request.session.cycle_key()
+
+        request.session[
+            "identity_provider"
+        ] = identity.provider.value
+
+        request.session[
+            "identity_external_id"
+        ] = identity.external_id
+
+        request.session[
+            "identity_tenant_id"
+        ] = identity.tenant_id
+
+        request.session[
+            "identity_last_validated_at"
+        ] = int(time.time())
+
+        request.session[
+            "identity_session_started_at"
+        ] = int(time.time())
+
+        request.session.set_expiry(
+            int(
+                settings.INACTIVITY_TIMEOUT_MINUTES
+            )
+            * 60
+        )
+
+        request.session.modified = True
+
+    except IdentityValidationError as exc:
+        logger.warning(
+            "Identidad Entra rechazada por Django.",
+            extra={
+                "reason": str(
+                    getattr(exc, "reason", "")
+                ),
+                "metadata": getattr(
+                    exc,
+                    "metadata",
+                    {},
+                ),
+            },
+        )
+
+        django_logout(request)
+
+        messages.error(
+            request,
+            "Tu cuenta corporativa no tiene acceso autorizado "
+            "a Invoice Flow.",
+        )
+
+        return redirect("accounts:login")
+
+    except (
+        IdentityConfigurationError,
+        IdentityProviderError,
+    ) as exc:
+        logger.exception(
+            "Falló el proveedor de identidad.",
+            extra={
+                "reason": str(
+                    getattr(exc, "reason", "")
+                ),
+            },
+        )
+
+        django_logout(request)
+
+        messages.error(
+            request,
+            "No fue posible validar tu cuenta corporativa. "
+            "Inténtalo nuevamente.",
+        )
+
+        return redirect("accounts:login")
+
+    except Exception:
+        logger.exception(
+            "Error inesperado durante el callback de Entra."
+        )
+
+        django_logout(request)
+
+        messages.error(
+            request,
+            "Ocurrió un error durante el inicio de sesión.",
+        )
+
+        return redirect("accounts:login")
+
+    messages.success(
+        request,
+        "Sesión iniciada correctamente.",
+    )
+
+    return redirect(next_url)
+
+
+@require_POST
+def logout_view(request: HttpRequest) -> HttpResponse:
+    """
+    Cierra siempre la sesión local.
+
+    Si ENTRA_GLOBAL_LOGOUT_ENABLED=True, redirige también al endpoint
+    de cierre de sesión de Microsoft.
+    """
+
+    django_logout(request)
+
+    if not settings.ENTRA_GLOBAL_LOGOUT_ENABLED:
+        return redirect("accounts:login")
+
+    logout_endpoint = (
+        f"{settings.ENTRA_AUTHORITY.rstrip('/')}"
+        "/oauth2/v2.0/logout"
+    )
+
+    query = urlencode(
+        {
+            "post_logout_redirect_uri": (
+                settings.ENTRA_POST_LOGOUT_REDIRECT_URI
+            ),
+        }
+    )
+
+    return redirect(
+        f"{logout_endpoint}?{query}"
+    )
+
 AUTH_MESSAGE_MAP = {
     "session_expired": "Tu sesión expiró. Inicia sesión nuevamente.",
     "invalid_identity": "No fue posible validar tu identidad corporativa.",
@@ -20,19 +410,6 @@ AUTH_MESSAGE_MAP = {
     "token_expired": "El token de autenticación expiró. Inicia sesión nuevamente.",
     "logout": "Sesión cerrada correctamente.",
 }
-
-
-def _safe_next_url(request):
-    next_url = request.GET.get("next") or request.POST.get("next") or ""
-
-    if next_url and url_has_allowed_host_and_scheme(
-        url=next_url,
-        allowed_hosts={request.get_host()},
-        require_https=request.is_secure(),
-    ):
-        return next_url
-
-    return ""
 
 
 def _get_client_ip(request):
@@ -53,91 +430,6 @@ def _register_auth_event(request, event_type, user=None, username_snapshot="", m
         metadata=metadata or {},
     )
 
-
-def login_view(request):
-    message_code = request.GET.get("message")
-
-    if message_code in AUTH_MESSAGE_MAP:
-        messages.info(request, AUTH_MESSAGE_MAP[message_code])
-
-    context = {
-        "next": _safe_next_url(request),
-    }
-
-    return render(
-        request,
-        "accounts/login.html",
-        {
-            "debug": settings.DEBUG,
-            "next": request.GET.get("next", ""),
-        },
-    )
-
-
-def logout_view(request):
-    user = request.user if request.user.is_authenticated else None
-    username_snapshot = user.get_username() if user else ""
-
-    _register_auth_event(
-        request=request,
-        event_type=AuditLog.LOGOUT,
-        user=user,
-        username_snapshot=username_snapshot,
-        metadata={"source": "local_logout"},
-    )
-
-    request.session.pop("login_at", None)
-    request.session.pop("last_activity_at", None)
-    request.session.pop("next_url", None)
-
-    logout(request)
-
-    login_url = reverse("accounts:login")
-    return redirect(f"{login_url}?message=logout")
-
-
-def auth_start_view(request):
-    next_url = _safe_next_url(request)
-
-    _register_auth_event(
-        request=request,
-        event_type=AuditLog.IDENTITY_ERROR,
-        metadata={
-            "source": "auth_start_placeholder",
-            "reason": "corporate_auth_not_implemented_yet",
-            "next": next_url,
-        },
-    )
-
-    messages.info(
-        request,
-        "La autenticación corporativa será habilitada en una etapa posterior.",
-    )
-    login_url = reverse("accounts:login")
-
-    if next_url:
-        return redirect(f"{login_url}?next={next_url}")
-
-    return redirect(login_url)
-
-
-def callback_placeholder_view(request):
-    _register_auth_event(
-        request=request,
-        event_type=AuditLog.IDENTITY_ERROR,
-        metadata={
-            "source": "callback_placeholder",
-            "reason": "callback_not_implemented_yet",
-        },
-    )
-
-    messages.warning(
-        request,
-        "Callback placeholder: esta ruta no autentica usuarios todavía.",
-    )
-
-    login_url = reverse("accounts:login")
-    return redirect(login_url)
 
 @require_GET
 def dev_login_view(request):

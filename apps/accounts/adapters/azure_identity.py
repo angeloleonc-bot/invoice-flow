@@ -43,6 +43,16 @@ class AzureIdentityAdapter:
     )
 
     GRAPH_ALLOWED_HOST = "graph.microsoft.com"
+    GRAPH_APPLICATION_SCOPES = (
+        "https://graph.microsoft.com/.default",
+    )
+
+    GRAPH_USER_GROUPS_URL_TEMPLATE = (
+        "https://graph.microsoft.com/v1.0/"
+        "users/{user_id}/transitiveMemberOf/"
+        "microsoft.graph.group"
+        "?$select=id&$top=999"
+    )
     REQUEST_TIMEOUT_SECONDS = 10
 
     def __init__(
@@ -355,6 +365,10 @@ class AzureIdentityAdapter:
         self,
         access_token: str,
     ) -> frozenset[str]:
+        return self._fetch_group_ids_from_graph_url(
+            graph_url=self.GRAPH_GROUPS_URL,
+            access_token=access_token,
+        )
         """
         Recupera pertenencias transitivas y sigue @odata.nextLink.
 
@@ -612,3 +626,212 @@ class AzureIdentityAdapter:
             reason=reason,
             metadata=metadata,
         )
+
+    def fetch_user_group_ids_app_only(
+        self,
+        *,
+        external_id: str,
+    ) -> frozenset[str]:
+        """
+        Obtiene los grupos transitivos de un usuario mediante permisos
+        de aplicación.
+
+        No utiliza ni almacena tokens delegados del usuario.
+        """
+
+        user_id = str(external_id or "").strip().lower()
+
+        if not user_id:
+            raise IdentityValidationError(
+                "No se recibió el identificador externo del usuario.",
+                reason=(
+                    IdentityFailureReason
+                    .MISSING_REQUIRED_CLAIMS
+                ),
+                metadata={
+                    "missing_claims": ["oid"],
+                },
+            )
+
+        access_token = self._acquire_application_token()
+
+        graph_url = (
+            self.GRAPH_USER_GROUPS_URL_TEMPLATE.format(
+                user_id=user_id,
+            )
+        )
+
+        return self._fetch_group_ids_from_graph_url(
+            graph_url=graph_url,
+            access_token=access_token,
+        )
+
+
+    def _acquire_application_token(self) -> str:
+        try:
+            result = self.client.acquire_token_for_client(
+                scopes=list(
+                    getattr(
+                        settings,
+                        "ENTRA_APPLICATION_SCOPES",
+                        self.GRAPH_APPLICATION_SCOPES,
+                    )
+                )
+            )
+        except (ValueError, RuntimeError) as exc:
+            raise IdentityProviderError(
+                "No fue posible solicitar un token de aplicación.",
+                reason=(
+                    IdentityFailureReason
+                    .PROVIDER_UNAVAILABLE
+                ),
+                metadata={
+                    "operation": (
+                        "acquire_application_token"
+                    ),
+                },
+            ) from exc
+
+        access_token = str(
+            result.get("access_token") or ""
+        ).strip()
+
+        if access_token:
+            return access_token
+
+        error_code = str(
+            result.get("error") or "unknown_error"
+        ).strip()
+
+        correlation_id = str(
+            result.get("correlation_id") or ""
+        ).strip()
+
+        metadata = {
+            "operation": "acquire_application_token",
+            "provider_error": error_code,
+        }
+
+        if correlation_id:
+            metadata["correlation_id"] = correlation_id
+
+        raise IdentityProviderError(
+            "Microsoft Entra rechazó el token de aplicación.",
+            reason=(
+                IdentityFailureReason
+                .PROVIDER_UNAVAILABLE
+            ),
+            metadata=metadata,
+        )
+
+
+    def _fetch_group_ids_from_graph_url(
+        self,
+        *,
+        graph_url: str,
+        access_token: str,
+    ) -> frozenset[str]:
+        group_ids: set[str] = set()
+        next_url: str | None = graph_url
+
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/json",
+            "ConsistencyLevel": "eventual",
+        }
+
+        while next_url:
+            self._validate_graph_url(next_url)
+
+            try:
+                response = self.http_session.get(
+                    next_url,
+                    headers=headers,
+                    timeout=self.REQUEST_TIMEOUT_SECONDS,
+                )
+            except requests.RequestException as exc:
+                raise IdentityProviderError(
+                    "Microsoft Graph no está disponible.",
+                    reason=(
+                        IdentityFailureReason
+                        .GROUP_OVERAGE_RESOLUTION_FAILED
+                    ),
+                    metadata={
+                        "operation": (
+                            "fetch_application_user_groups"
+                        ),
+                    },
+                ) from exc
+
+            if response.status_code != 200:
+                correlation_id = (
+                    response.headers.get("request-id")
+                    or response.headers.get(
+                        "client-request-id"
+                    )
+                )
+
+                raise IdentityProviderError(
+                    "Microsoft Graph rechazó la revalidación.",
+                    reason=(
+                        IdentityFailureReason
+                        .GROUP_OVERAGE_RESOLUTION_FAILED
+                    ),
+                    metadata={
+                        "operation": (
+                            "fetch_application_user_groups"
+                        ),
+                        "status_code": response.status_code,
+                        "correlation_id": correlation_id,
+                    },
+                )
+
+            try:
+                payload = response.json()
+            except ValueError as exc:
+                raise IdentityProviderError(
+                    "Microsoft Graph entregó una respuesta inválida.",
+                    reason=(
+                        IdentityFailureReason
+                        .GROUP_OVERAGE_RESOLUTION_FAILED
+                    ),
+                    metadata={
+                        "operation": (
+                            "fetch_application_user_groups"
+                        ),
+                    },
+                ) from exc
+
+            values = payload.get("value", [])
+
+            if not isinstance(values, list):
+                raise IdentityProviderError(
+                    "La colección de grupos es inválida.",
+                    reason=(
+                        IdentityFailureReason
+                        .GROUP_OVERAGE_RESOLUTION_FAILED
+                    ),
+                )
+
+            for item in values:
+                if not isinstance(item, Mapping):
+                    continue
+
+                group_id = str(
+                    item.get("id") or ""
+                ).strip().lower()
+
+                if group_id:
+                    group_ids.add(group_id)
+
+            raw_next_url = payload.get(
+                "@odata.nextLink"
+            )
+
+            next_url = (
+                str(raw_next_url).strip()
+                if raw_next_url
+                else None
+            )
+
+        return frozenset(group_ids)

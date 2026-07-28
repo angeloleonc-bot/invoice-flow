@@ -268,6 +268,9 @@ DEV_LOGIN_ENABLED = (
     in {"1", "true", "yes", "on"}
 )
 
+ENTRA_APPLICATION_SCOPES = (
+    "https://graph.microsoft.com/.default",
+)
 
 LOGIN_URL = "accounts:login"
 LOGIN_REDIRECT_URL = "/"

@@ -237,6 +237,9 @@ ENTRA_TEST_SETTINGS = {
         "User.Read",
         "GroupMember.Read.All",
     ),
+    "ENTRA_APPLICATION_SCOPES": (
+        "https://graph.microsoft.com/.default",
+    ),
 }
 
 
@@ -478,6 +481,77 @@ class AzureIdentityAdapterTests(SimpleTestCase):
                 .GROUP_OVERAGE_RESOLUTION_FAILED
             ),
         )
+
+    def test_fetches_user_groups_with_application_token(self):
+        first_group_id = (
+            "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+        )
+        second_group_id = (
+            "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+        )
+
+        self.msal_client.acquire_token_for_client.return_value = {
+            "access_token": "application-token",
+        }
+
+        graph_response = Mock()
+        graph_response.status_code = 200
+        graph_response.headers = {}
+        graph_response.json.return_value = {
+            "value": [
+                {
+                    "id": first_group_id.upper(),
+                },
+                {
+                    "id": second_group_id.upper(),
+                },
+            ]
+        }
+
+        self.http_session.get.return_value = graph_response
+
+        group_ids = (
+            self.adapter
+            .fetch_user_group_ids_app_only(
+                external_id=(
+                    "99999999-9999-9999-9999-999999999999"
+                )
+            )
+        )
+
+        self.assertEqual(
+            group_ids,
+            frozenset(
+                {
+                    first_group_id,
+                    second_group_id,
+                }
+            ),
+        )
+
+        self.msal_client.acquire_token_for_client.assert_called_once_with(
+            scopes=[
+                "https://graph.microsoft.com/.default",
+            ]
+        )
+
+    def test_application_token_failure_is_closed(self):
+        self.msal_client.acquire_token_for_client.return_value = {
+            "error": "invalid_client",
+            "correlation_id": "test-correlation-id",
+        }
+
+        with self.assertRaises(
+            IdentityProviderError
+        ):
+            (
+                self.adapter
+                .fetch_user_group_ids_app_only(
+                    external_id=(
+                        "99999999-9999-9999-9999-999999999999"
+                    )
+                )
+            )
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
@@ -1067,3 +1141,122 @@ class EntraAuthenticationViewTests(TestCase):
             "post_logout_redirect_uri=",
             response.url,
         )
+
+from apps.accounts.services.identity_revalidation_service import (
+    IdentityRevalidationService,
+)
+
+
+@override_settings(**IDENTITY_SERVICE_SETTINGS)
+class IdentityRevalidationServiceTests(TestCase):
+    def setUp(self):
+        self.user = IdentityUser.objects.create_user(
+            username="revalidation-user",
+            email="revalidation@example.com",
+            password="temporary-password",
+        )
+
+        self.user.external_id = (
+            "99999999-9999-9999-9999-999999999999"
+        )
+        self.user.identity_provider = (
+            IdentityProvider
+            .MICROSOFT_ENTRA_ID
+            .value
+        )
+        self.user.is_identity_active = True
+
+        self.user.save(
+            update_fields=[
+                "external_id",
+                "identity_provider",
+                "is_identity_active",
+            ]
+        )
+
+    def test_revalidates_and_synchronizes_roles(self):
+        adapter = Mock()
+
+        adapter.fetch_user_group_ids_app_only.return_value = (
+            frozenset(
+                {
+                    IDENTITY_SERVICE_SETTINGS[
+                        "ENTRA_ACCESS_GROUP_ID"
+                    ],
+                    (
+                        "cccccccc-cccc-cccc-cccc-"
+                        "cccccccccccc"
+                    ),
+                }
+            )
+        )
+
+        result = (
+            IdentityRevalidationService.revalidate(
+                user=self.user,
+                adapter=adapter,
+            )
+        )
+
+        self.assertEqual(
+            result.role_resolution.role_codes,
+            frozenset(
+                {
+                    Role.SUPERVISOR,
+                }
+            ),
+        )
+
+        self.assertTrue(
+            self.user.roles.filter(
+                code=Role.SUPERVISOR
+            ).exists()
+        )
+
+    def test_rejects_removed_access_group(self):
+        adapter = Mock()
+
+        adapter.fetch_user_group_ids_app_only.return_value = (
+            frozenset(
+                {
+                    (
+                        "cccccccc-cccc-cccc-cccc-"
+                        "cccccccccccc"
+                    ),
+                }
+            )
+        )
+
+        with self.assertRaises(
+            IdentityValidationError
+        ) as context:
+            IdentityRevalidationService.revalidate(
+                user=self.user,
+                adapter=adapter,
+            )
+
+        self.assertEqual(
+            context.exception.reason,
+            IdentityFailureReason.ACCESS_DENIED,
+        )
+
+    def test_rejects_removed_functional_roles(self):
+        adapter = Mock()
+
+        adapter.fetch_user_group_ids_app_only.return_value = (
+            frozenset(
+                {
+                    IDENTITY_SERVICE_SETTINGS[
+                        "ENTRA_ACCESS_GROUP_ID"
+                    ],
+                }
+            )
+        )
+
+        with self.assertRaises(
+            IdentityValidationError
+        ):
+            IdentityRevalidationService.revalidate(
+                user=self.user,
+                adapter=adapter,
+            )

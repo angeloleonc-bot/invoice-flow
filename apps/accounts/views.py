@@ -278,6 +278,10 @@ def entra_callback_view(
         ] = identity.provider.value
 
         request.session[
+            "identity_revalidation_failures"
+        ] = 0
+
+        request.session[
             "identity_external_id"
         ] = identity.external_id
 
@@ -459,6 +463,8 @@ def dev_login_view(request):
         },
     )
 
+
+
     if not user.is_active:
         user.is_active = True
         user.save(update_fields=["is_active"])
@@ -470,6 +476,10 @@ def dev_login_view(request):
     request.session["last_activity_at"] = now
     request.session["next_url"] = next_url
     request.session.modified = True
+
+    request.session[
+        "identity_provider"
+    ] = "local"
 
     _register_auth_event(
         request=request,

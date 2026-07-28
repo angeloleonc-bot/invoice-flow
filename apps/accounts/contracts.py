@@ -29,6 +29,7 @@ class IdentityFailureReason(StrEnum):
     ACCESS_GROUP_MISSING = "access_group_missing"
     FUNCTIONAL_GROUP_MISSING = "functional_group_missing"
     GROUP_OVERAGE_RESOLUTION_FAILED = "group_overage_resolution_failed"
+    ACCESS_DENIED = "access_denied"
 
     USER_EMAIL_COLLISION = "user_email_collision"
     EXTERNAL_ID_COLLISION = "external_id_collision"

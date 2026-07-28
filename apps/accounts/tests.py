@@ -478,3 +478,263 @@ class AzureIdentityAdapterTests(SimpleTestCase):
                 .GROUP_OVERAGE_RESOLUTION_FAILED
             ),
         )
+
+from django.contrib.auth import get_user_model
+from django.test import TestCase, override_settings
+
+from apps.accounts.contracts import (
+    ExternalIdentity,
+    IdentityFailureReason,
+    IdentityProvider,
+    IdentityValidationError,
+)
+from apps.accounts.models import Role
+from apps.accounts.services.identity_service import IdentityService
+
+
+IdentityUser = get_user_model()
+
+IDENTITY_SERVICE_SETTINGS = {
+    "ENTRA_TENANT_ID": (
+        "11111111-1111-1111-1111-111111111111"
+    ),
+    "ENTRA_ACCESS_GROUP_ID": (
+        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+    ),
+    "ENTRA_GROUP_ROLE_MAPPING": {
+        "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb": (
+            Role.ADMINISTRADOR
+        ),
+        "cccccccc-cccc-cccc-cccc-cccccccccccc": (
+            Role.SUPERVISOR
+        ),
+        "dddddddd-dddd-dddd-dddd-dddddddddddd": (
+            Role.COBRADOR
+        ),
+        "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee": (
+            Role.CONSULTA_AUDITORIA
+        ),
+    },
+}
+
+
+@override_settings(**IDENTITY_SERVICE_SETTINGS)
+class IdentityServiceTests(TestCase):
+    def build_identity(self, **overrides):
+        values = {
+            "provider": IdentityProvider.MICROSOFT_ENTRA_ID,
+            "external_id": (
+                "99999999-9999-9999-9999-999999999999"
+            ),
+            "tenant_id": (
+                IDENTITY_SERVICE_SETTINGS["ENTRA_TENANT_ID"]
+            ),
+            "username": "test.user@example.com",
+            "email": "test.user@example.com",
+            "first_name": "Test",
+            "last_name": "User",
+            "display_name": "Test User",
+            "group_ids": frozenset(
+                {
+                    IDENTITY_SERVICE_SETTINGS[
+                        "ENTRA_ACCESS_GROUP_ID"
+                    ],
+                    (
+                        "cccccccc-cccc-cccc-cccc-"
+                        "cccccccccccc"
+                    ),
+                }
+            ),
+            "claims": {},
+        }
+        values.update(overrides)
+        return ExternalIdentity(**values)
+
+    def test_creates_user_and_synchronizes_role(self):
+        result = IdentityService.authorize(
+            self.build_identity()
+        )
+
+        self.assertTrue(result.created)
+        self.assertFalse(result.linked)
+        self.assertEqual(
+            result.user.external_id,
+            "99999999-9999-9999-9999-999999999999",
+        )
+        self.assertTrue(result.user.is_identity_active)
+        self.assertTrue(
+            result.user.roles.filter(
+                code=Role.SUPERVISOR
+            ).exists()
+        )
+
+    def test_reuses_existing_external_identity(self):
+        first_result = IdentityService.authorize(
+            self.build_identity()
+        )
+
+        second_result = IdentityService.authorize(
+            self.build_identity(
+                first_name="Updated",
+            )
+        )
+
+        self.assertEqual(
+            first_result.user.pk,
+            second_result.user.pk,
+        )
+        self.assertFalse(second_result.created)
+        self.assertFalse(second_result.linked)
+
+        second_result.user.refresh_from_db()
+        self.assertEqual(
+            second_result.user.first_name,
+            "Updated",
+        )
+
+    def test_links_existing_local_user_by_email(self):
+        local_user = IdentityUser.objects.create_user(
+            username="local-user",
+            email="test.user@example.com",
+            password="temporary-password",
+        )
+
+        result = IdentityService.authorize(
+            self.build_identity()
+        )
+
+        self.assertFalse(result.created)
+        self.assertTrue(result.linked)
+        self.assertEqual(
+            result.user.pk,
+            local_user.pk,
+        )
+
+        result.user.refresh_from_db()
+
+        self.assertEqual(
+            result.user.external_id,
+            "99999999-9999-9999-9999-999999999999",
+        )
+
+    def test_rejects_user_without_access_group(self):
+        identity = self.build_identity(
+            group_ids=frozenset(
+                {
+                    (
+                        "cccccccc-cccc-cccc-cccc-"
+                        "cccccccccccc"
+                    ),
+                }
+            ),
+        )
+
+        with self.assertRaises(
+            IdentityValidationError
+        ) as context:
+            IdentityService.authorize(identity)
+
+        self.assertEqual(
+            context.exception.reason,
+            IdentityFailureReason.ACCESS_DENIED,
+        )
+
+    def test_rejects_user_without_functional_role(self):
+        identity = self.build_identity(
+            group_ids=frozenset(
+                {
+                    IDENTITY_SERVICE_SETTINGS[
+                        "ENTRA_ACCESS_GROUP_ID"
+                    ],
+                }
+            ),
+        )
+
+        with self.assertRaises(
+            IdentityValidationError
+        ) as context:
+            IdentityService.authorize(identity)
+
+        self.assertEqual(
+            context.exception.reason,
+            IdentityFailureReason.ACCESS_DENIED,
+        )
+
+    def test_rejects_disabled_local_user(self):
+        user = IdentityUser.objects.create_user(
+            username="disabled-user",
+            email="test.user@example.com",
+            password="temporary-password",
+            is_active=False,
+        )
+
+        with self.assertRaises(
+            IdentityValidationError
+        ):
+            IdentityService.authorize(
+                self.build_identity()
+            )
+
+        user.refresh_from_db()
+        self.assertFalse(user.is_active)
+
+    def test_rejects_different_external_identity_link(self):
+        user = IdentityUser.objects.create_user(
+            username="linked-user",
+            email="test.user@example.com",
+            password="temporary-password",
+        )
+        user.external_id = (
+            "88888888-8888-8888-8888-888888888888"
+        )
+        user.identity_provider = (
+            IdentityProvider.MICROSOFT_ENTRA_ID.value
+        )
+        user.save(
+            update_fields=[
+                "external_id",
+                "identity_provider",
+            ]
+        )
+
+        with self.assertRaises(
+            IdentityValidationError
+        ) as context:
+            IdentityService.authorize(
+                self.build_identity()
+            )
+
+        self.assertEqual(
+            context.exception.reason,
+            IdentityFailureReason.ACCESS_DENIED,
+        )
+
+    def test_replaces_previous_roles_during_login(self):
+        user = IdentityUser.objects.create_user(
+            username="existing-user",
+            email="test.user@example.com",
+            password="temporary-password",
+        )
+
+        administrator = Role.objects.get(
+            code=Role.ADMINISTRADOR
+        )
+        user.roles.add(administrator)
+
+        result = IdentityService.authorize(
+            self.build_identity()
+        )
+
+        result.user.refresh_from_db()
+
+        role_codes = set(
+            result.user.roles.values_list(
+                "code",
+                flat=True,
+            )
+        )
+
+        self.assertEqual(
+            role_codes,
+            {Role.SUPERVISOR},
+        )

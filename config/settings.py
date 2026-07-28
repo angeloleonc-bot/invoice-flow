@@ -205,7 +205,7 @@ ENTRA_SCOPES = tuple(
     scope
     for scope in os.getenv(
         "ENTRA_SCOPES",
-        "openid profile email User.Read GroupMember.Read.All",
+        "User.Read GroupMember.Read.All",
     ).split()
     if scope
 )

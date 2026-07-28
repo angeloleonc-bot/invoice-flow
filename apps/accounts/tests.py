@@ -208,3 +208,273 @@ class RoleServiceUserTests(TestCase):
                 user=self.user,
                 role_codes={Role.COBRADOR},
             )
+
+from unittest.mock import Mock, patch
+
+from django.test import SimpleTestCase, override_settings
+
+from apps.accounts.adapters.azure_identity import AzureIdentityAdapter
+from apps.accounts.contracts import (
+    IdentityFailureReason,
+    IdentityProvider,
+    IdentityProviderError,
+    IdentityValidationError,
+)
+
+
+ENTRA_TEST_SETTINGS = {
+    "ENTRA_TENANT_ID": "11111111-1111-1111-1111-111111111111",
+    "ENTRA_CLIENT_ID": "22222222-2222-2222-2222-222222222222",
+    "ENTRA_CLIENT_SECRET": "test-secret",
+    "ENTRA_AUTHORITY": (
+        "https://login.microsoftonline.com/"
+        "11111111-1111-1111-1111-111111111111"
+    ),
+    "ENTRA_REDIRECT_URI": (
+        "http://localhost:8000/accounts/auth/callback/"
+    ),
+    "ENTRA_SCOPES": (
+        "User.Read",
+        "GroupMember.Read.All",
+    ),
+}
+
+
+@override_settings(**ENTRA_TEST_SETTINGS)
+class AzureIdentityAdapterTests(SimpleTestCase):
+    def setUp(self):
+        client_patcher = patch(
+            "apps.accounts.adapters.azure_identity."
+            "msal.ConfidentialClientApplication"
+        )
+        self.addCleanup(client_patcher.stop)
+
+        client_class = client_patcher.start()
+        self.msal_client = Mock()
+        client_class.return_value = self.msal_client
+
+        self.http_session = Mock()
+
+        self.adapter = AzureIdentityAdapter(
+            http_session=self.http_session,
+        )
+
+    def build_valid_claims(self, **overrides):
+        claims = {
+            "oid": "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA",
+            "tid": ENTRA_TEST_SETTINGS["ENTRA_TENANT_ID"],
+            "aud": ENTRA_TEST_SETTINGS["ENTRA_CLIENT_ID"],
+            "iss": (
+                "https://login.microsoftonline.com/"
+                f"{ENTRA_TEST_SETTINGS['ENTRA_TENANT_ID']}/v2.0"
+            ),
+            "exp": 9999999999,
+            "preferred_username": "user@example.com",
+            "email": "user@example.com",
+            "name": "Test User",
+            "given_name": "Test",
+            "family_name": "User",
+            "groups": [
+                "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB",
+            ],
+        }
+        claims.update(overrides)
+        return claims
+
+    def test_initiates_auth_code_flow(self):
+        self.msal_client.initiate_auth_code_flow.return_value = {
+            "auth_uri": "https://login.microsoftonline.com/example",
+            "state": "secure-state",
+        }
+
+        flow = self.adapter.initiate_auth_code_flow(
+            state="secure-state",
+        )
+
+        self.assertEqual(
+            flow["auth_uri"],
+            "https://login.microsoftonline.com/example",
+        )
+        self.assertEqual(flow["state"], "secure-state")
+
+    def test_builds_external_identity_from_token_groups(self):
+        self.msal_client.acquire_token_by_auth_code_flow.return_value = {
+            "access_token": "not-a-real-token",
+            "id_token_claims": self.build_valid_claims(),
+        }
+
+        identity = self.adapter.complete_auth_code_flow(
+            auth_code_flow={"state": "secure-state"},
+            auth_response={
+                "code": "authorization-code",
+                "state": "secure-state",
+            },
+        )
+
+        self.assertEqual(
+            identity.provider,
+            IdentityProvider.MICROSOFT_ENTRA_ID,
+        )
+        self.assertEqual(
+            identity.external_id,
+            "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        )
+        self.assertEqual(identity.email, "user@example.com")
+        self.assertEqual(
+            identity.group_ids,
+            frozenset(
+                {
+                    "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+                }
+            ),
+        )
+
+    def test_rejects_invalid_tenant(self):
+        claims = self.build_valid_claims(
+            tid="99999999-9999-9999-9999-999999999999",
+        )
+
+        self.msal_client.acquire_token_by_auth_code_flow.return_value = {
+            "access_token": "not-a-real-token",
+            "id_token_claims": claims,
+        }
+
+        with self.assertRaises(IdentityValidationError) as context:
+            self.adapter.complete_auth_code_flow(
+                auth_code_flow={"state": "secure-state"},
+                auth_response={
+                    "code": "authorization-code",
+                    "state": "secure-state",
+                },
+            )
+
+        self.assertEqual(
+            context.exception.reason,
+            IdentityFailureReason.INVALID_TENANT,
+        )
+
+    def test_rejects_invalid_audience(self):
+        claims = self.build_valid_claims(
+            aud="wrong-client-id",
+        )
+
+        self.msal_client.acquire_token_by_auth_code_flow.return_value = {
+            "access_token": "not-a-real-token",
+            "id_token_claims": claims,
+        }
+
+        with self.assertRaises(IdentityValidationError) as context:
+            self.adapter.complete_auth_code_flow(
+                auth_code_flow={"state": "secure-state"},
+                auth_response={
+                    "code": "authorization-code",
+                    "state": "secure-state",
+                },
+            )
+
+        self.assertEqual(
+            context.exception.reason,
+            IdentityFailureReason.INVALID_AUDIENCE,
+        )
+
+    def test_detects_group_overage(self):
+        claims = self.build_valid_claims(
+            groups=None,
+            _claim_names={"groups": "src1"},
+            _claim_sources={
+                "src1": {
+                    "endpoint": (
+                        "https://graph.microsoft.com/"
+                        "v1.0/users/example/getMemberObjects"
+                    )
+                }
+            },
+        )
+
+        self.assertTrue(
+            self.adapter._has_group_overage(claims)
+        )
+
+    def test_fetches_groups_from_graph_on_overage(self):
+        first_group_id = "cccccccc-cccc-cccc-cccc-cccccccccccc"
+        second_group_id = "dddddddd-dddd-dddd-dddd-dddddddddddd"
+
+        claims = self.build_valid_claims(
+            groups=None,
+            _claim_names={"groups": "src1"},
+        )
+
+        graph_response = Mock()
+        graph_response.status_code = 200
+        graph_response.headers = {}
+        graph_response.json.return_value = {
+            "value": [
+                {
+                    "id": first_group_id.upper(),
+                },
+                {
+                    "id": second_group_id.upper(),
+                },
+            ]
+        }
+
+        self.http_session.get.return_value = graph_response
+
+        self.msal_client.acquire_token_by_auth_code_flow.return_value = {
+            "access_token": "not-a-real-token",
+            "id_token_claims": claims,
+        }
+
+        identity = self.adapter.complete_auth_code_flow(
+            auth_code_flow={"state": "secure-state"},
+            auth_response={
+                "code": "authorization-code",
+                "state": "secure-state",
+            },
+        )
+
+        self.assertEqual(
+            identity.group_ids,
+            frozenset(
+                {
+                    first_group_id,
+                    second_group_id,
+                }
+            ),
+        )
+
+    def test_fails_closed_when_graph_rejects_request(self):
+        claims = self.build_valid_claims(
+            groups=None,
+            hasgroups=True,
+        )
+
+        graph_response = Mock()
+        graph_response.status_code = 403
+        graph_response.headers = {
+            "request-id": "graph-correlation-id",
+        }
+
+        self.http_session.get.return_value = graph_response
+
+        self.msal_client.acquire_token_by_auth_code_flow.return_value = {
+            "access_token": "not-a-real-token",
+            "id_token_claims": claims,
+        }
+
+        with self.assertRaises(IdentityProviderError) as context:
+            self.adapter.complete_auth_code_flow(
+                auth_code_flow={"state": "secure-state"},
+                auth_response={
+                    "code": "authorization-code",
+                    "state": "secure-state",
+                },
+            )
+
+        self.assertEqual(
+            context.exception.reason,
+            (
+                IdentityFailureReason
+                .GROUP_OVERAGE_RESOLUTION_FAILED
+            ),
+        )

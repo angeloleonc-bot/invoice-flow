@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load money %}
+
 {% block title %}Clientes | Invoice Flow{% endblock %}
 
 {% block content %}
@@ -7,28 +8,190 @@
   <div>
     <p class="if-eyebrow">Cartera</p>
     <h1 class="if-page-title">Clientes</h1>
-    <p class="if-page-subtitle">Vista estratégica consolidada de clientes.</p>
+    <p class="if-page-subtitle">
+      Vista estratégica consolidada de clientes.
+    </p>
   </div>
 </div>
 
 {% include "portfolio/_portfolio_nav.html" with active_tab="customers" %}
 
+<section class="if-card if-portfolio-filter-card">
+  <form method="get" class="if-portfolio-filters">
+    <input
+      type="hidden"
+      name="sort"
+      value="{{ selected_sort }}"
+    >
+
+    <input
+      type="hidden"
+      name="dir"
+      value="{{ selected_direction }}"
+    >
+
+    <div class="if-portfolio-filter-field">
+      <label for="q">Buscar cliente</label>
+
+      <input
+        id="q"
+        type="text"
+        name="q"
+        value="{{ search_query }}"
+        placeholder="Nombre, RUT o correo"
+      >
+    </div>
+
+    <div class="if-portfolio-filter-field">
+      <label for="cluster">Cluster</label>
+
+      <select
+        id="cluster"
+        name="cluster"
+      >
+        <option value="">
+          Todos
+        </option>
+
+        {% for cluster in cluster_options %}
+          <option
+            value="{{ cluster }}"
+            {% if selected_cluster == cluster %}selected{% endif %}
+          >
+            {{ cluster }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="if-portfolio-filter-field">
+      <label for="documents">
+        Documentos
+      </label>
+
+      <select
+        id="documents"
+        name="documents"
+      >
+        <option value="">
+          Todos
+        </option>
+
+        <option
+          value="with_documents"
+          {% if selected_documents == "with_documents" %}selected{% endif %}
+        >
+          Con documentos
+        </option>
+
+        <option
+          value="without_documents"
+          {% if selected_documents == "without_documents" %}selected{% endif %}
+        >
+          Sin documentos
+        </option>
+      </select>
+    </div>
+
+    <div class="if-portfolio-filter-field">
+      <label for="balance">
+        Saldo
+      </label>
+
+      <select
+        id="balance"
+        name="balance"
+      >
+        <option value="">
+          Todos
+        </option>
+
+        <option
+          value="pending"
+          {% if selected_balance == "pending" %}selected{% endif %}
+        >
+          Con saldo pendiente
+        </option>
+
+        <option
+          value="without_balance"
+          {% if selected_balance == "without_balance" %}selected{% endif %}
+        >
+          Sin saldo pendiente
+        </option>
+      </select>
+    </div>
+
+    <div class="if-portfolio-filter-field">
+      <label for="page_size">
+        Filas
+      </label>
+
+      <select
+        id="page_size"
+        name="page_size"
+      >
+        <option
+          value="25"
+          {% if selected_page_size == "25" %}selected{% endif %}
+        >
+          25
+        </option>
+
+        <option
+          value="50"
+          {% if selected_page_size == "50" %}selected{% endif %}
+        >
+          50
+        </option>
+
+        <option
+          value="100"
+          {% if selected_page_size == "100" %}selected{% endif %}
+        >
+          100
+        </option>
+      </select>
+    </div>
+
+    <div class="if-portfolio-filter-actions">
+      <button
+        type="submit"
+        class="if-button-primary"
+      >
+        <i class="bi bi-search"></i>
+        Filtrar
+      </button>
+
+      <a
+        href="{% url 'portfolio:customers_list' %}"
+        class="if-button-secondary"
+      >
+        Limpiar
+      </a>
+    </div>
+  </form>
+</section>
+
 <div class="if-listing-toolbar">
   <div>
     <strong>Clientes consolidados</strong>
-    <span>{{ customers|length }} clientes en cartera</span>
-  </div>
 
-  <div class="if-listing-search">
-    <i class="bi bi-search"></i>
-    <span>Filtros avanzados próximamente</span>
+    <span>
+      {{ total_customers }}
+      cliente{{ total_customers|pluralize:"s" }}
+      encontrado{{ total_customers|pluralize:"s" }}
+    </span>
   </div>
 </div>
 
 <div class="if-card">
   <div class="if-card-header">
     <div>
-      <h2 class="if-card-title">Listado de clientes</h2>
+      <h2 class="if-card-title">
+        Listado de clientes
+      </h2>
+
       <p class="if-card-subtitle">
         Resumen consolidado de cartera por cliente.
       </p>
@@ -40,12 +203,79 @@
       <table class="if-table if-table-modern if-listing-table">
         <thead>
           <tr>
-            <th>Cliente</th>
-            <th>Cluster</th>
+            <th>
+              <a
+                href="{{ sort_urls.customer }}"
+                class="if-sort-control {% if selected_sort == 'customer' %}is-active{% endif %}"
+              >
+                <span>Cliente</span>
+
+                {% if selected_sort == "customer" and selected_direction == "asc" %}
+                  <i class="bi bi-arrow-up"></i>
+                {% elif selected_sort == "customer" and selected_direction == "desc" %}
+                  <i class="bi bi-arrow-down"></i>
+                {% else %}
+                  <i class="bi bi-arrow-down-up"></i>
+                {% endif %}
+              </a>
+            </th>
+
+            <th>
+              <a
+                href="{{ sort_urls.cluster }}"
+                class="if-sort-control {% if selected_sort == 'cluster' %}is-active{% endif %}"
+              >
+                <span>Cluster</span>
+
+                {% if selected_sort == "cluster" and selected_direction == "asc" %}
+                  <i class="bi bi-arrow-up"></i>
+                {% elif selected_sort == "cluster" and selected_direction == "desc" %}
+                  <i class="bi bi-arrow-down"></i>
+                {% else %}
+                  <i class="bi bi-arrow-down-up"></i>
+                {% endif %}
+              </a>
+            </th>
+
             <th>Contacto</th>
-            <th class="text-end">Documentos</th>
-            <th class="text-end">Saldo Total</th>
-            <th class="text-end">Acción</th>
+
+            <th class="text-end">
+              <a
+                href="{{ sort_urls.documents }}"
+                class="if-sort-control if-sort-control-end {% if selected_sort == 'documents' %}is-active{% endif %}"
+              >
+                <span>Documentos</span>
+
+                {% if selected_sort == "documents" and selected_direction == "asc" %}
+                  <i class="bi bi-arrow-up"></i>
+                {% elif selected_sort == "documents" and selected_direction == "desc" %}
+                  <i class="bi bi-arrow-down"></i>
+                {% else %}
+                  <i class="bi bi-arrow-down-up"></i>
+                {% endif %}
+              </a>
+            </th>
+
+            <th class="text-end">
+              <a
+                href="{{ sort_urls.balance }}"
+                class="if-sort-control if-sort-control-end {% if selected_sort == 'balance' %}is-active{% endif %}"
+              >
+                <span>Saldo total</span>
+
+                {% if selected_sort == "balance" and selected_direction == "asc" %}
+                  <i class="bi bi-arrow-up"></i>
+                {% elif selected_sort == "balance" and selected_direction == "desc" %}
+                  <i class="bi bi-arrow-down"></i>
+                {% else %}
+                  <i class="bi bi-arrow-down-up"></i>
+                {% endif %}
+              </a>
+            </th>
+
+            <th class="text-end">
+              Acción
+            </th>
           </tr>
         </thead>
 
@@ -53,7 +283,10 @@
           {% for customer in customers %}
             <tr>
               <td>
-                <strong>{{ customer.name }}</strong>
+                <strong>
+                  {{ customer.name }}
+                </strong>
+
                 <div class="if-muted">
                   {{ customer.rut }}
                 </div>
@@ -65,7 +298,9 @@
                     {{ customer.cluster }}
                   </span>
                 {% else %}
-                  <span class="if-muted">Sin cluster</span>
+                  <span class="if-muted">
+                    Sin cluster
+                  </span>
                 {% endif %}
               </td>
 
@@ -80,18 +315,20 @@
               </td>
 
               <td class="text-end">
-                <strong>{{ customer.documents_count }}</strong>
+                <strong>
+                  {{ customer.documents_count }}
+                </strong>
               </td>
 
               <td class="text-end">
                 <strong>
-                  {{ customer.total_balance|clp }}
+                  {{ customer.total_balance|default:0|clp }}
                 </strong>
               </td>
 
               <td class="text-end">
                 <a
-                  href="/portfolio/customers/{{ customer.id }}/"
+                  href="{% url 'portfolio:customer_detail' customer.id %}"
                   class="if-action-link"
                 >
                   <i class="bi bi-arrow-right"></i>
@@ -104,13 +341,77 @@
       </table>
     </div>
 
+    {% if page_obj.paginator.num_pages > 1 %}
+      <footer class="if-portfolio-pagination">
+        <div class="if-portfolio-pagination-summary">
+          Mostrando
+          <strong>
+            {{ page_obj.start_index }}–{{ page_obj.end_index }}
+          </strong>
+          de
+          <strong>
+            {{ page_obj.paginator.count }}
+          </strong>
+          clientes
+        </div>
+
+        <nav
+          class="if-pagination-nav"
+          aria-label="Paginación de clientes"
+        >
+          {% if page_obj.has_previous %}
+            <a
+              href="?{{ pagination_query }}{% if pagination_query %}&{% endif %}page={{ page_obj.previous_page_number }}"
+              class="if-pagination-direction"
+            >
+              <i class="bi bi-chevron-left"></i>
+              Anterior
+            </a>
+          {% else %}
+            <span class="if-pagination-direction is-disabled">
+              <i class="bi bi-chevron-left"></i>
+              Anterior
+            </span>
+          {% endif %}
+
+          <span class="if-pagination-page is-active">
+            {{ page_obj.number }}
+            de
+            {{ page_obj.paginator.num_pages }}
+          </span>
+
+          {% if page_obj.has_next %}
+            <a
+              href="?{{ pagination_query }}{% if pagination_query %}&{% endif %}page={{ page_obj.next_page_number }}"
+              class="if-pagination-direction"
+            >
+              Siguiente
+              <i class="bi bi-chevron-right"></i>
+            </a>
+          {% else %}
+            <span class="if-pagination-direction is-disabled">
+              Siguiente
+              <i class="bi bi-chevron-right"></i>
+            </span>
+          {% endif %}
+        </nav>
+      </footer>
+    {% endif %}
+
   {% else %}
     <div class="if-empty-state">
-      <h3>No hay clientes registrados</h3>
+      <h3>No hay clientes para mostrar</h3>
+
       <p>
-        Cuando existan clientes en cartera,
-        aparecerán en este listado consolidado.
+        No existen clientes que coincidan con los filtros seleccionados.
       </p>
+
+      <a
+        href="{% url 'portfolio:customers_list' %}"
+        class="if-button-primary mt-3"
+      >
+        Limpiar filtros
+      </a>
     </div>
   {% endif %}
 </div>

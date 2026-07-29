@@ -97,8 +97,59 @@ def my_work(request):
 
     search_customer = request.GET.get("customer", "").strip()
     search_rut = request.GET.get("rut", "").strip()
-    selected_collector = request.GET.get("collector", "").strip()
-    selected_filter = request.GET.get("filter", "").strip()
+
+    allowed_portfolio_filters = {
+        "",
+        "with_promises",
+        "without_management",
+        "with_credit",
+        "critical",
+    }
+
+    requested_filter = request.GET.get("filter", "").strip()
+
+    selected_filter = (
+        requested_filter
+        if requested_filter in allowed_portfolio_filters
+        else ""
+    )
+
+    selected_collector = ""
+    selected_collector_user = None
+
+    requested_collector = request.GET.get(
+        "collector",
+        "",
+    ).strip()
+
+    if (
+        is_supervisor
+        and selected_scope == "all"
+        and requested_collector
+    ):
+        try:
+            requested_collector_id = int(requested_collector)
+        except (TypeError, ValueError):
+            requested_collector_id = None
+
+        if requested_collector_id is not None:
+            User = get_user_model()
+
+            selected_collector_user = (
+                User.objects
+                .filter(
+                    pk=requested_collector_id,
+                    is_active=True,
+                    portfolio_assignments_received__is_active=True,
+                )
+                .distinct()
+                .first()
+            )
+
+            if selected_collector_user is not None:
+                selected_collector = str(
+                    selected_collector_user.pk
+                )
 
     allowed_sort_keys = {
         "customer",
@@ -176,9 +227,9 @@ def my_work(request):
         active_assignment_filter &= Q(
             documents__assignments__assigned_to=request.user,
         )
-    elif selected_collector:
+    elif selected_collector_user is not None:
         active_assignment_filter &= Q(
-            documents__assignments__assigned_to_id=selected_collector,
+            documents__assignments__assigned_to=selected_collector_user,
         )
 
     open_document_filter = (
@@ -241,9 +292,9 @@ def my_work(request):
         scoped_actions = scoped_actions.filter(
             document__assignments__assigned_to=request.user,
         )
-    elif selected_collector:
+    elif selected_collector_user is not None:
         scoped_actions = scoped_actions.filter(
-            document__assignments__assigned_to_id=selected_collector,
+            document__assignments__assigned_to=selected_collector_user,
         )
 
     scoped_actions = scoped_actions.order_by(
@@ -332,9 +383,9 @@ def my_work(request):
         customers = customers.filter(
             documents__assignments__assigned_to=request.user,
         )
-    elif selected_collector:
+    elif selected_collector_user is not None:
         customers = customers.filter(
-            documents__assignments__assigned_to_id=selected_collector,
+            documents__assignments__assigned_to=selected_collector_user,
         )
 
     customers = (
@@ -616,9 +667,9 @@ def my_work(request):
         assignment_rows = assignment_rows.filter(
             assigned_to=request.user,
         )
-    elif selected_collector:
+    elif selected_collector_user is not None:
         assignment_rows = assignment_rows.filter(
-            assigned_to_id=selected_collector,
+            assigned_to=selected_collector_user,
         )
 
     collectors_by_customer = {}
@@ -1410,10 +1461,39 @@ def alerts_center(request):
 
     default_filter = "mine"
 
-    if OperationalAlertService.get_effective_role(request.user) in OperationalAlertService.FULL_VISIBILITY_ROLES:
+    if (
+        OperationalAlertService.get_effective_role(request.user)
+        in OperationalAlertService.FULL_VISIBILITY_ROLES
+    ):
         default_filter = "all"
 
-    selected_filter = request.GET.get("filter", default_filter)
+    allowed_alert_filters = {
+        "mine",
+        "all",
+        "critical",
+        "reopened",
+        "postponed",
+        "promises",
+        "without_management",
+        "critical_customers",
+        "high_priority",
+        "unassigned",
+    }
+
+    requested_filter = request.GET.get(
+        "filter",
+        default_filter,
+    ).strip()
+
+    # Compatibilidad temporal con el nombre antiguo.
+    if requested_filter == "no_management":
+        requested_filter = "without_management"
+
+    selected_filter = (
+        requested_filter
+        if requested_filter in allowed_alert_filters
+        else default_filter
+    )
 
     if selected_filter == "mine":
         alerts = alerts.filter(assigned_to=request.user)
@@ -1432,7 +1512,7 @@ def alerts_center(request):
                 OperationalAlert.AlertType.PROMISE_DUE_TODAY,
             ]
         )
-    elif selected_filter in ["no_management", "without_management"]:
+    elif selected_filter == "without_management":
         alerts = alerts.filter(
             alert_type=OperationalAlert.AlertType.NO_MANAGEMENT_7_DAYS
         )
@@ -1451,10 +1531,28 @@ def alerts_center(request):
 
     all_active_alerts = OperationalAlertService.get_visible_active_alerts(request.user)
 
-    alerts = alerts.order_by("-created_at")[:50]
+    alerts = alerts.order_by("-created_at")
+
+    paginator = Paginator(alerts, 25)
+
+    page_obj = paginator.get_page(
+        request.GET.get("page", "1")
+    )
+
+    alerts = page_obj.object_list
+
+    pagination_params = request.GET.copy()
+    pagination_params.pop("page", None)
+
+    pagination_query = urlencode(
+        pagination_params,
+        doseq=True,
+    )
 
     context = {
         "alerts": alerts,
+        "page_obj": page_obj,
+        "pagination_query": pagination_query,
         "selected_filter": selected_filter,
         "kpi_new": all_active_alerts.filter(
             status=OperationalAlert.AlertStatus.NEW

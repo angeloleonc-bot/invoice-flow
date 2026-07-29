@@ -21,26 +21,507 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect
 
+from urllib.parse import urlencode
+
+from django.core.paginator import Paginator
+from django.utils.dateparse import parse_date
+
 def documents_list(request):
-    documents = (
-        Document.objects.select_related("customer", "status", "sub_status")
-        .prefetch_related("tags")
-        .order_by("due_date", "customer__name", "document_number")
+    search_query = request.GET.get("q", "").strip()
+    requested_status = request.GET.get("status", "").strip()
+    selected_balance = request.GET.get("balance", "").strip()
+
+    requested_due_from = request.GET.get("due_from", "").strip()
+    requested_due_to = request.GET.get("due_to", "").strip()
+
+    due_from = parse_date(requested_due_from)
+    due_to = parse_date(requested_due_to)
+
+    allowed_balance_filters = {
+        "",
+        "pending",
+        "paid",
+        "overpayment",
+    }
+
+    if selected_balance not in allowed_balance_filters:
+        selected_balance = ""
+
+    allowed_sort_fields = {
+        "document": "document_number",
+        "customer": "customer__name",
+        "status": "status__name",
+        "balance": "balance_amount",
+        "due_date": "due_date",
+    }
+
+    requested_sort = request.GET.get(
+        "sort",
+        "due_date",
+    ).strip()
+
+    requested_direction = request.GET.get(
+        "dir",
+        "asc",
+    ).strip().lower()
+
+    selected_sort = (
+        requested_sort
+        if requested_sort in allowed_sort_fields
+        else "due_date"
     )
 
-    return render(request, "portfolio/documents_list.html", {"documents": documents})
+    selected_direction = (
+        requested_direction
+        if requested_direction in {"asc", "desc"}
+        else "asc"
+    )
 
+    allowed_page_sizes = {
+        "25",
+        "50",
+        "100",
+    }
+
+    selected_page_size = request.GET.get(
+        "page_size",
+        "25",
+    ).strip()
+
+    if selected_page_size not in allowed_page_sizes:
+        selected_page_size = "25"
+
+    documents = (
+        Document.objects
+        .select_related(
+            "customer",
+            "status",
+            "sub_status",
+        )
+        .prefetch_related("tags")
+    )
+
+    if search_query:
+        documents = documents.filter(
+            Q(document_number__icontains=search_query)
+            | Q(customer__name__icontains=search_query)
+            | Q(customer__rut__icontains=search_query)
+        )
+
+    selected_status = ""
+
+    if requested_status:
+        try:
+            status_id = int(requested_status)
+        except (TypeError, ValueError):
+            status_id = None
+
+        if status_id is not None:
+            status_exists = (
+                Document.objects
+                .filter(status_id=status_id)
+                .exists()
+            )
+
+            if status_exists:
+                selected_status = str(status_id)
+                documents = documents.filter(
+                    status_id=status_id,
+                )
+
+    if selected_balance == "pending":
+        documents = documents.filter(
+            balance_amount__gt=0,
+        )
+
+    elif selected_balance == "paid":
+        documents = documents.filter(
+            balance_amount=0,
+        )
+
+    elif selected_balance == "overpayment":
+        documents = documents.filter(
+            overpayment_amount__gt=0,
+        )
+
+    if due_from is not None:
+        documents = documents.filter(
+            due_date__gte=due_from,
+        )
+
+    if due_to is not None:
+        documents = documents.filter(
+            due_date__lte=due_to,
+        )
+
+    order_field = allowed_sort_fields[selected_sort]
+
+    if selected_direction == "desc":
+        order_field = f"-{order_field}"
+
+    documents = documents.order_by(
+        order_field,
+        "customer__name",
+        "document_number",
+    )
+
+    status_options = list(
+        Document.objects
+        .filter(status__isnull=False)
+        .values(
+            "status_id",
+            "status__name",
+        )
+        .distinct()
+        .order_by("status__name")
+    )
+
+    paginator = Paginator(
+        documents,
+        int(selected_page_size),
+    )
+
+    page_obj = paginator.get_page(
+        request.GET.get("page", "1")
+    )
+
+    documents = page_obj.object_list
+
+    pagination_params = request.GET.copy()
+    pagination_params.pop("page", None)
+
+    pagination_query = urlencode(
+        pagination_params,
+        doseq=True,
+    )
+
+    def build_sort_url(sort_key, default_direction="asc"):
+        params = request.GET.copy()
+        params.pop("page", None)
+
+        if (
+            selected_sort == sort_key
+            and selected_direction == "asc"
+        ):
+            next_direction = "desc"
+
+        elif (
+            selected_sort == sort_key
+            and selected_direction == "desc"
+        ):
+            next_direction = "asc"
+
+        else:
+            next_direction = default_direction
+
+        params["sort"] = sort_key
+        params["dir"] = next_direction
+
+        return f"?{urlencode(params, doseq=True)}"
+
+    sort_urls = {
+        "document": build_sort_url(
+            "document",
+            default_direction="asc",
+        ),
+        "customer": build_sort_url(
+            "customer",
+            default_direction="asc",
+        ),
+        "status": build_sort_url(
+            "status",
+            default_direction="asc",
+        ),
+        "balance": build_sort_url(
+            "balance",
+            default_direction="desc",
+        ),
+        "due_date": build_sort_url(
+            "due_date",
+            default_direction="asc",
+        ),
+    }
+
+    context = {
+        "documents": documents,
+        "page_obj": page_obj,
+        "pagination_query": pagination_query,
+        "total_documents": paginator.count,
+
+        "search_query": search_query,
+        "selected_status": selected_status,
+        "selected_balance": selected_balance,
+        "selected_due_from": (
+            requested_due_from
+            if due_from is not None
+            else ""
+        ),
+        "selected_due_to": (
+            requested_due_to
+            if due_to is not None
+            else ""
+        ),
+
+        "selected_sort": selected_sort,
+        "selected_direction": selected_direction,
+        "selected_page_size": selected_page_size,
+        "status_options": status_options,
+        "sort_urls": sort_urls,
+    }
+
+    return render(
+        request,
+        "portfolio/documents_list.html",
+        context,
+    )
 
 def customers_list(request):
-    customers = (
-        Customer.objects.annotate(
-            documents_count=Count("documents"),
-            total_balance=Sum("documents__balance_amount"),
-        )
-        .order_by("name")
+    search_query = request.GET.get(
+        "q",
+        "",
+    ).strip()
+
+    requested_cluster = request.GET.get(
+        "cluster",
+        "",
+    ).strip()
+
+    selected_documents = request.GET.get(
+        "documents",
+        "",
+    ).strip()
+
+    selected_balance = request.GET.get(
+        "balance",
+        "",
+    ).strip()
+
+    allowed_document_filters = {
+        "",
+        "with_documents",
+        "without_documents",
+    }
+
+    if selected_documents not in allowed_document_filters:
+        selected_documents = ""
+
+    allowed_balance_filters = {
+        "",
+        "pending",
+        "without_balance",
+    }
+
+    if selected_balance not in allowed_balance_filters:
+        selected_balance = ""
+
+    allowed_sort_fields = {
+        "customer": "name",
+        "rut": "rut",
+        "cluster": "cluster",
+        "documents": "documents_count",
+        "balance": "total_balance",
+    }
+
+    requested_sort = request.GET.get(
+        "sort",
+        "customer",
+    ).strip()
+
+    requested_direction = request.GET.get(
+        "dir",
+        "asc",
+    ).strip().lower()
+
+    selected_sort = (
+        requested_sort
+        if requested_sort in allowed_sort_fields
+        else "customer"
     )
 
-    return render(request, "portfolio/customers_list.html", {"customers": customers})
+    selected_direction = (
+        requested_direction
+        if requested_direction in {"asc", "desc"}
+        else "asc"
+    )
+
+    allowed_page_sizes = {
+        "25",
+        "50",
+        "100",
+    }
+
+    selected_page_size = request.GET.get(
+        "page_size",
+        "25",
+    ).strip()
+
+    if selected_page_size not in allowed_page_sizes:
+        selected_page_size = "25"
+
+    customers = Customer.objects.annotate(
+        documents_count=Count(
+            "documents",
+            distinct=True,
+        ),
+        total_balance=Sum(
+            "documents__balance_amount",
+        ),
+    )
+
+    if search_query:
+        customers = customers.filter(
+            Q(name__icontains=search_query)
+            | Q(rut__icontains=search_query)
+            | Q(email__icontains=search_query)
+        )
+
+    cluster_options = list(
+        Customer.objects
+        .exclude(cluster__isnull=True)
+        .exclude(cluster="")
+        .values_list(
+            "cluster",
+            flat=True,
+        )
+        .distinct()
+        .order_by("cluster")
+    )
+
+    selected_cluster = ""
+
+    if (
+        requested_cluster
+        and requested_cluster in cluster_options
+    ):
+        selected_cluster = requested_cluster
+
+        customers = customers.filter(
+            cluster=selected_cluster,
+        )
+
+    if selected_documents == "with_documents":
+        customers = customers.filter(
+            documents_count__gt=0,
+        )
+
+    elif selected_documents == "without_documents":
+        customers = customers.filter(
+            documents_count=0,
+        )
+
+    if selected_balance == "pending":
+        customers = customers.filter(
+            total_balance__gt=0,
+        )
+
+    elif selected_balance == "without_balance":
+        customers = customers.filter(
+            Q(total_balance=0)
+            | Q(total_balance__isnull=True)
+        )
+
+    order_field = allowed_sort_fields[selected_sort]
+
+    if selected_direction == "desc":
+        order_field = f"-{order_field}"
+
+    customers = customers.order_by(
+        order_field,
+        "name",
+    )
+
+    paginator = Paginator(
+        customers,
+        int(selected_page_size),
+    )
+
+    page_obj = paginator.get_page(
+        request.GET.get("page", "1")
+    )
+
+    customers = page_obj.object_list
+
+    pagination_params = request.GET.copy()
+    pagination_params.pop("page", None)
+
+    pagination_query = urlencode(
+        pagination_params,
+        doseq=True,
+    )
+
+    def build_sort_url(
+        sort_key,
+        default_direction="asc",
+    ):
+        params = request.GET.copy()
+        params.pop("page", None)
+
+        if (
+            selected_sort == sort_key
+            and selected_direction == "asc"
+        ):
+            next_direction = "desc"
+
+        elif (
+            selected_sort == sort_key
+            and selected_direction == "desc"
+        ):
+            next_direction = "asc"
+
+        else:
+            next_direction = default_direction
+
+        params["sort"] = sort_key
+        params["dir"] = next_direction
+
+        return f"?{urlencode(params, doseq=True)}"
+
+    sort_urls = {
+        "customer": build_sort_url(
+            "customer",
+            default_direction="asc",
+        ),
+        "rut": build_sort_url(
+            "rut",
+            default_direction="asc",
+        ),
+        "cluster": build_sort_url(
+            "cluster",
+            default_direction="asc",
+        ),
+        "documents": build_sort_url(
+            "documents",
+            default_direction="desc",
+        ),
+        "balance": build_sort_url(
+            "balance",
+            default_direction="desc",
+        ),
+    }
+
+    context = {
+        "customers": customers,
+        "page_obj": page_obj,
+        "pagination_query": pagination_query,
+        "total_customers": paginator.count,
+
+        "search_query": search_query,
+        "cluster_options": cluster_options,
+        "selected_cluster": selected_cluster,
+        "selected_documents": selected_documents,
+        "selected_balance": selected_balance,
+
+        "selected_sort": selected_sort,
+        "selected_direction": selected_direction,
+        "selected_page_size": selected_page_size,
+        "sort_urls": sort_urls,
+    }
+
+    return render(
+        request,
+        "portfolio/customers_list.html",
+        context,
+    )
 
 
 def customer_detail(request, customer_id):
@@ -674,51 +1155,307 @@ def customer_detail(request, customer_id):
 def unassigned_documents(request):
     User = get_user_model()
 
-    collectors = User.objects.filter(is_active=True).order_by(
-        "first_name",
-        "last_name",
-        "username",
+    search_query = request.GET.get(
+        "q",
+        "",
+    ).strip()
+
+    requested_status = request.GET.get(
+        "status",
+        "",
+    ).strip()
+
+    selected_balance = request.GET.get(
+        "balance",
+        "",
+    ).strip()
+
+    requested_due_from = request.GET.get(
+        "due_from",
+        "",
+    ).strip()
+
+    requested_due_to = request.GET.get(
+        "due_to",
+        "",
+    ).strip()
+
+    due_from = parse_date(requested_due_from)
+    due_to = parse_date(requested_due_to)
+
+    allowed_balance_filters = {
+        "",
+        "pending",
+        "paid",
+        "overpayment",
+    }
+
+    if selected_balance not in allowed_balance_filters:
+        selected_balance = ""
+
+    allowed_sort_fields = {
+        "document": "document_number",
+        "customer": "customer__name",
+        "status": "status__name",
+        "balance": "balance_amount",
+        "due_date": "due_date",
+    }
+
+    requested_sort = request.GET.get(
+        "sort",
+        "due_date",
+    ).strip()
+
+    requested_direction = request.GET.get(
+        "dir",
+        "asc",
+    ).strip().lower()
+
+    selected_sort = (
+        requested_sort
+        if requested_sort in allowed_sort_fields
+        else "due_date"
     )
 
-    documents = (
-        Document.objects.select_related(
+    selected_direction = (
+        requested_direction
+        if requested_direction in {"asc", "desc"}
+        else "asc"
+    )
+
+    allowed_page_sizes = {
+        "25",
+        "50",
+        "100",
+    }
+
+    selected_page_size = request.GET.get(
+        "page_size",
+        "25",
+    ).strip()
+
+    if selected_page_size not in allowed_page_sizes:
+        selected_page_size = "25"
+
+    collectors = (
+        User.objects
+        .filter(is_active=True)
+        .order_by(
+            "first_name",
+            "last_name",
+            "username",
+        )
+    )
+
+    documents_base = (
+        Document.objects
+        .select_related(
             "customer",
             "status",
             "sub_status",
         )
-        .filter(~Q(assignments__is_active=True))
-        .distinct()
-        .order_by(
-            "due_date",
-            "customer__name",
-            "document_number",
+        .filter(
+            ~Q(assignments__is_active=True)
         )
+        .distinct()
     )
+
+    status_options = list(
+        documents_base
+        .filter(status__isnull=False)
+        .values(
+            "status_id",
+            "status__name",
+        )
+        .distinct()
+        .order_by("status__name")
+    )
+
+    allowed_status_ids = {
+        str(status["status_id"])
+        for status in status_options
+    }
+
+    selected_status = (
+        requested_status
+        if requested_status in allowed_status_ids
+        else ""
+    )
+
+    documents = documents_base
+
+    if search_query:
+        documents = documents.filter(
+            Q(document_number__icontains=search_query)
+            | Q(customer__name__icontains=search_query)
+            | Q(customer__rut__icontains=search_query)
+        )
+
+    if selected_status:
+        documents = documents.filter(
+            status_id=int(selected_status),
+        )
+
+    if selected_balance == "pending":
+        documents = documents.filter(
+            balance_amount__gt=0,
+        )
+
+    elif selected_balance == "paid":
+        documents = documents.filter(
+            balance_amount=0,
+        )
+
+    elif selected_balance == "overpayment":
+        documents = documents.filter(
+            overpayment_amount__gt=0,
+        )
+
+    if due_from is not None:
+        documents = documents.filter(
+            due_date__gte=due_from,
+        )
+
+    if due_to is not None:
+        documents = documents.filter(
+            due_date__lte=due_to,
+        )
 
     total_documents = documents.count()
 
     total_balance = (
-        documents.aggregate(total=Sum("balance_amount"))["total"]
+        documents.aggregate(
+            total=Sum("balance_amount")
+        )["total"]
         or 0
     )
+
+    order_field = allowed_sort_fields[selected_sort]
+
+    if selected_direction == "desc":
+        order_field = f"-{order_field}"
+
+    documents = documents.order_by(
+        order_field,
+        "customer__name",
+        "document_number",
+    )
+
+    paginator = Paginator(
+        documents,
+        int(selected_page_size),
+    )
+
+    page_obj = paginator.get_page(
+        request.GET.get("page", "1")
+    )
+
+    documents = page_obj.object_list
+
+    pagination_params = request.GET.copy()
+    pagination_params.pop("page", None)
+
+    pagination_query = urlencode(
+        pagination_params,
+        doseq=True,
+    )
+
+    def build_sort_url(
+        sort_key,
+        default_direction="asc",
+    ):
+        params = request.GET.copy()
+        params.pop("page", None)
+
+        if (
+            selected_sort == sort_key
+            and selected_direction == "asc"
+        ):
+            next_direction = "desc"
+
+        elif (
+            selected_sort == sort_key
+            and selected_direction == "desc"
+        ):
+            next_direction = "asc"
+
+        else:
+            next_direction = default_direction
+
+        params["sort"] = sort_key
+        params["dir"] = next_direction
+
+        return f"?{urlencode(params, doseq=True)}"
+
+    sort_urls = {
+        "document": build_sort_url(
+            "document",
+            default_direction="asc",
+        ),
+        "customer": build_sort_url(
+            "customer",
+            default_direction="asc",
+        ),
+        "status": build_sort_url(
+            "status",
+            default_direction="asc",
+        ),
+        "balance": build_sort_url(
+            "balance",
+            default_direction="desc",
+        ),
+        "due_date": build_sort_url(
+            "due_date",
+            default_direction="asc",
+        ),
+    }
 
     workload_service = WorkloadService()
     workloads = workload_service.get_workloads()
 
     recommendation_service = WorkloadRecommendationService()
-    recommendation = recommendation_service.recommend_collector()
+    recommendation = (
+        recommendation_service.recommend_collector()
+    )
+
+    context = {
+        "documents": documents,
+        "collectors": collectors,
+        "workloads": workloads,
+        "recommendation": recommendation,
+
+        "total_documents": total_documents,
+        "total_balance": total_balance,
+
+        "page_obj": page_obj,
+        "pagination_query": pagination_query,
+
+        "search_query": search_query,
+        "status_options": status_options,
+        "selected_status": selected_status,
+        "selected_balance": selected_balance,
+
+        "selected_due_from": (
+            requested_due_from
+            if due_from is not None
+            else ""
+        ),
+        "selected_due_to": (
+            requested_due_to
+            if due_to is not None
+            else ""
+        ),
+
+        "selected_sort": selected_sort,
+        "selected_direction": selected_direction,
+        "selected_page_size": selected_page_size,
+        "sort_urls": sort_urls,
+    }
 
     return render(
         request,
         "portfolio/unassigned_documents.html",
-        {
-            "documents": documents,
-            "collectors": collectors,
-            "workloads": workloads,
-            "recommendation": recommendation,
-            "total_documents": total_documents,
-            "total_balance": total_balance,
-        },
+        context,
     )
 
 def assignment_workloads(request):

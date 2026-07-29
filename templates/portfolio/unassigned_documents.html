@@ -1,62 +1,291 @@
 {% extends "base.html" %}
 {% load money %}
+
 {% block title %}Documentos sin asignar | Invoice Flow{% endblock %}
 
 {% block content %}
 <div class="if-page-header">
   <div>
     <p class="if-eyebrow">Asignación</p>
-    <h1 class="if-page-title">Documentos sin asignar</h1>
-    <p class="if-page-subtitle">Selecciona documentos y asígnalos operacionalmente a un cobrador.</p>
+
+    <h1 class="if-page-title">
+      Documentos sin asignar
+    </h1>
+
+    <p class="if-page-subtitle">
+      Selecciona documentos y asígnalos operacionalmente a un cobrador.
+    </p>
   </div>
 </div>
 
 {% include "portfolio/_assignment_nav.html" with active_tab="unassigned" %}
 
-<form method="post" action="{% url 'portfolio:assign_documents' %}">
-  {% csrf_token %}
+<section class="if-card if-portfolio-filter-card mt-3">
+  <form method="get" class="if-portfolio-filters">
+    <input
+      type="hidden"
+      name="sort"
+      value="{{ selected_sort }}"
+    >
 
-  <div class="if-dashboard-kpis if-assignment-kpis mt-3">
-    <div class="if-card-kpi if-kpi-premium">
-      <span class="if-stat-icon"><i class="bi bi-inbox"></i></span>
-      <div class="if-stat-label">Documentos sin asignar</div>
-      <div class="if-stat-value">{{ total_documents }}</div>
-      <div class="if-kpi-divider"></div>
-      <div class="if-stat-trend">Pendientes de distribución</div>
+    <input
+      type="hidden"
+      name="dir"
+      value="{{ selected_direction }}"
+    >
+
+    <div class="if-portfolio-filter-field">
+      <label for="q">
+        Buscar
+      </label>
+
+      <input
+        id="q"
+        type="text"
+        name="q"
+        value="{{ search_query }}"
+        placeholder="Documento, cliente o RUT"
+      >
     </div>
 
-    <div class="if-card-kpi if-kpi-premium">
-      <span class="if-stat-icon"><i class="bi bi-cash-stack"></i></span>
-      <div class="if-stat-label">Saldo sin asignar</div>
-      <div class="if-stat-value">{{ total_balance|clp }}</div>
-      <div class="if-kpi-divider"></div>
-      <div class="if-stat-trend">Monto aún no distribuido</div>
+    <div class="if-portfolio-filter-field">
+      <label for="status">
+        Estado
+      </label>
+
+      <select
+        id="status"
+        name="status"
+      >
+        <option value="">
+          Todos
+        </option>
+
+        {% for status in status_options %}
+          <option
+            value="{{ status.status_id }}"
+            {% if selected_status == status.status_id|stringformat:"s" %}selected{% endif %}
+          >
+            {{ status.status__name }}
+          </option>
+        {% endfor %}
+      </select>
     </div>
 
-    <div class="if-card-kpi if-kpi-premium">
-      <span class="if-stat-icon if-stat-icon-success"><i class="bi bi-stars"></i></span>
-      <div class="if-stat-label">Recomendación</div>
-      <div class="if-stat-value if-stat-value-text">
-        {% if recommendation %}{{ recommendation.collector_name }}{% else %}Sin datos{% endif %}
-      </div>
-      <div class="if-kpi-divider"></div>
-      <div class="if-stat-trend">
-        {% if recommendation %}Carga {{ recommendation.workload_percentage }}%{% else %}No hay carga previa{% endif %}
-      </div>
+    <div class="if-portfolio-filter-field">
+      <label for="balance">
+        Saldo
+      </label>
+
+      <select
+        id="balance"
+        name="balance"
+      >
+        <option value="">
+          Todos
+        </option>
+
+        <option
+          value="pending"
+          {% if selected_balance == "pending" %}selected{% endif %}
+        >
+          Con saldo pendiente
+        </option>
+
+        <option
+          value="paid"
+          {% if selected_balance == "paid" %}selected{% endif %}
+        >
+          Sin saldo pendiente
+        </option>
+
+        <option
+          value="overpayment"
+          {% if selected_balance == "overpayment" %}selected{% endif %}
+        >
+          Con saldo a favor
+        </option>
+      </select>
+    </div>
+
+    <div class="if-portfolio-filter-field">
+      <label for="due_from">
+        Vencimiento desde
+      </label>
+
+      <input
+        id="due_from"
+        type="date"
+        name="due_from"
+        value="{{ selected_due_from }}"
+      >
+    </div>
+
+    <div class="if-portfolio-filter-field">
+      <label for="due_to">
+        Vencimiento hasta
+      </label>
+
+      <input
+        id="due_to"
+        type="date"
+        name="due_to"
+        value="{{ selected_due_to }}"
+      >
+    </div>
+
+    <div class="if-portfolio-filter-field">
+      <label for="page_size">
+        Filas
+      </label>
+
+      <select
+        id="page_size"
+        name="page_size"
+      >
+        <option
+          value="25"
+          {% if selected_page_size == "25" %}selected{% endif %}
+        >
+          25
+        </option>
+
+        <option
+          value="50"
+          {% if selected_page_size == "50" %}selected{% endif %}
+        >
+          50
+        </option>
+
+        <option
+          value="100"
+          {% if selected_page_size == "100" %}selected{% endif %}
+        >
+          100
+        </option>
+      </select>
+    </div>
+
+    <div class="if-portfolio-filter-actions">
+      <button
+        type="submit"
+        class="if-button-primary"
+      >
+        <i class="bi bi-search"></i>
+        Filtrar
+      </button>
+
+      <a
+        href="{% url 'portfolio:unassigned_documents' %}"
+        class="if-button-secondary"
+      >
+        Limpiar
+      </a>
+    </div>
+  </form>
+</section>
+
+<div class="if-dashboard-kpis if-assignment-kpis mt-3">
+  <div class="if-card-kpi if-kpi-premium">
+    <span class="if-stat-icon">
+      <i class="bi bi-inbox"></i>
+    </span>
+
+    <div class="if-stat-label">
+      Documentos sin asignar
+    </div>
+
+    <div class="if-stat-value">
+      {{ total_documents }}
+    </div>
+
+    <div class="if-kpi-divider"></div>
+
+    <div class="if-stat-trend">
+      Según los filtros seleccionados
     </div>
   </div>
 
+  <div class="if-card-kpi if-kpi-premium">
+    <span class="if-stat-icon">
+      <i class="bi bi-cash-stack"></i>
+    </span>
+
+    <div class="if-stat-label">
+      Saldo sin asignar
+    </div>
+
+    <div class="if-stat-value">
+      {{ total_balance|clp }}
+    </div>
+
+    <div class="if-kpi-divider"></div>
+
+    <div class="if-stat-trend">
+      Monto pendiente del resultado actual
+    </div>
+  </div>
+
+  <div class="if-card-kpi if-kpi-premium">
+    <span class="if-stat-icon if-stat-icon-success">
+      <i class="bi bi-stars"></i>
+    </span>
+
+    <div class="if-stat-label">
+      Recomendación
+    </div>
+
+    <div class="if-stat-value if-stat-value-text">
+      {% if recommendation %}
+        {{ recommendation.collector_name }}
+      {% else %}
+        Sin datos
+      {% endif %}
+    </div>
+
+    <div class="if-kpi-divider"></div>
+
+    <div class="if-stat-trend">
+      {% if recommendation %}
+        Carga {{ recommendation.workload_percentage }}%
+      {% else %}
+        No hay carga previa
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<form
+  method="post"
+  action="{% url 'portfolio:assign_documents' %}"
+>
+  {% csrf_token %}
+
   <div class="if-listing-toolbar mt-3">
     <div>
-      <strong>Asignación operacional</strong>
-      <span>Selecciona documentos y asígnalos al cobrador elegido.</span>
+      <strong>
+        Asignación operacional
+      </strong>
+
+      <span>
+        Selecciona documentos de la página actual y asígnalos al cobrador elegido.
+      </span>
     </div>
 
     <div class="d-flex gap-2 align-items-center">
-      <select name="collector_id" class="form-select" style="min-width: 260px;" required>
-        <option value="">Seleccionar cobrador</option>
+      <select
+        name="collector_id"
+        class="form-select"
+        style="min-width: 260px;"
+        required
+      >
+        <option value="">
+          Seleccionar cobrador
+        </option>
+
         {% for collector in collectors %}
-          <option value="{{ collector.id }}"
+          <option
+            value="{{ collector.id }}"
             {% if recommendation and recommendation.collector.id == collector.id %}selected{% endif %}
           >
             {{ collector.get_full_name|default:collector.username }}
@@ -64,7 +293,10 @@
         {% endfor %}
       </select>
 
-      <button type="submit" class="if-button-primary">
+      <button
+        type="submit"
+        class="if-button-primary"
+      >
         <i class="bi bi-diagram-3"></i>
         Asignar
       </button>
@@ -74,8 +306,13 @@
   <section class="if-card mt-3">
     <div class="if-card-header">
       <div>
-        <h2 class="if-card-title">Documentos pendientes</h2>
-        <p class="if-card-subtitle">Selecciona uno o varios documentos para asignación inicial.</p>
+        <h2 class="if-card-title">
+          Documentos pendientes
+        </h2>
+
+        <p class="if-card-subtitle">
+          Selecciona uno o varios documentos para asignación inicial.
+        </p>
       </div>
     </div>
 
@@ -85,14 +322,98 @@
           <thead>
             <tr>
               <th>Seleccionar</th>
-              <th>Documento</th>
-              <th>Cliente</th>
-              <th>Vencimiento</th>
-              <th>Estado</th>
-              <th class="text-end">Saldo</th>
-              <th class="text-end">Acción</th>
+
+              <th>
+                <a
+                  href="{{ sort_urls.document }}"
+                  class="if-sort-control {% if selected_sort == 'document' %}is-active{% endif %}"
+                >
+                  <span>Documento</span>
+
+                  {% if selected_sort == "document" and selected_direction == "asc" %}
+                    <i class="bi bi-arrow-up"></i>
+                  {% elif selected_sort == "document" and selected_direction == "desc" %}
+                    <i class="bi bi-arrow-down"></i>
+                  {% else %}
+                    <i class="bi bi-arrow-down-up"></i>
+                  {% endif %}
+                </a>
+              </th>
+
+              <th>
+                <a
+                  href="{{ sort_urls.customer }}"
+                  class="if-sort-control {% if selected_sort == 'customer' %}is-active{% endif %}"
+                >
+                  <span>Cliente</span>
+
+                  {% if selected_sort == "customer" and selected_direction == "asc" %}
+                    <i class="bi bi-arrow-up"></i>
+                  {% elif selected_sort == "customer" and selected_direction == "desc" %}
+                    <i class="bi bi-arrow-down"></i>
+                  {% else %}
+                    <i class="bi bi-arrow-down-up"></i>
+                  {% endif %}
+                </a>
+              </th>
+
+              <th>
+                <a
+                  href="{{ sort_urls.due_date }}"
+                  class="if-sort-control {% if selected_sort == 'due_date' %}is-active{% endif %}"
+                >
+                  <span>Vencimiento</span>
+
+                  {% if selected_sort == "due_date" and selected_direction == "asc" %}
+                    <i class="bi bi-arrow-up"></i>
+                  {% elif selected_sort == "due_date" and selected_direction == "desc" %}
+                    <i class="bi bi-arrow-down"></i>
+                  {% else %}
+                    <i class="bi bi-arrow-down-up"></i>
+                  {% endif %}
+                </a>
+              </th>
+
+              <th>
+                <a
+                  href="{{ sort_urls.status }}"
+                  class="if-sort-control {% if selected_sort == 'status' %}is-active{% endif %}"
+                >
+                  <span>Estado</span>
+
+                  {% if selected_sort == "status" and selected_direction == "asc" %}
+                    <i class="bi bi-arrow-up"></i>
+                  {% elif selected_sort == "status" and selected_direction == "desc" %}
+                    <i class="bi bi-arrow-down"></i>
+                  {% else %}
+                    <i class="bi bi-arrow-down-up"></i>
+                  {% endif %}
+                </a>
+              </th>
+
+              <th class="text-end">
+                <a
+                  href="{{ sort_urls.balance }}"
+                  class="if-sort-control if-sort-control-end {% if selected_sort == 'balance' %}is-active{% endif %}"
+                >
+                  <span>Saldo</span>
+
+                  {% if selected_sort == "balance" and selected_direction == "asc" %}
+                    <i class="bi bi-arrow-up"></i>
+                  {% elif selected_sort == "balance" and selected_direction == "desc" %}
+                    <i class="bi bi-arrow-down"></i>
+                  {% else %}
+                    <i class="bi bi-arrow-down-up"></i>
+                  {% endif %}
+                </a>
+              </th>
+
+              <th class="text-end">
+                Acción
+              </th>
             </tr>
           </thead>
+
           <tbody>
             {% for document in documents %}
               <tr>
@@ -104,23 +425,54 @@
                     class="form-check-input"
                   >
                 </td>
+
                 <td>
-                  <strong>{{ document.document_number }}</strong>
-                  <div class="if-muted">{{ document.get_document_type_display }}</div>
+                  <strong>
+                    {{ document.document_number }}
+                  </strong>
+
+                  <div class="if-muted">
+                    {{ document.get_document_type_display }}
+                  </div>
                 </td>
+
                 <td>
-                  <strong>{{ document.customer.name }}</strong>
-                  <div class="if-muted">Cliente cartera</div>
+                  <strong>
+                    {{ document.customer.name }}
+                  </strong>
+
+                  <div class="if-muted">
+                    {{ document.customer.rut }}
+                  </div>
                 </td>
-                <td>{{ document.due_date|date:"d/m/Y" }}</td>
+
                 <td>
-                  <span class="if-badge if-badge-soft">{{ document.status.name }}</span>
+                  {{ document.due_date|date:"d/m/Y" }}
                 </td>
+
+                <td>
+                  <span class="if-badge if-badge-soft">
+                    {{ document.status.name }}
+                  </span>
+                </td>
+
                 <td class="text-end">
-                  <strong>{{ document.balance_amount|clp }}</strong>
+                  <strong>
+                    {{ document.balance_amount|clp }}
+                  </strong>
+
+                  {% if document.overpayment_amount > 0 %}
+                    <div class="if-muted">
+                      A favor {{ document.overpayment_amount|clp }}
+                    </div>
+                  {% endif %}
                 </td>
+
                 <td class="text-end">
-                  <a href="{% url 'management:document_detail' document.id %}" class="if-action-link">
+                  <a
+                    href="{% url 'management:document_detail' document.id %}"
+                    class="if-action-link"
+                  >
                     <i class="bi bi-arrow-right"></i>
                     Ver
                   </a>
@@ -130,10 +482,80 @@
           </tbody>
         </table>
       </div>
+
+      {% if page_obj.paginator.num_pages > 1 %}
+        <footer class="if-portfolio-pagination">
+          <div class="if-portfolio-pagination-summary">
+            Mostrando
+            <strong>
+              {{ page_obj.start_index }}–{{ page_obj.end_index }}
+            </strong>
+            de
+            <strong>
+              {{ page_obj.paginator.count }}
+            </strong>
+            documentos
+          </div>
+
+          <nav
+            class="if-pagination-nav"
+            aria-label="Paginación de documentos sin asignar"
+          >
+            {% if page_obj.has_previous %}
+              <a
+                href="?{{ pagination_query }}{% if pagination_query %}&{% endif %}page={{ page_obj.previous_page_number }}"
+                class="if-pagination-direction"
+              >
+                <i class="bi bi-chevron-left"></i>
+                Anterior
+              </a>
+            {% else %}
+              <span class="if-pagination-direction is-disabled">
+                <i class="bi bi-chevron-left"></i>
+                Anterior
+              </span>
+            {% endif %}
+
+            <span class="if-pagination-page is-active">
+              {{ page_obj.number }}
+              de
+              {{ page_obj.paginator.num_pages }}
+            </span>
+
+            {% if page_obj.has_next %}
+              <a
+                href="?{{ pagination_query }}{% if pagination_query %}&{% endif %}page={{ page_obj.next_page_number }}"
+                class="if-pagination-direction"
+              >
+                Siguiente
+                <i class="bi bi-chevron-right"></i>
+              </a>
+            {% else %}
+              <span class="if-pagination-direction is-disabled">
+                Siguiente
+                <i class="bi bi-chevron-right"></i>
+              </span>
+            {% endif %}
+          </nav>
+        </footer>
+      {% endif %}
+
     {% else %}
       <div class="if-empty-state">
-        <h3>No hay documentos sin asignar</h3>
-        <p>Toda la cartera disponible tiene una asignación activa.</p>
+        <h3>
+          No hay documentos sin asignar
+        </h3>
+
+        <p>
+          No existen documentos que coincidan con los filtros seleccionados.
+        </p>
+
+        <a
+          href="{% url 'portfolio:unassigned_documents' %}"
+          class="if-button-primary mt-3"
+        >
+          Limpiar filtros
+        </a>
       </div>
     {% endif %}
   </section>

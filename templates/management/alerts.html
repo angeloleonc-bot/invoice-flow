@@ -7,26 +7,83 @@
   <div>
     <p class="if-eyebrow">Workflow operacional</p>
     <h1>Centro de Alertas</h1>
-    <p class="if-muted">Centro de control operacional para monitoreo visual, gestión de riesgo y seguimiento por responsable.</p>
+    <p class="if-muted">
+      Centro de control operacional para monitoreo visual, gestión de riesgo y seguimiento por responsable.
+    </p>
   </div>
 </div>
 
-
-
 <div class="if-alert-filter-card">
-  <a class="{% if selected_filter == 'mine' %}is-active{% endif %}" href="{% url 'management:alerts_center' %}?filter=mine">Mis alertas</a>
-  <a class="{% if selected_filter == 'all' %}is-active{% endif %}" href="{% url 'management:alerts_center' %}?filter=all">Todas</a>
-  <a class="{% if selected_filter == 'critical' %}is-active{% endif %}" href="{% url 'management:alerts_center' %}?filter=critical">Críticas</a>
-  <a class="{% if selected_filter == 'reopened' %}is-active{% endif %}" href="{% url 'management:alerts_center' %}?filter=reopened">Reabiertas</a>
-  <a class="{% if selected_filter == 'postponed' %}is-active{% endif %}" href="{% url 'management:alerts_center' %}?filter=postponed">Pospuestas</a>
-  <a class="{% if selected_filter == 'promises' %}is-active{% endif %}" href="{% url 'management:alerts_center' %}?filter=promises">Promesas</a>
-  <a class="{% if selected_filter == 'without_management' or selected_filter == 'no_management' %}is-active{% endif %}" href="{% url 'management:alerts_center' %}?filter=without_management">Sin gestión</a>
-  <a class="{% if selected_filter == 'critical_customers' %}is-active{% endif %}" href="{% url 'management:alerts_center' %}?filter=critical_customers">Clientes críticos</a>
-  <a class="{% if selected_filter == 'high_priority' %}is-active{% endif %}" href="{% url 'management:alerts_center' %}?filter=high_priority">Alta prioridad</a>
-  <a class="{% if selected_filter == 'unassigned' %}is-active{% endif %}" href="{% url 'management:alerts_center' %}?filter=unassigned">Sin asignar</a>
+  <a
+    class="{% if selected_filter == 'mine' %}is-active{% endif %}"
+    href="{% url 'management:alerts_center' %}?filter=mine"
+  >
+    Mis alertas
+  </a>
+
+  <a
+    class="{% if selected_filter == 'all' %}is-active{% endif %}"
+    href="{% url 'management:alerts_center' %}?filter=all"
+  >
+    Todas
+  </a>
+
+  <a
+    class="{% if selected_filter == 'critical' %}is-active{% endif %}"
+    href="{% url 'management:alerts_center' %}?filter=critical"
+  >
+    Críticas
+  </a>
+
+  <a
+    class="{% if selected_filter == 'reopened' %}is-active{% endif %}"
+    href="{% url 'management:alerts_center' %}?filter=reopened"
+  >
+    Reabiertas
+  </a>
+
+  <a
+    class="{% if selected_filter == 'postponed' %}is-active{% endif %}"
+    href="{% url 'management:alerts_center' %}?filter=postponed"
+  >
+    Pospuestas
+  </a>
+
+  <a
+    class="{% if selected_filter == 'promises' %}is-active{% endif %}"
+    href="{% url 'management:alerts_center' %}?filter=promises"
+  >
+    Promesas
+  </a>
+
+  <a
+    class="{% if selected_filter == 'without_management' %}is-active{% endif %}"
+    href="{% url 'management:alerts_center' %}?filter=without_management"
+  >
+    Sin gestión
+  </a>
+
+  <a
+    class="{% if selected_filter == 'critical_customers' %}is-active{% endif %}"
+    href="{% url 'management:alerts_center' %}?filter=critical_customers"
+  >
+    Clientes críticos
+  </a>
+
+  <a
+    class="{% if selected_filter == 'high_priority' %}is-active{% endif %}"
+    href="{% url 'management:alerts_center' %}?filter=high_priority"
+  >
+    Alta prioridad
+  </a>
+
+  <a
+    class="{% if selected_filter == 'unassigned' %}is-active{% endif %}"
+    href="{% url 'management:alerts_center' %}?filter=unassigned"
+  >
+    Sin asignar
+  </a>
 </div>
-
-
 
 <div class="if-alert-panel">
   <div class="if-alert-panel-header">
@@ -46,17 +103,26 @@
         </div>
 
         <div class="if-alert-main">
-          <div class="if-alert-title">{{ alert.title }}</div>
-          <div class="if-alert-message">{{ alert.message }}</div>
+          <div class="if-alert-title">
+            {{ alert.title }}
+          </div>
+
+          <div class="if-alert-message">
+            {{ alert.message }}
+          </div>
 
           <div class="if-alert-meta">
             {% if alert.customer %}
-              <a href="{% url 'portfolio:customer_detail' alert.customer.id %}">{{ alert.customer }}</a>
+              <a href="{% url 'portfolio:customer_detail' alert.customer.id %}">
+                {{ alert.customer }}
+              </a>
             {% endif %}
 
             {% if alert.document %}
               <span>·</span>
-              <a href="{% url 'management:document_detail' alert.document.id %}">{{ alert.document }}</a>
+              <a href="{% url 'management:document_detail' alert.document.id %}">
+                {{ alert.document }}
+              </a>
             {% endif %}
 
             <span>·</span>
@@ -66,8 +132,12 @@
             <span>{{ alert.get_status_display }}</span>
 
             <span>·</span>
+
             {% if alert.assigned_to %}
-              <span>Responsable: {{ alert.assigned_to.get_full_name|default:alert.assigned_to.username }}</span>
+              <span>
+                Responsable:
+                {{ alert.assigned_to.get_full_name|default:alert.assigned_to.username }}
+              </span>
             {% else %}
               <span>Sin responsable</span>
             {% endif %}
@@ -81,30 +151,128 @@
 
         <div class="if-alert-actions">
           {% if alert.document %}
-            <a class="if-btn-soft if-btn-primary" href="{% url 'management:document_detail' alert.document.id %}">Gestionar</a>
+            <a
+              class="if-btn-soft if-btn-primary"
+              href="{% url 'management:document_detail' alert.document.id %}"
+            >
+              Gestionar
+            </a>
           {% endif %}
 
-          <form method="post" action="{% url 'management:alert_resolve' alert.id %}">
+          <form
+            method="post"
+            action="{% url 'management:alert_resolve' alert.id %}"
+          >
             {% csrf_token %}
-            <button class="if-btn-soft if-btn-success" type="submit">Resolver</button>
+            <input
+              type="hidden"
+              name="filter"
+              value="{{ selected_filter }}"
+            >
+
+            <button
+              class="if-btn-soft if-btn-success"
+              type="submit"
+            >
+              Resolver
+            </button>
           </form>
 
-          <form method="post" action="{% url 'management:alert_postpone' alert.id %}">
+          <form
+            method="post"
+            action="{% url 'management:alert_postpone' alert.id %}"
+          >
             {% csrf_token %}
-            <button class="if-btn-soft" type="submit">Posponer</button>
+            <input
+              type="hidden"
+              name="filter"
+              value="{{ selected_filter }}"
+            >
+
+            <button
+              class="if-btn-soft"
+              type="submit"
+            >
+              Posponer
+            </button>
           </form>
 
-          <form method="post" action="{% url 'management:alert_dismiss' alert.id %}">
+          <form
+            method="post"
+            action="{% url 'management:alert_dismiss' alert.id %}"
+          >
             {% csrf_token %}
-            <button class="if-btn-soft if-btn-danger" type="submit">Descartar</button>
+            <input
+              type="hidden"
+              name="filter"
+              value="{{ selected_filter }}"
+            >
+
+            <button
+              class="if-btn-soft if-btn-danger"
+              type="submit"
+            >
+              Descartar
+            </button>
           </form>
         </div>
       </div>
     {% empty %}
-      <div class="if-empty">No hay alertas activas para este filtro.</div>
+      <div class="if-empty">
+        No hay alertas activas para este filtro.
+      </div>
     {% endfor %}
   </div>
+
+  {% if page_obj and page_obj.paginator.num_pages > 1 %}
+    <footer class="if-portfolio-pagination">
+      <div class="if-portfolio-pagination-summary">
+        Mostrando
+        <strong>{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong>
+        de
+        <strong>{{ page_obj.paginator.count }}</strong>
+        alertas
+      </div>
+
+      <nav
+        class="if-pagination-nav"
+        aria-label="Paginación de alertas"
+      >
+        {% if page_obj.has_previous %}
+          <a
+            href="?{{ pagination_query }}{% if pagination_query %}&{% endif %}page={{ page_obj.previous_page_number }}"
+            class="if-pagination-direction"
+          >
+            <i class="bi bi-chevron-left"></i>
+            Anterior
+          </a>
+        {% else %}
+          <span class="if-pagination-direction is-disabled">
+            <i class="bi bi-chevron-left"></i>
+            Anterior
+          </span>
+        {% endif %}
+
+        <span class="if-pagination-page is-active">
+          {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+        </span>
+
+        {% if page_obj.has_next %}
+          <a
+            href="?{{ pagination_query }}{% if pagination_query %}&{% endif %}page={{ page_obj.next_page_number }}"
+            class="if-pagination-direction"
+          >
+            Siguiente
+            <i class="bi bi-chevron-right"></i>
+          </a>
+        {% else %}
+          <span class="if-pagination-direction is-disabled">
+            Siguiente
+            <i class="bi bi-chevron-right"></i>
+          </span>
+        {% endif %}
+      </nav>
+    </footer>
+  {% endif %}
 </div>
-
-
 {% endblock %}

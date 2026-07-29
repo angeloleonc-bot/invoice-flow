@@ -10,21 +10,28 @@
     <div class="collapse navbar-collapse show">
       <ul class="navbar-nav pt-lg-3">
         <li class="nav-item">
+          {% if can_view_dashboard %}
           <a class="nav-link if-sidebar-item {% if request.resolver_match.app_name == 'core' %}active{% endif %}" href="{% url 'core:dashboard' %}">
             <span class="nav-link-icon"><i class="bi bi-grid-1x2"></i></span>
             <span class="nav-link-title">Dashboard</span>
           </a>
+          {% endif %}
         </li>
 
+
 <li class="nav-item">
+ {% if can_manage_assignments %}
   <a
     class="nav-link if-sidebar-item {% if request.resolver_match.url_name == 'unassigned_documents' or request.resolver_match.url_name == 'assignment_workloads' %}active{% endif %}"
     href="{% url 'portfolio:unassigned_documents' %}"
   >
+  
     <span class="nav-link-icon"><i class="bi bi-diagram-3"></i></span>
     <span class="nav-link-title">Asignación</span>
   </a>
+{% endif %}
 </li>
+
 
         <li class="nav-item">
           <a class="nav-link if-sidebar-item {% if request.resolver_match.app_name == 'management' %}active{% endif %}" href="{% url 'management:my_work' %}">

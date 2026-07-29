@@ -237,3 +237,25 @@ class RoleService:
         user.roles.set(ordered_roles)
 
         return ordered_roles
+
+    @classmethod
+    def can_manage_assignments(cls, user) -> bool:
+        effective_role = cls.get_effective_role_code(
+            user
+        )
+
+        return effective_role in {
+            Role.ADMINISTRADOR,
+            Role.SUPERVISOR,
+        }
+
+    @classmethod
+    def can_view_dashboard(cls, user) -> bool:
+        effective_role = cls.get_effective_role_code(
+            user
+        )
+
+        return effective_role in {
+            Role.ADMINISTRADOR,
+            Role.SUPERVISOR,
+        }

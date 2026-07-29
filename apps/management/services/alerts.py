@@ -60,7 +60,10 @@ class OperationalAlertService:
         if role == "COBRADOR":
             return qs.filter(
                 Q(assigned_to=user)
-                | Q(document__assignments__collector=user, document__assignments__is_active=True)
+                | Q(
+                    document__assignments__assigned_to=user,
+                    document__assignments__is_active=True,
+                )
                 | Q(promise__created_by=user)
             ).distinct()
 

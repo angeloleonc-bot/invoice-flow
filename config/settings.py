@@ -166,7 +166,7 @@ AUTH_USER_MODEL = "accounts.User"
 # ============================================================
 
 ENTRA_AUTH_ENABLED = (
-    os.getenv("ENTRA_AUTH_ENABLED", "False").strip().lower()
+    os.getenv("ENTRA_AUTH_ENABLED", "True").strip().lower()
     in {"1", "true", "yes", "on"}
 )
 

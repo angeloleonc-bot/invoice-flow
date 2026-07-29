@@ -292,9 +292,18 @@ def customer_detail(request, customer_id):
 
     promises = (
         PaymentPromise.objects.filter(customer=customer)
-        .select_related("customer", "created_by")
-        .prefetch_related("promise_documents__document")
-        .order_by("-promise_date", "-created_at")
+        .select_related(
+            "customer",
+            "created_by",
+        )
+        .prefetch_related(
+            "promise_documents__document",
+            "attachments",
+        )
+        .order_by(
+            "-promise_date",
+            "-created_at",
+        )
     )
 
     promise_kpis = promises.aggregate(
@@ -424,6 +433,15 @@ def customer_detail(request, customer_id):
             for attachment in attachments
         ]
 
+    latest_promises = list(promises[:10])
+
+    for promise in latest_promises:
+        promise.attachment_viewmodels = (
+            build_attachment_viewmodels(
+                promise.attachments.all()
+            )
+        )
+
     timeline = []
 
     processed_action_batches = set()
@@ -541,6 +559,12 @@ def customer_detail(request, customer_id):
         if promise.notes:
             description_parts.append(f"Comentario: {promise.notes}")
 
+        promise_attachment_viewmodels = (
+            build_attachment_viewmodels(
+                promise.attachments.all()
+            )
+        )
+
         timeline.append(
             {
                 "type": "promesa",
@@ -554,7 +578,7 @@ def customer_detail(request, customer_id):
                 "amount": promise.promised_amount,
                 "status": promise.get_status_display(),
                 "reason": None,
-                "attachments": [],
+                "attachments": promise_attachment_viewmodels,
             }
         )
 

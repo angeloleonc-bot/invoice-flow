@@ -40,6 +40,45 @@
             </p>
           {% endif %}
 
+          {% if latest_promises.0.attachment_viewmodels %}
+  <div class="if-promise-attachments">
+
+    <div class="if-promise-attachments-label">
+      <i class="bi bi-paperclip"></i>
+
+      <span>
+        {{ latest_promises.0.attachment_viewmodels|length }}
+        archivo{{ latest_promises.0.attachment_viewmodels|length|pluralize }}
+      </span>
+    </div>
+
+    <div class="if-promise-attachments-list">
+
+      {% for attachment in latest_promises.0.attachment_viewmodels %}
+        <a
+          href="{% url 'management:operational_attachment_download' attachment.id %}"
+          class="if-promise-attachment"
+          title="Descargar {{ attachment.name }}"
+        >
+          <span class="if-promise-attachment-icon">
+            <i class="bi {{ attachment.icon }}"></i>
+          </span>
+
+          <span class="if-promise-attachment-name">
+            {{ attachment.name }}
+          </span>
+
+          <span class="if-promise-attachment-download">
+            <i class="bi bi-download"></i>
+          </span>
+        </a>
+      {% endfor %}
+
+    </div>
+
+  </div>
+{% endif %}
+
         </article>
       {% else %}
         <article class="if-customer-summary-card is-empty">

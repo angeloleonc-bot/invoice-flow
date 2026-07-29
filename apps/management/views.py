@@ -1516,10 +1516,6 @@ def operational_attachment_download(request, attachment_id):
         pk=attachment_id,
     )
 
-    if not request.user.has_perm(
-        "management.view_operationalattachment"
-    ):
-        raise Http404
 
     if attachment.attached_to is None:
         raise Http404

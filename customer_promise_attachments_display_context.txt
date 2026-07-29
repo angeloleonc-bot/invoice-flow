@@ -1,0 +1,2908 @@
+﻿=== IMPORTS Y CONSULTA DE PROMESAS EN PORTFOLIO VIEW ===
+
+  from django.contrib.auth import get_user_model
+  from django.db.models import Count, Q, Sum
+  from django.shortcuts import get_object_or_404, render
+  from django.utils import timezone
+  from datetime import datetime, time
+  from .models import Customer, CustomerContact, Document, DocumentAssignment, PaymentRecord
+> from apps.management.models import CollectionAction, PaymentPromise
+  from .services.workload import WorkloadRecommendationService, WorkloadService
+  from apps.portfolio.models import CreditNoteApplication
+  from apps.management.forms import CollectionActionForm, WorkspacePaymentPromiseForm
+  from django.core.exceptions import ValidationError
+  from apps.management.services.actions import (
+      create_collection_action_batch,
+  )
+  
+  from apps.management.services.promises import (
+      create_payment_promise_batch,
+  )
+  
+  from django.contrib import messages
+  from django.contrib.auth.decorators import login_required
+  from django.shortcuts import redirect
+  
+  def documents_list(request):
+      documents = (
+          Document.objects.select_related("customer", "status", "sub_status")
+          .prefetch_related("tags")
+          .order_by("due_date", "customer__name", "document_number")
+      )
+  
+      return render(request, "portfolio/documents_list.html", {"documents": documents})
+  
+  
+  def customers_list(request):
+      customers = (
+          Customer.objects.annotate(
+              documents_count=Count("documents"),
+              total_balance=Sum("documents__balance_amount"),
+          )
+          .order_by("name")
+      )
+  
+      return render(request, "portfolio/customers_list.html", {"customers": customers})
+  
+  
+  def customer_detail(request, customer_id):
+      today = timezone.localdate()
+  
+      customer = get_object_or_404(Customer, id=customer_id)
+      action_form = CollectionActionForm()
+      promise_form = WorkspacePaymentPromiseForm()
+  
+      documents_base = (
+          Document.objects.filter(customer=customer)
+          .select_related("customer", "status", "sub_status")
+          .prefetch_related(
+              "tags",
+              "credit_note_applications",
+              "payments",
+              "promise_documents__promise",
+              "collection_actions",
+          )
+          .order_by("due_date", "document_number")
+      )
+  
+      open_documents = documents_base.filter(balance_amount__gt=0).order_by(
+          "-balance_amount",
+      document_ids = list(documents_base.values_list("id", flat=True))
+  
+      credit_notes = (
+          CreditNoteApplication.objects.filter(document_id__in=document_ids)
+          .select_related("document", "customer")
+          .order_by("-issue_date", "-created_at")
+      )
+  
+      credit_note_kpis = credit_notes.aggregate(
+          total_credit_notes=Sum("credit_amount"),
+          total_credit_note_count=Count("id"),
+      )
+  
+      document_kpis = documents_base.aggregate(
+          total_balance=Sum("balance_amount"),
+          total_documents=Count("id"),
+          overdue_documents=Count("id", filter=Q(due_date__lt=today)),
+          total_overpayment=Sum("overpayment_amount"),
+      )
+  
+>     promises = (
+>         PaymentPromise.objects.filter(customer=customer)
+          .select_related("customer", "created_by")
+          .prefetch_related("promise_documents__document")
+          .order_by("-promise_date", "-created_at")
+      )
+  
+>     promise_kpis = promises.aggregate(
+          active_promises=Count("id", filter=Q(status="ACTIVE")),
+          expired_promises=Count("id", filter=Q(status="EXPIRED")),
+      )
+  
+      actions = list(
+          CollectionAction.objects
+          .filter(document_id__in=document_ids)
+          .select_related(
+              "document",
+              "performed_by",
+          )
+          .prefetch_related(
+              "attachments",
+          )
+          .order_by("-created_at")
+      )
+  
+      payments = (
+          PaymentRecord.objects.filter(customer=customer)
+          .select_related("document", "customer")
+          .order_by("-payment_date", "-created_at")
+      )
+  
+      total_paid = payments.aggregate(total=Sum("amount"))["total"] or 0
+  
+      latest_payments = payments[:10]
+      latest_credit_notes = credit_notes[:10]
+>     latest_promises = promises[:10]
+      latest_actions = actions[:10]
+  
+      contacts = CustomerContact.objects.filter(customer=customer).order_by("name")
+      last_action = actions[0] if actions else None
+  
+      attachment_owner_ids = set()
+  
+      for action in actions:
+          metadata = action.metadata or {}
+  
+          owner_action_id = metadata.get(
+              "attachment_owner_action_id"
+          )
+  
+          try:
+              owner_action_id = int(owner_action_id)
+          except (TypeError, ValueError):
+              owner_action_id = None
+  
+          if owner_action_id:
+              attachment_owner_ids.add(owner_action_id)
+  
+  
+      attachment_owner_actions = {
+          owner_action.id: owner_action
+          for owner_action in (
+              CollectionAction.objects
+              .prefetch_related("attachments")
+              .filter(id__in=attachment_owner_ids)
+          )
+      }
+  
+      def format_attachment_size(size_bytes):
+          if not size_bytes:
+              return "0 KB"
+  
+          size = float(size_bytes)
+  
+          if size < 1024:
+              return f"{int(size)} B"
+  
+          size /= 1024
+  
+          if size < 1024:
+              return f"{size:.1f} KB"
+  
+          size /= 1024
+  
+          return f"{size:.1f} MB"
+  
+  
+      def get_attachment_icon(extension):
+          extension = (extension or "").lower().lstrip(".")
+  
+          icon_map = {
+              "pdf": "bi-file-earmark-pdf",
+              "doc": "bi-file-earmark-word",
+              "docx": "bi-file-earmark-word",
+              "xls": "bi-file-earmark-excel",
+              "xlsx": "bi-file-earmark-excel",
+  
+      recent_show_all = request.GET.get("recent") == "all"
+      recent_events_count = len(timeline)
+  
+      if not recent_show_all:
+          timeline = timeline[:5]
+  
+      return render(
+          request,
+          "portfolio/customer_detail.html",
+          {
+              "customer": customer,
+              "documents": documents,
+              "account_show_all": account_show_all,
+              "account_documents_count": account_documents_count,
+              "account_view": account_view,
+              "open_documents": open_documents,
+              "latest_documents": latest_documents,
+              "latest_payments": latest_payments,
+              "latest_credit_notes": latest_credit_notes,
+>             "latest_promises": latest_promises,
+              "latest_actions": latest_actions,
+              "total_overpayment": document_kpis["total_overpayment"] or 0,
+              "promises": promises,
+              "actions": actions,
+              "contacts": contacts,
+              "timeline": timeline,
+              "total_balance": document_kpis["total_balance"] or 0,
+              "total_documents": document_kpis["total_documents"] or 0,
+              "overdue_documents": document_kpis["overdue_documents"] or 0,
+>             "active_promises": promise_kpis["active_promises"] or 0,
+>             "expired_promises": promise_kpis["expired_promises"] or 0,
+              "last_action": last_action,
+              "payments": payments,
+              "total_paid": total_paid,
+              "credit_notes": credit_notes,
+              "total_credit_notes": credit_note_kpis["total_credit_notes"] or 0,
+              "total_credit_note_count": credit_note_kpis["total_credit_note_count"] or 0,
+              "recommended_document": recommended_document,
+              "recent_show_all": recent_show_all,
+              "recent_events_count": recent_events_count,
+              "action_form": action_form,
+              "promise_form": promise_form,
+          },
+      )
+  
+  def unassigned_documents(request):
+      User = get_user_model()
+  
+      collectors = User.objects.filter(is_active=True).order_by(
+          "first_name",
+          "last_name",
+          "username",
+      )
+  
+      documents = (
+          Document.objects.select_related(
+              "customer",
+              "status",
+              "sub_status",
+          )
+          .filter(~Q(assignments__is_active=True))
+          .distinct()
+          .order_by(
+              "due_date",
+              "customer__name",
+              "document_number",
+          )
+      )
+  
+      total_documents = documents.count()
+  
+      total_balance = (
+          documents.aggregate(total=Sum("balance_amount"))["total"]
+          or 0
+      )
+  
+      workload_service = WorkloadService()
+      workloads = workload_service.get_workloads()
+  
+      recommendation_service = WorkloadRecommendationService()
+      recommendation = recommendation_service.recommend_collector()
+  
+      return render(
+          request,
+          "portfolio/unassigned_documents.html",
+          {
+              "documents": documents,
+              "collectors": collectors,
+              "workloads": workloads,
+              "recommendation": recommendation,
+              "total_documents": total_documents,
+
+
+
+=== HELPERS DE ADJUNTOS EN PORTFOLIO VIEW ===
+
+              owner_action_id = None
+  
+          if owner_action_id:
+              attachment_owner_ids.add(owner_action_id)
+  
+  
+      attachment_owner_actions = {
+          owner_action.id: owner_action
+          for owner_action in (
+              CollectionAction.objects
+              .prefetch_related("attachments")
+              .filter(id__in=attachment_owner_ids)
+          )
+      }
+  
+>     def format_attachment_size(size_bytes):
+          if not size_bytes:
+              return "0 KB"
+  
+          size = float(size_bytes)
+  
+          if size < 1024:
+              return f"{int(size)} B"
+  
+          size /= 1024
+  
+          if size < 1024:
+              return f"{size:.1f} KB"
+  
+          size /= 1024
+  
+          return f"{size:.1f} MB"
+  
+  
+>     def get_attachment_icon(extension):
+          extension = (extension or "").lower().lstrip(".")
+  
+          icon_map = {
+              "pdf": "bi-file-earmark-pdf",
+              "doc": "bi-file-earmark-word",
+              "docx": "bi-file-earmark-word",
+              "xls": "bi-file-earmark-excel",
+              "xlsx": "bi-file-earmark-excel",
+              "csv": "bi-file-earmark-spreadsheet",
+              "ppt": "bi-file-earmark-slides",
+              "pptx": "bi-file-earmark-slides",
+              "jpg": "bi-file-earmark-image",
+              "jpeg": "bi-file-earmark-image",
+              "png": "bi-file-earmark-image",
+              "webp": "bi-file-earmark-image",
+              "tif": "bi-file-earmark-image",
+              "tiff": "bi-file-earmark-image",
+              "msg": "bi-envelope",
+              "eml": "bi-envelope",
+              "zip": "bi-file-earmark-zip",
+              "txt": "bi-file-earmark-text",
+          }
+  
+          return icon_map.get(
+              extension,
+              "bi-file-earmark",
+          )
+  
+  
+>     def build_attachment_viewmodels(attachments):
+          return [
+              {
+                  "id": attachment.id,
+                  "name": attachment.original_filename,
+                  "extension": attachment.extension,
+                  "mime_type": attachment.mime_type,
+>                 "size": format_attachment_size(
+                      attachment.size_bytes
+                  ),
+>                 "icon": get_attachment_icon(
+                      attachment.extension
+                  ),
+              }
+              for attachment in attachments
+          ]
+  
+      timeline = []
+  
+      processed_action_batches = set()
+  
+      for action in actions:
+          metadata = action.metadata or {}
+          batch_id = metadata.get("batch_id")
+  
+          owner_action_id = metadata.get(
+              "attachment_owner_action_id"
+          )
+  
+          try:
+              owner_action_id = int(owner_action_id)
+          except (TypeError, ValueError):
+              owner_action_id = None
+  
+          attachment_owner = (
+              attachment_owner_actions.get(owner_action_id)
+              if owner_action_id
+              else None
+          )
+  
+          if attachment_owner:
+              event_attachments = list(
+                  attachment_owner.attachments.all()
+              )
+          else:
+              event_attachments = list(
+                  action.attachments.all()
+              )
+  
+>         attachment_viewmodels = build_attachment_viewmodels(
+              event_attachments
+          )
+  
+          if batch_id:
+              if batch_id in processed_action_batches:
+                  continue
+  
+              processed_action_batches.add(batch_id)
+  
+              document_numbers = metadata.get(
+                  "selected_document_numbers",
+                  [],
+              )
+  
+              selected_count = metadata.get(
+                  "selected_document_count",
+                  len(document_numbers),
+              )
+  
+              description_parts = []
+  
+              if document_numbers:
+                  description_parts.append(
+                      "Documentos gestionados: "
+                      + ", ".join(document_numbers)
+                  )
+  
+              if action.description:
+                  description_parts.append(
+                      f"Comentario: {action.description}"
+                  )
+  
+              timeline.append(
+                  {
+                      "type": "gestion",
+                      "label": "Gestión",
+                      "date": action.action_date,
+                      "title": (
+                          f"{action.title} · "
+                          f"{selected_count} documento"
+                          f"{'s' if selected_count != 1 else ''}"
+                      ),
+                      "description": " · ".join(description_parts),
+                      "document": None,
+                      "amount": None,
+                      "status": None,
+                      "reason": None,
+>                     "attachments": attachment_viewmodels,
+                  }
+              )
+  
+          else:
+              timeline.append(
+                  {
+                      "type": "gestion",
+                      "label": "Gestión",
+                      "date": action.action_date,
+                      "title": action.title,
+                      "description": action.description,
+                      "document": action.document,
+                      "amount": None,
+                      "status": None,
+                      "reason": None,
+>                     "attachments": attachment_viewmodels,
+  
+                  }
+              )
+  
+      for promise in promises:
+          promise_docs = [
+              relation.document.document_number
+              for relation in promise.promise_documents.all()
+          ]
+  
+          docs_text = ", ".join(promise_docs)
+  
+          description_parts = []
+  
+          if docs_text:
+              description_parts.append(f"Documentos comprometidos: {docs_text}")
+  
+          if promise.notes:
+              description_parts.append(f"Comentario: {promise.notes}")
+  
+          timeline.append(
+              {
+                  "type": "promesa",
+                  "label": "Promesa",
+                  "date": timezone.make_aware(
+                      datetime.combine(promise.promise_date, time.min)
+                  ),
+                  "title": f"Compromiso de pago para el {promise.promise_date.strftime('%d/%m/%Y')}",
+                  "description": " · ".join(description_parts),
+                  "document": None,
+                  "amount": promise.promised_amount,
+                  "status": promise.get_status_display(),
+                  "reason": None,
+                  "attachments": [],
+              }
+          )
+  
+      for payment in payments:
+          timeline.append(
+              {
+                  "type": "payment",
+                  "label": "Pago",
+                  "date": timezone.make_aware(
+                      datetime.combine(payment.payment_date, time.min)
+                  ),
+                  "title": f"Pago aplicado a {payment.document.document_number}",
+                  "description": payment.source_reference or payment.notes,
+                  "document": payment.document,
+                  "amount": payment.amount,
+                  "status": None,
+                  "reason": None,
+                  "attachments": [],
+              }
+          )
+  
+      for nc in credit_notes:
+          timeline.append(
+              {
+                  "type": "credit_note",
+                  "label": "Nota de crédito",
+                  "date": (
+                      timezone.make_aware(datetime.combine(nc.issue_date, time.min))
+                      if nc.issue_date
+                      else timezone.now()
+                  ),
+                  "title": f"NC {nc.credit_document_number} aplicada",
+                  "description": nc.comment,
+                  "document": nc.document,
+                  "amount": nc.credit_amount,
+                  "status": nc.status,
+                  "reason": nc.reason,
+                  "attachments": [],
+              }
+          )
+  
+      timeline = sorted(
+          timeline,
+          key=lambda event: event["date"] or timezone.now(),
+          reverse=True,
+      )
+
+
+
+=== CONSTRUCCION DEL EVENTO PROMESA EN TIMELINE ===
+
+                  }
+              )
+  
+          else:
+              timeline.append(
+                  {
+                      "type": "gestion",
+                      "label": "Gestión",
+                      "date": action.action_date,
+                      "title": action.title,
+                      "description": action.description,
+                      "document": action.document,
+                      "amount": None,
+                      "status": None,
+                      "reason": None,
+                      "attachments": attachment_viewmodels,
+  
+                  }
+              )
+  
+>     for promise in promises:
+          promise_docs = [
+              relation.document.document_number
+              for relation in promise.promise_documents.all()
+          ]
+  
+          docs_text = ", ".join(promise_docs)
+  
+          description_parts = []
+  
+          if docs_text:
+              description_parts.append(f"Documentos comprometidos: {docs_text}")
+  
+          if promise.notes:
+              description_parts.append(f"Comentario: {promise.notes}")
+  
+          timeline.append(
+              {
+>                 "type": "promesa",
+                  "label": "Promesa",
+                  "date": timezone.make_aware(
+                      datetime.combine(promise.promise_date, time.min)
+                  ),
+                  "title": f"Compromiso de pago para el {promise.promise_date.strftime('%d/%m/%Y')}",
+                  "description": " · ".join(description_parts),
+                  "document": None,
+                  "amount": promise.promised_amount,
+                  "status": promise.get_status_display(),
+                  "reason": None,
+>                 "attachments": [],
+              }
+          )
+  
+      for payment in payments:
+          timeline.append(
+              {
+                  "type": "payment",
+                  "label": "Pago",
+                  "date": timezone.make_aware(
+                      datetime.combine(payment.payment_date, time.min)
+                  ),
+                  "title": f"Pago aplicado a {payment.document.document_number}",
+                  "description": payment.source_reference or payment.notes,
+                  "document": payment.document,
+                  "amount": payment.amount,
+                  "status": None,
+                  "reason": None,
+>                 "attachments": [],
+              }
+          )
+  
+      for nc in credit_notes:
+          timeline.append(
+              {
+                  "type": "credit_note",
+                  "label": "Nota de crédito",
+                  "date": (
+                      timezone.make_aware(datetime.combine(nc.issue_date, time.min))
+                      if nc.issue_date
+                      else timezone.now()
+                  ),
+                  "title": f"NC {nc.credit_document_number} aplicada",
+                  "description": nc.comment,
+                  "document": nc.document,
+                  "amount": nc.credit_amount,
+                  "status": nc.status,
+                  "reason": nc.reason,
+>                 "attachments": [],
+              }
+          )
+  
+      timeline = sorted(
+          timeline,
+          key=lambda event: event["date"] or timezone.now(),
+          reverse=True,
+      )
+  
+      recent_show_all = request.GET.get("recent") == "all"
+      recent_events_count = len(timeline)
+  
+      if not recent_show_all:
+          timeline = timeline[:5]
+  
+      return render(
+          request,
+          "portfolio/customer_detail.html",
+          {
+              "customer": customer,
+              "documents": documents,
+              "account_show_all": account_show_all,
+              "account_documents_count": account_documents_count,
+              "account_view": account_view,
+              "open_documents": open_documents,
+              "latest_documents": latest_documents,
+              "latest_payments": latest_payments,
+              "latest_credit_notes": latest_credit_notes,
+              "latest_promises": latest_promises,
+              "latest_actions": latest_actions,
+              "total_overpayment": document_kpis["total_overpayment"] or 0,
+              "promises": promises,
+              "actions": actions,
+              "contacts": contacts,
+              "timeline": timeline,
+              "total_balance": document_kpis["total_balance"] or 0,
+              "total_documents": document_kpis["total_documents"] or 0,
+              "overdue_documents": document_kpis["overdue_documents"] or 0,
+              "active_promises": promise_kpis["active_promises"] or 0,
+              "expired_promises": promise_kpis["expired_promises"] or 0,
+              "last_action": last_action,
+              "payments": payments,
+              "total_paid": total_paid,
+              "credit_notes": credit_notes,
+              "total_credit_notes": credit_note_kpis["total_credit_notes"] or 0,
+              "total_credit_note_count": credit_note_kpis["total_credit_note_count"] or 0,
+              "recommended_document": recommended_document,
+              "recent_show_all": recent_show_all,
+              "recent_events_count": recent_events_count,
+              "action_form": action_form,
+              "promise_form": promise_form,
+          },
+      )
+  
+  def unassigned_documents(request):
+      User = get_user_model()
+  
+      collectors = User.objects.filter(is_active=True).order_by(
+          "first_name",
+          "last_name",
+          "username",
+      )
+  
+      documents = (
+          Document.objects.select_related(
+              "customer",
+              "status",
+              "sub_status",
+          )
+          .filter(~Q(assignments__is_active=True))
+          .distinct()
+          .order_by(
+              "due_date",
+              "customer__name",
+              "document_number",
+          )
+      )
+  
+      total_documents = documents.count()
+  
+
+
+
+=== TEMPLATE COMPLETO DE CONTEXTO RECIENTE ===
+{% load money %}
+{% load humanize_if %}
+
+<section class="if-ar-recent">
+
+  <div class="if-card">
+
+    <div class="if-card-header">
+      <div>
+        <h2 class="if-card-title">Historia operacional</h2>
+        <p class="if-card-subtitle">
+          Actividad reciente del cliente en orden cronolÃ³gico.
+        </p>
+      </div>
+    </div>
+
+    <div class="if-document-timeline if-customer-recent-timeline">
+
+      {% if recent_show_all %}
+
+        {% for event in timeline %}
+
+          <article class="if-timeline-entry">
+
+            <div class="if-timeline-entry-icon">
+              {% if event.type == "payment" %}
+                <i class="bi bi-cash-coin"></i>
+              {% elif event.type == "credit_note" %}
+                <i class="bi bi-receipt"></i>
+              {% elif event.type == "promesa" %}
+                <i class="bi bi-calendar-check"></i>
+              {% else %}
+                <i class="bi bi-chat-left-text"></i>
+              {% endif %}
+            </div>
+
+            <div class="if-timeline-entry-card">
+
+              <div class="if-timeline-entry-top">
+
+                <div>
+                  <span class="if-badge if-badge-soft">
+                    {{ event.label }}
+                  </span>
+
+                  {% if event.amount %}
+                    <span class="if-badge if-badge-success">
+                      {{ event.amount|clp }}
+                    </span>
+                  {% endif %}
+                </div>
+
+                <time title="{{ event.date|date:'d/m/Y H:i' }}">
+                  {{ event.date|human_datetime }}
+                </time>
+
+              </div>
+
+              <h3>{{ event.title }}</h3>
+
+              {% if event.document %}
+                <p>
+                  Documento
+                  <a
+                    class="if-link"
+                    href="{% url 'management:document_detail' event.document.id %}"
+                  >
+                    {{ event.document.document_number }}
+                  </a>
+                </p>
+              {% endif %}
+
+              {% if event.description %}
+                <p>{{ event.description }}</p>
+              {% endif %}
+
+              {% if event.attachments %}
+  <div class="if-timeline-attachments">
+    <div class="if-timeline-attachments-heading">
+      <i class="bi bi-paperclip"></i>
+
+      <span>
+        {{ event.attachments|length }}
+        archivo{{ event.attachments|length|pluralize }}
+      </span>
+    </div>
+
+    <div class="if-timeline-attachments-list">
+      {% for attachment in event.attachments %}
+        <a
+          href="{% url 'management:operational_attachment_download' attachment.id %}"
+          class="if-timeline-attachment"
+          title="Descargar {{ attachment.name }}"
+        >
+          <span class="if-timeline-attachment-icon">
+            <i class="bi {{ attachment.icon }}"></i>
+          </span>
+
+          <span class="if-timeline-attachment-copy">
+            <strong>{{ attachment.name }}</strong>
+
+            <small>
+              {{ attachment.extension|upper }}
+              Â·
+              {{ attachment.size }}
+            </small>
+          </span>
+
+          <span class="if-timeline-attachment-action">
+            <i class="bi bi-download"></i>
+          </span>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+{% endif %}
+
+            </div>
+
+          </article>
+
+        {% empty %}
+          <div class="if-empty-compact">
+            Sin actividad registrada para este cliente.
+          </div>
+        {% endfor %}
+
+      {% else %}
+
+        {% for event in timeline|slice:":5" %}
+
+          <article class="if-timeline-entry">
+
+            <div class="if-timeline-entry-icon">
+              {% if event.type == "payment" %}
+                <i class="bi bi-cash-coin"></i>
+              {% elif event.type == "credit_note" %}
+                <i class="bi bi-receipt"></i>
+              {% elif event.type == "promesa" %}
+                <i class="bi bi-calendar-check"></i>
+              {% else %}
+                <i class="bi bi-chat-left-text"></i>
+              {% endif %}
+            </div>
+
+            <div class="if-timeline-entry-card">
+
+              <div class="if-timeline-entry-top">
+
+                <div>
+                  <span class="if-badge if-badge-soft">
+                    {{ event.label }}
+                  </span>
+
+                  {% if event.amount %}
+                    <span class="if-badge if-badge-success">
+                      {{ event.amount|clp }}
+                    </span>
+                  {% endif %}
+                </div>
+
+                <time title="{{ event.date|date:'d/m/Y H:i' }}">
+                  {{ event.date|human_datetime }}
+                </time>
+
+              </div>
+
+              <h3>{{ event.title }}</h3>
+
+              {% if event.document %}
+                <p>
+                  Documento
+                  <a
+                    class="if-link"
+                    href="{% url 'management:document_detail' event.document.id %}"
+                  >
+                    {{ event.document.document_number }}
+                  </a>
+                </p>
+              {% endif %}
+
+              {% if event.description %}
+                <p>{{ event.description }}</p>
+              {% endif %}
+
+              {% if event.attachments %}
+  <div class="if-timeline-attachments">
+    <div class="if-timeline-attachments-heading">
+      <i class="bi bi-paperclip"></i>
+
+      <span>
+        {{ event.attachments|length }}
+        archivo{{ event.attachments|length|pluralize }}
+      </span>
+    </div>
+
+    <div class="if-timeline-attachments-list">
+      {% for attachment in event.attachments %}
+        <a
+          href="{% url 'management:operational_attachment_download' attachment.id %}"
+          class="if-timeline-attachment"
+          title="Descargar {{ attachment.name }}"
+        >
+          <span class="if-timeline-attachment-icon">
+            <i class="bi {{ attachment.icon }}"></i>
+          </span>
+
+          <span class="if-timeline-attachment-copy">
+            <strong>{{ attachment.name }}</strong>
+
+            <small>
+              {{ attachment.extension|upper }}
+              Â·
+              {{ attachment.size }}
+            </small>
+          </span>
+
+          <span class="if-timeline-attachment-action">
+            <i class="bi bi-download"></i>
+          </span>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+{% endif %}
+            </div>
+
+          </article>
+
+        {% empty %}
+          <div class="if-empty-compact">
+            Sin actividad reciente para este cliente.
+          </div>
+        {% endfor %}
+
+      {% endif %}
+
+    </div>
+
+    {% if recent_events_count > 5 %}
+
+      <div class="if-ar-account-more">
+
+        {% if recent_show_all %}
+          <a
+            href="?view={{ account_view }}"
+            class="if-ar-inline-link"
+          >
+            Ver menos
+          </a>
+
+        {% else %}
+          <span>
+            Mostrando
+            <strong>5</strong>
+            de
+            <strong>{{ recent_events_count }}</strong>
+            movimientos.
+          </span>
+
+          <a
+            href="?view={{ account_view }}&recent=all"
+            class="if-ar-inline-link"
+          >
+            Ver todos â†’
+          </a>
+        {% endif %}
+
+      </div>
+
+    {% endif %}
+
+  </div>
+
+</section>
+
+=== SECCION O COMPONENTES QUE MUESTRAN COMPROMISOS ===
+
+  templates\portfolio\components\_account_state.html:1:{% load money %}
+  templates\portfolio\components\_account_state.html:2:
+  templates\portfolio\components\_account_state.html:3:<section class="if-ar-account">
+  templates\portfolio\components\_account_state.html:4:        <div class="if-ar-account-head">
+  templates\portfolio\components\_account_state.html:5:          <div>
+  templates\portfolio\components\_account_state.html:6:            <h2>Estado de cuenta</h2>
+  templates\portfolio\components\_account_state.html:7:            <p>Documentos asociados al cliente para conversación de cobranza.</p>
+  templates\portfolio\components\_account_state.html:8:          </div>
+  templates\portfolio\components\_account_state.html:9:
+  templates\portfolio\components\_account_state.html:10:<nav class="if-ar-account-tabs">
+  templates\portfolio\components\_account_state.html:11:  <a class="{% if account_view == 'pending' %}is-active{% endif %}" href="?view=pending">Pendientes</a>
+  templates\portfolio\components\_account_state.html:12:  <a class="{% if account_view == 'paid' %}is-active{% endif %}" href="?view=paid">Pagados</a>
+  templates\portfolio\components\_account_state.html:13:  <a class="{% if account_view == 'partial' %}is-active{% endif %}" href="?view=partial">Parciales</a>
+> templates\portfolio\components\_account_state.html:14:  <a class="{% if account_view == 'promises' %}is-active{% endif %}" href="?view=promises">Promesas</a>
+  templates\portfolio\components\_account_state.html:15:  <a class="{% if account_view == 'all' %}is-active{% endif %}" href="?view=all">Todos</a>
+  templates\portfolio\components\_account_state.html:16:</nav>
+  templates\portfolio\components\_account_state.html:17:        </div>
+  templates\portfolio\components\_account_state.html:18:
+  templates\portfolio\components\_account_state.html:19:        <div class="if-account-selection-bar" data-selection-bar hidden>
+  templates\portfolio\components\_account_state.html:20:  <span data-selection-count>0 documentos seleccionados</span>
+  templates\portfolio\components\_account_state.html:21:
+  templates\portfolio\components\_account_state.html:22:  <div>
+  templates\portfolio\components\_account_state.html:23:    <button type="button" class="if-secondary-cta" data-open-action-modal>
+  templates\portfolio\components\_account_state.html:24:      Registrar gestión
+  templates\portfolio\components\_account_state.html:25:    </button>
+  templates\portfolio\components\_account_state.html:26:
+  templates\portfolio\components\_account_state.html:27:    <button type="button" class="if-secondary-cta" data-open-promise-modal>
+> templates\portfolio\components\_account_state.html:28:      Registrar compromiso
+  templates\portfolio\components\_account_state.html:29:    </button>
+  templates\portfolio\components\_account_state.html:30:  </div>
+  templates\portfolio\components\_account_state.html:31:</div>
+  templates\portfolio\components\_account_state.html:32:
+  templates\portfolio\components\_account_state.html:33:       <div class="if-ar-document-list">
+  templates\portfolio\components\_account_state.html:34:  {% for document in documents %}
+  templates\portfolio\components\_account_state.html:35:    {% include "portfolio/components/_document_card.html" with document=document %}
+  templates\portfolio\components\_account_state.html:36:  {% empty %}
+  templates\portfolio\components\_account_state.html:37:    <div class="if-empty-compact">Cliente sin documentos para esta vista.</div>
+  templates\portfolio\components\_account_state.html:38:  {% endfor %}
+  templates\portfolio\components\_account_state.html:39:</div>
+  templates\portfolio\components\_account_state.html:40:
+  templates\portfolio\components\_account_state.html:41:{% if account_documents_count > 10 %}
+  templates\portfolio\components\_account_state.html:42:  <div class="if-ar-account-more">
+  templates\portfolio\components\_account_state.html:43:    {% if account_show_all %}
+  templates\portfolio\components\_account_state.html:44:      <a href="?view={{ account_view }}" class="if-ar-inline-link">
+  templates\portfolio\components\_account_state.html:45:        Mostrar solo los primeros 10 documentos
+  templates\portfolio\components\_account_state.html:46:      </a>
+  templates\portfolio\components\_account_state.html:47:    {% else %}
+  templates\portfolio\components\_account_state.html:48:      <span>
+  templates\portfolio\components\_account_state.html:49:        Mostrando <strong>10</strong> de
+  templates\portfolio\components\_account_state.html:50:        <strong>{{ account_documents_count }}</strong> documentos.
+  templates\portfolio\components\_account_state.html:51:      </span>
+  templates\portfolio\components\_account_state.html:52:
+  templates\portfolio\components\_account_state.html:53:      <a href="?view={{ account_view }}&show=all" class="if-ar-inline-link">
+  templates\portfolio\components\_account_state.html:54:        Ver todos →
+  templates\portfolio\components\_account_state.html:55:      </a>
+  templates\portfolio\components\_account_state.html:56:    {% endif %}
+  templates\portfolio\components\_account_state.html:57:  </div>
+  templates\portfolio\components\_account_state.html:58:{% endif %}
+  templates\portfolio\components\_account_state.html:59:      </section>
+  templates\portfolio\components\_action_console.html:1:{% load money %}
+  templates\portfolio\components\_action_console.html:2:{% load humanize_if %}
+  templates\portfolio\components\_action_console.html:3:
+  templates\portfolio\components\_action_console.html:4:<aside class="if-ar-console">
+  templates\portfolio\components\_action_console.html:5:
+  templates\portfolio\components\_action_console.html:6:  <section class="if-card if-console-section if-customer-summary-panel">
+  templates\portfolio\components\_action_console.html:7:    <div class="if-card-header">
+  templates\portfolio\components\_action_console.html:8:      <div>
+  templates\portfolio\components\_action_console.html:9:        <h2 class="if-card-title">Resumen operacional</h2>
+  templates\portfolio\components\_action_console.html:10:        <p class="if-card-subtitle">Contexto inmediato del cliente.</p>
+  templates\portfolio\components\_action_console.html:11:      </div>
+  templates\portfolio\components\_action_console.html:12:    </div>
+  templates\portfolio\components\_action_console.html:13:
+  templates\portfolio\components\_action_console.html:14:    <div class="if-card-body">
+  templates\portfolio\components\_action_console.html:15:
+> templates\portfolio\components\_action_console.html:16:      {% if latest_promises %}
+  templates\portfolio\components\_action_console.html:17:        <article class="if-customer-summary-card is-promise">
+  templates\portfolio\components\_action_console.html:18:
+  templates\portfolio\components\_action_console.html:19:          <div class="if-customer-summary-card-top">
+  templates\portfolio\components\_action_console.html:20:            <span class="if-pill if-pill-status-success">
+  templates\portfolio\components\_action_console.html:21:              Vigente
+  templates\portfolio\components\_action_console.html:22:            </span>
+  templates\portfolio\components\_action_console.html:23:
+  templates\portfolio\components\_action_console.html:24:            <time>
+> templates\portfolio\components\_action_console.html:25:              {{ latest_promises.0.promise_date|date:"d/m/Y" }}
+  templates\portfolio\components\_action_console.html:26:            </time>
+  templates\portfolio\components\_action_console.html:27:          </div>
+  templates\portfolio\components\_action_console.html:28:
+  templates\portfolio\components\_action_console.html:29:          <strong class="if-customer-summary-amount">
+> templates\portfolio\components\_action_console.html:30:            {{ latest_promises.0.promised_amount|clp }}
+  templates\portfolio\components\_action_console.html:31:          </strong>
+  templates\portfolio\components\_action_console.html:32:
+  templates\portfolio\components\_action_console.html:33:          <p>
+> templates\portfolio\components\_action_console.html:34:            {{ latest_promises.0.promise_date|human_due }}
+  templates\portfolio\components\_action_console.html:35:          </p>
+  templates\portfolio\components\_action_console.html:36:
+> templates\portfolio\components\_action_console.html:37:          {% if latest_promises.0.notes %}
+  templates\portfolio\components\_action_console.html:38:            <p class="if-customer-summary-note">
+> templates\portfolio\components\_action_console.html:39:              {{ latest_promises.0.notes }}
+  templates\portfolio\components\_action_console.html:40:            </p>
+  templates\portfolio\components\_action_console.html:41:          {% endif %}
+  templates\portfolio\components\_action_console.html:42:
+  templates\portfolio\components\_action_console.html:43:        </article>
+  templates\portfolio\components\_action_console.html:44:      {% else %}
+  templates\portfolio\components\_action_console.html:45:        <article class="if-customer-summary-card is-empty">
+  templates\portfolio\components\_action_console.html:46:
+  templates\portfolio\components\_action_console.html:47:          <div class="if-customer-summary-card-top">
+  templates\portfolio\components\_action_console.html:48:            <span class="if-pill if-pill-status-soft">
+> templates\portfolio\components\_action_console.html:49:              Sin compromiso
+  templates\portfolio\components\_action_console.html:50:            </span>
+  templates\portfolio\components\_action_console.html:51:          </div>
+  templates\portfolio\components\_action_console.html:52:
+> templates\portfolio\components\_action_console.html:53:          <strong>Sin promesa vigente</strong>
+> templates\portfolio\components\_action_console.html:54:          <p>No hay compromisos activos.</p>
+  templates\portfolio\components\_action_console.html:55:
+  templates\portfolio\components\_action_console.html:56:        </article>
+  templates\portfolio\components\_action_console.html:57:      {% endif %}
+  templates\portfolio\components\_action_console.html:58:
+  templates\portfolio\components\_action_console.html:59:      <div class="if-customer-summary-list">
+  templates\portfolio\components\_action_console.html:60:
+  templates\portfolio\components\_action_console.html:61:        <div>
+  templates\portfolio\components\_action_console.html:62:          <span>Último pago</span>
+  templates\portfolio\components\_action_console.html:63:
+  templates\portfolio\components\_action_console.html:64:          {% if latest_payments %}
+  templates\portfolio\components\_action_console.html:65:            <strong>{{ latest_payments.0.amount|clp }}</strong>
+  templates\portfolio\components\_action_console.html:66:            <small>{{ latest_payments.0.payment_date|date:"d/m/Y" }}</small>
+  templates\portfolio\components\_action_console.html:67:          {% else %}
+  templates\portfolio\components\_action_console.html:68:            <strong>Sin pagos registrados</strong>
+  templates\portfolio\components\_action_console.html:69:            <small>No existe un pago reciente.</small>
+  templates\portfolio\components\_action_console.html:70:          {% endif %}
+  templates\portfolio\components\_action_console.html:71:        </div>
+  templates\portfolio\components\_action_console.html:72:
+  templates\portfolio\components\_action_console.html:73:        <div>
+  templates\portfolio\components\_action_console.html:74:          <span>Responsable</span>
+  templates\portfolio\components\_action_console.html:75:          <strong>
+  templates\portfolio\components\_action_console.html:76:            {{ request.user.get_full_name|default:request.user.username }}
+  templates\portfolio\components\_action_console.html:77:          </strong>
+  templates\portfolio\components\_action_console.html:78:          <small>Ejecutivo actual.</small>
+  templates\portfolio\components\_action_console.html:79:        </div>
+  templates\portfolio\components\_action_console.html:80:
+  templates\portfolio\components\_action_console.html:81:      </div>
+  templates\portfolio\components\_action_console.html:82:
+  templates\portfolio\components\_action_console.html:83:    </div>
+  templates\portfolio\components\_action_console.html:84:  </section>
+  templates\portfolio\components\_action_console.html:85:
+  templates\portfolio\components\_action_console.html:86:  <section class="if-card if-console-section">
+  templates\portfolio\components\_action_console.html:87:    <div class="if-card-header">
+  templates\portfolio\components\_action_console.html:88:      <div>
+  templates\portfolio\components\_action_console.html:89:        <h2 class="if-card-title">Contacto principal</h2>
+  templates\portfolio\components\_action_console.html:90:        <p class="if-card-subtitle">Datos para gestionar al cliente.</p>
+  templates\portfolio\components\_action_console.html:91:      </div>
+  templates\portfolio\components\_action_console.html:92:    </div>
+  templates\portfolio\components\_action_console.html:93:
+  templates\portfolio\components\_action_console.html:94:    <div class="if-side-list">
+  templates\portfolio\components\_action_console.html:95:      <div>
+  templates\portfolio\components\_action_console.html:96:        <span>Email</span>
+  templates\portfolio\components\_action_console.html:97:        <strong>{{ customer.email|default:"Sin email registrado" }}</strong>
+  templates\portfolio\components\_action_console.html:98:      </div>
+  templates\portfolio\components\_action_console.html:99:
+  templates\portfolio\components\_action_console.html:100:      <div>
+  templates\portfolio\components\_action_console.html:101:        <span>Teléfono</span>
+  templates\portfolio\components\_action_console.html:102:        <strong>{{ customer.phone|default:"Sin teléfono registrado" }}</strong>
+  templates\portfolio\components\_action_console.html:103:      </div>
+  templates\portfolio\components\_action_console.html:104:    </div>
+  templates\portfolio\components\_action_console.html:105:  </section>
+  templates\portfolio\components\_action_console.html:106:
+  templates\portfolio\components\_action_console.html:107:</aside>
+  templates\portfolio\components\_collection_state.html:38:      {% else %}
+  templates\portfolio\components\_collection_state.html:39:
+  templates\portfolio\components\_collection_state.html:40:        <h3>Sin gestiones registradas</h3>
+  templates\portfolio\components\_collection_state.html:41:        <p>Este cliente todavía no tiene actividad de cobranza registrada.</p>
+  templates\portfolio\components\_collection_state.html:42:
+  templates\portfolio\components\_collection_state.html:43:      {% endif %}
+  templates\portfolio\components\_collection_state.html:44:
+  templates\portfolio\components\_collection_state.html:45:    </div>
+  templates\portfolio\components\_collection_state.html:46:
+  templates\portfolio\components\_collection_state.html:47:  </article>
+  templates\portfolio\components\_collection_state.html:48:
+  templates\portfolio\components\_collection_state.html:49:  <aside class="if-flat-briefing-stack">
+  templates\portfolio\components\_collection_state.html:50:
+  templates\portfolio\components\_collection_state.html:51:    <div>
+  templates\portfolio\components\_collection_state.html:52:      <div class="if-briefing-mini-icon is-primary">
+  templates\portfolio\components\_collection_state.html:53:        <i class="bi bi-bullseye"></i>
+  templates\portfolio\components\_collection_state.html:54:      </div>
+  templates\portfolio\components\_collection_state.html:55:
+  templates\portfolio\components\_collection_state.html:56:      <span>Próximo paso</span>
+  templates\portfolio\components\_collection_state.html:57:
+> templates\portfolio\components\_collection_state.html:58:      {% if latest_promises %}
+> templates\portfolio\components\_collection_state.html:59:        <strong>Confirmar compromiso</strong>
+  templates\portfolio\components\_collection_state.html:60:        <p>
+> templates\portfolio\components\_collection_state.html:61:          Vence {{ latest_promises.0.promise_date|human_due }}
+  templates\portfolio\components\_collection_state.html:62:        </p>
+  templates\portfolio\components\_collection_state.html:63:
+  templates\portfolio\components\_collection_state.html:64:      {% elif total_balance > 0 %}
+  templates\portfolio\components\_collection_state.html:65:        <strong>Gestionar saldo pendiente</strong>
+  templates\portfolio\components\_collection_state.html:66:        <p>{{ total_balance|clp }} por regularizar.</p>
+  templates\portfolio\components\_collection_state.html:67:
+  templates\portfolio\components\_collection_state.html:68:      {% else %}
+  templates\portfolio\components\_collection_state.html:69:        <strong>Sin acciones pendientes</strong>
+  templates\portfolio\components\_collection_state.html:70:        <p>El cliente no mantiene deuda abierta.</p>
+  templates\portfolio\components\_collection_state.html:71:      {% endif %}
+  templates\portfolio\components\_collection_state.html:72:    </div>
+  templates\portfolio\components\_collection_state.html:73:
+  templates\portfolio\components\_collection_state.html:74:  </aside>
+  templates\portfolio\components\_collection_state.html:75:
+  templates\portfolio\components\_collection_state.html:76:</section>
+  templates\portfolio\components\_document_card.html:19:  <div class="if-ledger-document">
+  templates\portfolio\components\_document_card.html:20:    <div class="if-ledger-title">
+  templates\portfolio\components\_document_card.html:21:      <span>{{ document.get_document_type_display }}</span>
+  templates\portfolio\components\_document_card.html:22:      <a href="{% url 'management:document_detail' document.id %}">
+  templates\portfolio\components\_document_card.html:23:        {{ document.document_number }}
+  templates\portfolio\components\_document_card.html:24:      </a>
+  templates\portfolio\components\_document_card.html:25:    </div>
+  templates\portfolio\components\_document_card.html:26:
+  templates\portfolio\components\_document_card.html:27:    <div class="if-ledger-subtitle">
+  templates\portfolio\components\_document_card.html:28:      Emitida {{ document.issue_date|date:"d/m/Y" }}
+  templates\portfolio\components\_document_card.html:29:    </div>
+  templates\portfolio\components\_document_card.html:30:
+  templates\portfolio\components\_document_card.html:31:    <div class="if-ledger-badges">
+  templates\portfolio\components\_document_card.html:32:      {% if document.balance_amount > 0 %}
+  templates\portfolio\components\_document_card.html:33:        <span class="if-badge if-badge-warning">Pendiente</span>
+  templates\portfolio\components\_document_card.html:34:      {% else %}
+  templates\portfolio\components\_document_card.html:35:        <span class="if-badge if-badge-success">Pagado</span>
+  templates\portfolio\components\_document_card.html:36:      {% endif %}
+  templates\portfolio\components\_document_card.html:37:
+  templates\portfolio\components\_document_card.html:38:      {% if document.promise_documents.count %}
+> templates\portfolio\components\_document_card.html:39:        <span class="if-badge if-badge-info">Promesa vigente</span>
+  templates\portfolio\components\_document_card.html:40:      {% endif %}
+  templates\portfolio\components\_document_card.html:41:
+  templates\portfolio\components\_document_card.html:42:      {% if document.payments.count %}
+  templates\portfolio\components\_document_card.html:43:        <span class="if-badge if-badge-soft">Pago parcial</span>
+  templates\portfolio\components\_document_card.html:44:      {% endif %}
+  templates\portfolio\components\_document_card.html:45:
+  templates\portfolio\components\_document_card.html:46:      {% if document.credit_note_applications.count %}
+  templates\portfolio\components\_document_card.html:47:        <span class="if-badge if-badge-warning">
+  templates\portfolio\components\_document_card.html:48:          {{ document.credit_note_applications.count }} Nota{% if document.credit_note_applications.count != 1 %}s{% endif %} de Crédito
+  templates\portfolio\components\_document_card.html:49:        </span>
+  templates\portfolio\components\_document_card.html:50:      {% endif %}
+  templates\portfolio\components\_document_card.html:51:
+  templates\portfolio\components\_document_card.html:52:      {% if document.overpayment_amount > 0 %}
+  templates\portfolio\components\_document_card.html:53:        <span class="if-badge if-badge-success">
+  templates\portfolio\components\_document_card.html:54:          Saldo a favor {{ document.overpayment_amount|clp }}
+  templates\portfolio\components\_document_card.html:55:        </span>
+  templates\portfolio\components\_document_card.html:56:      {% endif %}
+  templates\portfolio\components\_document_card.html:57:
+  templates\portfolio\components\_document_card.html:58:      {% for tag in document.tags.all %}
+  templates\portfolio\components\_document_card.html:59:        <span class="if-badge if-badge-soft">{{ tag.name }}</span>
+  templates\portfolio\components\_document_card.html:60:      {% endfor %}
+  templates\portfolio\components\_document_card.html:61:    </div>
+  templates\portfolio\components\_document_card.html:62:  </div>
+  templates\portfolio\components\_document_card.html:63:
+  templates\portfolio\components\_document_card.html:64:  <div class="if-ledger-money">
+  templates\portfolio\components\_document_card.html:65:    <span>Monto</span>
+  templates\portfolio\components\_document_card.html:66:    <strong>{{ document.original_amount|clp }}</strong>
+  templates\portfolio\components\_document_card.html:67:  </div>
+  templates\portfolio\components\_document_card.html:68:
+  templates\portfolio\components\_document_card.html:69:  <div class="if-ledger-money is-balance">
+  templates\portfolio\components\_document_card.html:70:    <span>Saldo</span>
+  templates\portfolio\components\_document_card.html:71:    <strong>{{ document.balance_amount|clp }}</strong>
+  templates\portfolio\components\_document_card.html:72:  </div>
+  templates\portfolio\components\_document_card.html:73:
+  templates\portfolio\components\_document_card.html:74:<div class="if-ledger-due">
+  templates\portfolio\components\_document_card.html:75:  {% if document.balance_amount <= 0 %}
+  templates\portfolio\components\_document_card.html:76:    <span>Estado</span>
+  templates\portfolio\components\_document_card.html:77:    <strong>Cerrado</strong>
+  templates\portfolio\components\_document_card.html:78:
+  templates\portfolio\components\_document_card.html:79:    {% if document.credit_note_applications.count %}
+  templates\portfolio\components\_document_card.html:80:      <small>Cerrado con Nota de Crédito</small>
+  templates\portfolio\components\_document_card.html:81:
+  templates\portfolio\components\_document_card.html:82:    {% elif document.payments.count %}
+  templates\portfolio\components\_document_card.html:83:      <small>Cerrado mediante pago</small>
+  templates\portfolio\components\_document_card.html:84:
+  templates\portfolio\components\_document_card.html:85:    {% elif document.overpayment_amount > 0 %}
+  templates\portfolio\components\_document_card.html:86:      <small>Cerrado con saldo a favor</small>
+  templates\portfolio\components\_document_card.html:87:
+  templates\portfolio\components\_document_card.html:88:    {% else %}
+  templates\portfolio\components\_document_card.html:89:      <small>Sin gestión pendiente</small>
+  templates\portfolio\components\_document_card.html:90:    {% endif %}
+  templates\portfolio\components\_document_card.html:91:
+  templates\portfolio\components\_document_card.html:92:  {% else %}
+  templates\portfolio\components\_document_card.html:93:    <span>Vence</span>
+  templates\portfolio\components\_document_card.html:94:    <strong>{{ document.due_date|human_due }}</strong>
+  templates\portfolio\components\_document_card.html:95:    <small>{{ document.due_date|date:"d/m/Y" }}</small>
+  templates\portfolio\components\_document_card.html:96:  {% endif %}
+  templates\portfolio\components\_document_card.html:97:</div>
+  templates\portfolio\components\_document_card.html:98:
+  templates\portfolio\components\_document_card.html:99:  <div class="if-ledger-actions">
+  templates\portfolio\components\_document_card.html:100:    <a class="if-inline-action" href="{% url 'management:document_detail' document.id %}">
+  templates\portfolio\components\_document_card.html:101:      Ver detalle
+  templates\portfolio\components\_document_card.html:102:    </a>
+  templates\portfolio\components\_document_card.html:103:  </div>
+  templates\portfolio\components\_document_card.html:104:</article>
+  templates\portfolio\assignment_workloads.html:89:            <th class="text-end">Críticos</th>
+  templates\portfolio\assignment_workloads.html:90:            <th class="text-end">Promesas vencidas</th>
+  templates\portfolio\assignment_workloads.html:91:            <th>Carga</th>
+  templates\portfolio\assignment_workloads.html:92:          </tr>
+  templates\portfolio\assignment_workloads.html:93:        </thead>
+  templates\portfolio\assignment_workloads.html:94:        <tbody>
+  templates\portfolio\assignment_workloads.html:95:          {% for item in workloads %}
+  templates\portfolio\assignment_workloads.html:96:            <tr>
+  templates\portfolio\assignment_workloads.html:97:              <td>
+  templates\portfolio\assignment_workloads.html:98:                <strong>{{ item.collector_name }}</strong>
+  templates\portfolio\assignment_workloads.html:99:                <div class="if-muted">Responsable operativo</div>
+  templates\portfolio\assignment_workloads.html:100:              </td>
+  templates\portfolio\assignment_workloads.html:101:              <td class="text-end"><strong>{{ item.active_documents }}</strong></td>
+  templates\portfolio\assignment_workloads.html:102:              <td class="text-end"><strong>{{ item.assigned_balance|clp }}</strong></td>
+  templates\portfolio\assignment_workloads.html:103:              <td class="text-end">
+  templates\portfolio\assignment_workloads.html:104:                <span class="if-pill {% if item.critical_documents %}if-pill-status-danger{% else %}if-pill-status-success{% endif %}">
+  templates\portfolio\assignment_workloads.html:105:                  {{ item.critical_documents }}
+  templates\portfolio\assignment_workloads.html:106:                </span>
+  templates\portfolio\assignment_workloads.html:107:              </td>
+  templates\portfolio\assignment_workloads.html:108:              <td class="text-end">
+> templates\portfolio\assignment_workloads.html:109:                <span class="if-pill {% if item.overdue_promises %}if-pill-status-warning{% else %}if-pill-status-success{% endif %}">
+> templates\portfolio\assignment_workloads.html:110:                  {{ item.overdue_promises }}
+  templates\portfolio\assignment_workloads.html:111:                </span>
+  templates\portfolio\assignment_workloads.html:112:              </td>
+  templates\portfolio\assignment_workloads.html:113:              <td>
+  templates\portfolio\assignment_workloads.html:114:                <strong>{{ item.workload_percentage }}%</strong>
+  templates\portfolio\assignment_workloads.html:115:<div class="if-metric-bar mt-1 if-bar-{{ item.workload_percentage }}">
+  templates\portfolio\assignment_workloads.html:116:  <span></span>
+  templates\portfolio\assignment_workloads.html:117:</div>
+  templates\portfolio\assignment_workloads.html:118:              </td>
+  templates\portfolio\assignment_workloads.html:119:            </tr>
+  templates\portfolio\assignment_workloads.html:120:          {% endfor %}
+  templates\portfolio\assignment_workloads.html:121:        </tbody>
+  templates\portfolio\assignment_workloads.html:122:      </table>
+  templates\portfolio\assignment_workloads.html:123:    </div>
+  templates\portfolio\assignment_workloads.html:124:  {% else %}
+  templates\portfolio\assignment_workloads.html:125:    <div class="if-empty-state">
+  templates\portfolio\assignment_workloads.html:126:      <h3>No hay carga asignada</h3>
+  templates\portfolio\assignment_workloads.html:127:      <p>Aún no existen documentos con asignación activa a cobradores.</p>
+  templates\portfolio\assignment_workloads.html:128:    </div>
+  templates\portfolio\assignment_workloads.html:129:  {% endif %}
+  templates\portfolio\assignment_workloads.html:130:</section>
+  templates\portfolio\assignment_workloads.html:131:{% endblock %}
+  templates\portfolio\customer_detail.html:129:  </span>
+  templates\portfolio\customer_detail.html:130:</div>
+  templates\portfolio\customer_detail.html:131:
+  templates\portfolio\customer_detail.html:132:      <button
+  templates\portfolio\customer_detail.html:133:    type="submit"
+  templates\portfolio\customer_detail.html:134:    class="if-button-primary w-100 mt-3"
+  templates\portfolio\customer_detail.html:135:    data-upload-submit
+  templates\portfolio\customer_detail.html:136:>
+  templates\portfolio\customer_detail.html:137:        Registrar gestión
+  templates\portfolio\customer_detail.html:138:      </button>
+  templates\portfolio\customer_detail.html:139:    </form>
+  templates\portfolio\customer_detail.html:140:  </section>
+  templates\portfolio\customer_detail.html:141:</div>
+  templates\portfolio\customer_detail.html:142:
+  templates\portfolio\customer_detail.html:143:<div class="if-modal" data-promise-modal hidden>
+  templates\portfolio\customer_detail.html:144:  <div class="if-modal-backdrop" data-close-modal></div>
+  templates\portfolio\customer_detail.html:145:
+  templates\portfolio\customer_detail.html:146:  <section class="if-modal-panel">
+  templates\portfolio\customer_detail.html:147:    <header class="if-modal-header">
+  templates\portfolio\customer_detail.html:148:      <div>
+> templates\portfolio\customer_detail.html:149:        <h2>Registrar compromiso</h2>
+  templates\portfolio\customer_detail.html:150:        <p data-promise-modal-summary>Documentos seleccionados</p>
+  templates\portfolio\customer_detail.html:151:        <p class="if-modal-total" data-promise-modal-total></p>
+  templates\portfolio\customer_detail.html:152:      </div>
+  templates\portfolio\customer_detail.html:153:      <button type="button" data-close-modal>×</button>
+  templates\portfolio\customer_detail.html:154:    </header>
+  templates\portfolio\customer_detail.html:155:
+  templates\portfolio\customer_detail.html:156:<form
+  templates\portfolio\customer_detail.html:157:  method="post"
+  templates\portfolio\customer_detail.html:158:  enctype="multipart/form-data"
+  templates\portfolio\customer_detail.html:159:  class="if-modal-body"
+  templates\portfolio\customer_detail.html:160:  data-operational-upload-form
+  templates\portfolio\customer_detail.html:161:>
+  templates\portfolio\customer_detail.html:162:      {% csrf_token %}
+  templates\portfolio\customer_detail.html:163:      <input type="hidden" name="form_type" value="promise">
+  templates\portfolio\customer_detail.html:164:      <div data-promise-hidden-documents></div>
+  templates\portfolio\customer_detail.html:165:
+> templates\portfolio\customer_detail.html:166:      <label class="form-label">Fecha compromiso</label>
+> templates\portfolio\customer_detail.html:167:      {{ promise_form.promise_date }}
+  templates\portfolio\customer_detail.html:168:
+  templates\portfolio\customer_detail.html:169:      <label class="form-label mt-2">Notas</label>
+  templates\portfolio\customer_detail.html:170:      {{ promise_form.notes }}
+  templates\portfolio\customer_detail.html:171:
+  templates\portfolio\customer_detail.html:172:      <div
+  templates\portfolio\customer_detail.html:173:  class="if-upload-field mt-3"
+  templates\portfolio\customer_detail.html:174:  data-operational-attachments
+  templates\portfolio\customer_detail.html:175:>
+  templates\portfolio\customer_detail.html:176:  <label class="form-label">
+  templates\portfolio\customer_detail.html:177:    Adjuntos
+  templates\portfolio\customer_detail.html:178:  </label>
+  templates\portfolio\customer_detail.html:179:
+  templates\portfolio\customer_detail.html:180:  <div class="if-upload-picker">
+  templates\portfolio\customer_detail.html:181:    <input
+  templates\portfolio\customer_detail.html:182:      type="file"
+  templates\portfolio\customer_detail.html:183:      id="id_customer_promise_attachments"
+  templates\portfolio\customer_detail.html:184:      name="attachments"
+  templates\portfolio\customer_detail.html:185:      multiple
+  templates\portfolio\customer_detail.html:186:      data-operational-attachment-input
+  templates\portfolio\customer_detail.html:187:      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.webp,.tif,.tiff,.zip,.msg,.eml"
+  templates\portfolio\customer_detail.html:188:    >
+  templates\portfolio\customer_detail.html:189:
+  templates\portfolio\customer_detail.html:190:    <div class="if-upload-picker-content">
+  templates\portfolio\customer_detail.html:191:      <div class="if-upload-picker-icon">
+  templates\portfolio\customer_detail.html:192:        <i class="bi bi-cloud-arrow-up"></i>
+  templates\portfolio\customer_detail.html:193:      </div>
+  templates\portfolio\customer_detail.html:194:
+  templates\portfolio\customer_detail.html:195:      <div class="if-upload-picker-copy">
+  templates\portfolio\customer_detail.html:196:        <strong>Seleccionar archivos</strong>
+  templates\portfolio\customer_detail.html:197:
+  templates\portfolio\customer_detail.html:198:        <span>
+  templates\portfolio\customer_detail.html:199:          Puedes elegir varios y quitarlos antes de guardar.
+  templates\portfolio\customer_detail.html:200:          Máximo 30 MB por archivo.
+  templates\portfolio\customer_detail.html:201:        </span>
+  templates\portfolio\customer_detail.html:202:      </div>
+  templates\portfolio\customer_detail.html:203:    </div>
+  templates\portfolio\customer_detail.html:204:  </div>
+  templates\portfolio\customer_detail.html:205:
+  templates\portfolio\customer_detail.html:206:  <p
+  templates\portfolio\customer_detail.html:207:    class="if-upload-empty"
+  templates\portfolio\customer_detail.html:208:    data-operational-attachment-empty
+  templates\portfolio\customer_detail.html:209:  >
+  templates\portfolio\customer_detail.html:210:    No hay archivos seleccionados.
+  templates\portfolio\customer_detail.html:211:  </p>
+  templates\portfolio\customer_detail.html:212:
+  templates\portfolio\customer_detail.html:213:  <div
+  templates\portfolio\customer_detail.html:214:    class="if-upload-list"
+  templates\portfolio\customer_detail.html:215:    data-operational-attachment-list
+  templates\portfolio\customer_detail.html:216:  ></div>
+  templates\portfolio\customer_detail.html:217:
+  templates\portfolio\customer_detail.html:218:  <div
+  templates\portfolio\customer_detail.html:219:    class="if-upload-error"
+  templates\portfolio\customer_detail.html:220:    data-operational-attachment-error
+  templates\portfolio\customer_detail.html:221:    hidden
+  templates\portfolio\customer_detail.html:222:  ></div>
+  templates\portfolio\customer_detail.html:223:</div>
+  templates\portfolio\customer_detail.html:224:
+  templates\portfolio\customer_detail.html:225:<div
+  templates\portfolio\customer_detail.html:226:  class="if-upload-progress"
+  templates\portfolio\customer_detail.html:227:  data-upload-progress
+  templates\portfolio\customer_detail.html:228:  hidden
+  templates\portfolio\customer_detail.html:229:>
+  templates\portfolio\customer_detail.html:230:  <div class="if-upload-progress-track">
+  templates\portfolio\customer_detail.html:231:    <div
+  templates\portfolio\customer_detail.html:232:      class="if-upload-progress-bar"
+  templates\portfolio\customer_detail.html:233:      data-upload-progress-bar
+  templates\portfolio\customer_detail.html:234:      role="progressbar"
+  templates\portfolio\customer_detail.html:235:      aria-valuemin="0"
+  templates\portfolio\customer_detail.html:236:      aria-valuemax="100"
+  templates\portfolio\customer_detail.html:237:      aria-valuenow="0"
+  templates\portfolio\customer_detail.html:238:    ></div>
+  templates\portfolio\customer_detail.html:239:  </div>
+  templates\portfolio\customer_detail.html:240:
+  templates\portfolio\customer_detail.html:241:  <span
+  templates\portfolio\customer_detail.html:242:    class="if-upload-progress-label"
+  templates\portfolio\customer_detail.html:243:    data-upload-progress-label
+  templates\portfolio\customer_detail.html:244:  >
+  templates\portfolio\customer_detail.html:245:    Preparando carga…
+  templates\portfolio\customer_detail.html:246:  </span>
+  templates\portfolio\customer_detail.html:247:</div>
+  templates\portfolio\customer_detail.html:248:
+  templates\portfolio\customer_detail.html:249:
+  templates\portfolio\customer_detail.html:250:<button
+  templates\portfolio\customer_detail.html:251:  type="submit"
+  templates\portfolio\customer_detail.html:252:  class="if-button-primary w-100 mt-3"
+  templates\portfolio\customer_detail.html:253:  data-upload-submit
+  templates\portfolio\customer_detail.html:254:>
+> templates\portfolio\customer_detail.html:255:  Registrar compromiso
+  templates\portfolio\customer_detail.html:256:</button>
+  templates\portfolio\customer_detail.html:257:    </form>
+  templates\portfolio\customer_detail.html:258:  </section>
+  templates\portfolio\customer_detail.html:259:</div>
+  templates\portfolio\customer_detail.html:260:
+  templates\portfolio\customer_detail.html:261:<script>
+  templates\portfolio\customer_detail.html:262:document.addEventListener("DOMContentLoaded", function () {
+  templates\portfolio\customer_detail.html:263:  const bar = document.querySelector("[data-selection-bar]");
+  templates\portfolio\customer_detail.html:264:  const countLabel = document.querySelector("[data-selection-count]");
+  templates\portfolio\customer_detail.html:265:
+  templates\portfolio\customer_detail.html:266:  const actionModal = document.querySelector("[data-action-modal]");
+  templates\portfolio\customer_detail.html:267:  const promiseModal = document.querySelector("[data-promise-modal]");
+  templates\portfolio\customer_detail.html:268:
+  templates\portfolio\customer_detail.html:269:  function getSelectedDocs() {
+  templates\portfolio\customer_detail.html:270:    return Array.from(document.querySelectorAll("[data-account-doc-checkbox]:checked"));
+  templates\portfolio\customer_detail.html:271:  }
+  templates\portfolio\customer_detail.html:272:
+  templates\portfolio\customer_detail.html:273:  function parseAmount(raw) {
+  templates\portfolio\customer_detail.html:274:    if (!raw) return 0;
+  templates\portfolio\customer_detail.html:275:    return Number(String(raw).replace(",", ".")) || 0;
+  templates\portfolio\customer_detail.html:276:  }
+  templates\portfolio\customer_detail.html:277:
+  templates\portfolio\customer_detail.html:278:  function formatCLP(amount) {
+  templates\portfolio\customer_detail.html:279:    return new Intl.NumberFormat("es-CL", {
+  templates\portfolio\customer_detail.html:280:      style: "currency",
+  templates\portfolio\customer_detail.html:281:      currency: "CLP",
+  templates\portfolio\customer_detail.html:282:      maximumFractionDigits: 0
+  templates\portfolio\customer_detail.html:283:    }).format(amount);
+  templates\portfolio\customer_detail.html:284:  }
+  templates\portfolio\customer_detail.html:285:
+  templates\portfolio\customer_detail.html:286:  function updateSelectionBar() {
+  templates\portfolio\customer_detail.html:287:    if (!bar || !countLabel) return;
+  templates\portfolio\customer_detail.html:288:
+  templates\portfolio\customer_detail.html:289:    const count = getSelectedDocs().length;
+  templates\portfolio\customer_detail.html:290:
+  templates\portfolio\customer_detail.html:291:    if (count === 0) {
+  templates\portfolio\customer_detail.html:292:      bar.hidden = true;
+  templates\portfolio\customer_detail.html:293:      countLabel.textContent = "0 documentos seleccionados";
+  templates\portfolio\customer_detail.html:294:      return;
+  templates\portfolio\customer_detail.html:295:    }
+  templates\portfolio\customer_detail.html:296:
+  templates\portfolio\customer_detail.html:297:    bar.hidden = false;
+  templates\portfolio\customer_detail.html:298:    countLabel.textContent = count === 1
+  templates\portfolio\customer_detail.html:299:      ? "1 documento seleccionado"
+  templates\portfolio\customer_detail.html:300:      : `${count} documentos seleccionados`;
+  templates\portfolio\customer_detail.html:301:  }
+  templates\portfolio\customer_detail.html:302:
+  templates\portfolio\customer_detail.html:303:  function fillModal(modal, hiddenSelector, summarySelector) {
+  templates\portfolio\customer_detail.html:304:    const selected = getSelectedDocs();
+  templates\portfolio\customer_detail.html:305:    const hiddenBox = modal.querySelector(hiddenSelector);
+  templates\portfolio\customer_detail.html:306:    const summary = modal.querySelector(summarySelector);
+  templates\portfolio\customer_detail.html:307:    const total = modal.querySelector("[data-promise-modal-total]");
+  templates\portfolio\customer_detail.html:308:
+  templates\portfolio\customer_detail.html:309:    hiddenBox.innerHTML = "";
+  templates\portfolio\customer_detail.html:310:
+  templates\portfolio\customer_detail.html:311:    selected.forEach(function (checkbox) {
+  templates\portfolio\customer_detail.html:312:      const input = document.createElement("input");
+  templates\portfolio\customer_detail.html:313:      input.type = "hidden";
+  templates\portfolio\customer_detail.html:314:      input.name = modal === actionModal ? "document_id" : "document_ids";
+  templates\portfolio\customer_detail.html:315:      input.value = checkbox.value;
+  templates\portfolio\customer_detail.html:316:      hiddenBox.appendChild(input);
+  templates\portfolio\customer_detail.html:317:    });
+  templates\portfolio\customer_detail.html:318:
+  templates\portfolio\customer_detail.html:319:    if (summary) {
+  templates\portfolio\customer_detail.html:320:      summary.textContent = selected.length === 1
+  templates\portfolio\customer_detail.html:321:        ? "1 documento seleccionado"
+  templates\portfolio\customer_detail.html:322:        : `${selected.length} documentos seleccionados`;
+  templates\portfolio\customer_detail.html:323:    }
+  templates\portfolio\customer_detail.html:324:
+  templates\portfolio\customer_detail.html:325:    if (total && modal === promiseModal) {
+  templates\portfolio\customer_detail_etapa24_backup.html:60:    <div class="if-stat-value if-stat-value-text">
+  templates\portfolio\customer_detail_etapa24_backup.html:61:      {% if last_action %}
+  templates\portfolio\customer_detail_etapa24_backup.html:62:        {{ last_action.created_at|date:"d/m/Y" }}
+  templates\portfolio\customer_detail_etapa24_backup.html:63:      {% else %}
+  templates\portfolio\customer_detail_etapa24_backup.html:64:        Sin gestiones
+  templates\portfolio\customer_detail_etapa24_backup.html:65:      {% endif %}
+  templates\portfolio\customer_detail_etapa24_backup.html:66:    </div>
+  templates\portfolio\customer_detail_etapa24_backup.html:67:    <div class="if-kpi-divider"></div>
+  templates\portfolio\customer_detail_etapa24_backup.html:68:    <div class="if-stat-trend">
+  templates\portfolio\customer_detail_etapa24_backup.html:69:      {% if last_action %}
+  templates\portfolio\customer_detail_etapa24_backup.html:70:        {{ last_action.created_at|date:"H:i" }}
+  templates\portfolio\customer_detail_etapa24_backup.html:71:      {% else %}
+  templates\portfolio\customer_detail_etapa24_backup.html:72:        Sin historial operacional
+  templates\portfolio\customer_detail_etapa24_backup.html:73:      {% endif %}
+  templates\portfolio\customer_detail_etapa24_backup.html:74:    </div>
+  templates\portfolio\customer_detail_etapa24_backup.html:75:  </div>
+  templates\portfolio\customer_detail_etapa24_backup.html:76:
+  templates\portfolio\customer_detail_etapa24_backup.html:77:  <div class="if-card-kpi if-kpi-premium">
+  templates\portfolio\customer_detail_etapa24_backup.html:78:    <span class="if-stat-icon if-stat-icon-success"><i class="bi bi-calendar-check"></i></span>
+  templates\portfolio\customer_detail_etapa24_backup.html:79:    <div class="if-stat-label">Promesas activas</div>
+> templates\portfolio\customer_detail_etapa24_backup.html:80:    <div class="if-stat-value">{{ active_promises }}</div>
+  templates\portfolio\customer_detail_etapa24_backup.html:81:    <div class="if-kpi-divider"></div>
+  templates\portfolio\customer_detail_etapa24_backup.html:82:    <div class="if-stat-trend">
+> templates\portfolio\customer_detail_etapa24_backup.html:83:      {% if expired_promises > 0 %}
+> templates\portfolio\customer_detail_etapa24_backup.html:84:        {{ expired_promises }} vencidas
+  templates\portfolio\customer_detail_etapa24_backup.html:85:      {% else %}
+  templates\portfolio\customer_detail_etapa24_backup.html:86:        Sin promesas vencidas
+  templates\portfolio\customer_detail_etapa24_backup.html:87:      {% endif %}
+  templates\portfolio\customer_detail_etapa24_backup.html:88:    </div>
+  templates\portfolio\customer_detail_etapa24_backup.html:89:  </div>
+  templates\portfolio\customer_detail_etapa24_backup.html:90:</div>
+  templates\portfolio\customer_detail_etapa24_backup.html:91:
+  templates\portfolio\customer_detail_etapa24_backup.html:92:<div class="if-customer-shell mt-3">
+  templates\portfolio\customer_detail_etapa24_backup.html:93:  <main class="if-customer-main">
+  templates\portfolio\customer_detail_etapa24_backup.html:94:<section class="if-card if-section">
+  templates\portfolio\customer_detail_etapa24_backup.html:95:  <div class="if-card-header">
+  templates\portfolio\customer_detail_etapa24_backup.html:96:    <div>
+  templates\portfolio\customer_detail_etapa24_backup.html:97:      <h2 class="if-card-title">Mesa de cobranza</h2>
+  templates\portfolio\customer_detail_etapa24_backup.html:98:      <p class="if-card-subtitle">Vista rápida para conversar con el cliente y decidir la próxima acción.</p>
+  templates\portfolio\customer_detail_etapa24_backup.html:99:    </div>
+  templates\portfolio\customer_detail_etapa24_backup.html:100:
+  templates\portfolio\customer_detail_etapa24_backup.html:101:    {% if total_overpayment > 0 %}
+  templates\portfolio\customer_detail_etapa24_backup.html:102:      <span class="if-pill if-pill-status-success">
+  templates\portfolio\customer_detail_etapa24_backup.html:103:        <i class="bi bi-wallet2"></i>
+  templates\portfolio\customer_detail_etapa24_backup.html:104:        Saldo a favor {{ total_overpayment|clp }}
+  templates\portfolio\customer_detail_etapa24_backup.html:105:      </span>
+  templates\portfolio\customer_detail_etapa24_backup.html:106:    {% endif %}
+  templates\portfolio\customer_detail_etapa24_backup.html:107:  </div>
+  templates\portfolio\customer_detail_etapa24_backup.html:108:
+  templates\portfolio\customer_detail_etapa24_backup.html:109:  <div class="if-card-body">
+  templates\portfolio\customer_detail_etapa24_backup.html:110:    {% if recommended_document %}
+  templates\portfolio\customer_detail_etapa24_backup.html:111:      <div class="if-mini-card">
+  templates\portfolio\customer_detail_etapa24_backup.html:112:        <div class="if-mini-card-top">
+  templates\portfolio\customer_detail_etapa24_backup.html:113:          <div>
+  templates\portfolio\customer_detail_etapa24_backup.html:114:            <strong>Documento recomendado para gestionar</strong>
+  templates\portfolio\customer_detail_etapa24_backup.html:115:            <p class="if-muted mb-0">Prioridad por saldo abierto y vencimiento.</p>
+  templates\portfolio\customer_detail_etapa24_backup.html:116:          </div>
+  templates\portfolio\customer_detail_etapa24_backup.html:117:
+  templates\portfolio\customer_detail_etapa24_backup.html:118:          <a href="{% url 'management:document_detail' recommended_document.id %}" class="if-button-primary">
+  templates\portfolio\customer_detail_etapa24_backup.html:119:            <i class="bi bi-headset"></i>
+  templates\portfolio\customer_detail_etapa24_backup.html:120:            Gestionar
+  templates\portfolio\customer_detail_etapa24_backup.html:121:          </a>
+  templates\portfolio\customer_detail_etapa24_backup.html:122:        </div>
+  templates\portfolio\customer_detail_etapa24_backup.html:123:
+  templates\portfolio\customer_detail_etapa24_backup.html:124:        <div class="if-detail-grid mt-3">
+  templates\portfolio\customer_detail_etapa24_backup.html:125:          <div>
+  templates\portfolio\customer_detail_etapa24_backup.html:126:            <span>Documento</span>
+  templates\portfolio\customer_detail_etapa24_backup.html:127:            <strong>{{ recommended_document.document_number }}</strong>
+  templates\portfolio\customer_detail_etapa24_backup.html:128:          </div>
+  templates\portfolio\customer_detail_etapa24_backup.html:129:
+  templates\portfolio\customer_detail_etapa24_backup.html:130:          <div>
+  templates\portfolio\customer_detail_etapa24_backup.html:131:            <span>Saldo</span>
+  templates\portfolio\customer_detail_etapa24_backup.html:132:            <strong>{{ recommended_document.balance_amount|clp }}</strong>
+  templates\portfolio\customer_detail_etapa24_backup.html:133:          </div>
+  templates\portfolio\customer_detail_etapa24_backup.html:134:
+  templates\portfolio\customer_detail_etapa24_backup.html:135:          <div>
+  templates\portfolio\customer_detail_etapa24_backup.html:136:            <span>Vencimiento</span>
+  templates\portfolio\customer_detail_etapa24_backup.html:137:            <strong>{{ recommended_document.due_date|date:"d/m/Y" }}</strong>
+  templates\portfolio\customer_detail_etapa24_backup.html:138:          </div>
+  templates\portfolio\customer_detail_etapa24_backup.html:139:
+  templates\portfolio\customer_detail_etapa24_backup.html:140:          <div>
+  templates\portfolio\customer_detail_etapa24_backup.html:141:            <span>Estado</span>
+  templates\portfolio\customer_detail_etapa24_backup.html:142:            <strong>{{ recommended_document.status.name|default:"Sin estado" }}</strong>
+  templates\portfolio\customer_detail_etapa24_backup.html:143:          </div>
+  templates\portfolio\customer_detail_etapa24_backup.html:144:
+  templates\portfolio\customer_detail_etapa24_backup.html:145:          <div>
+  templates\portfolio\customer_detail_etapa24_backup.html:146:            <span>Subestado</span>
+  templates\portfolio\customer_detail_etapa24_backup.html:147:            <strong>{{ recommended_document.sub_status.name|default:"Sin subestado" }}</strong>
+  templates\portfolio\customer_detail_etapa24_backup.html:148:          </div>
+  templates\portfolio\customer_detail_etapa24_backup.html:149:
+  templates\portfolio\customer_detail_etapa24_backup.html:150:          <div>
+  templates\portfolio\customer_detail_etapa24_backup.html:151:            <span>Saldo a favor doc.</span>
+  templates\portfolio\customer_detail_etapa24_backup.html:152:            <strong>{{ recommended_document.overpayment_amount|clp }}</strong>
+  templates\portfolio\customer_detail_etapa24_backup.html:153:          </div>
+  templates\portfolio\customer_detail_etapa24_backup.html:154:        </div>
+  templates\portfolio\customer_detail_etapa24_backup.html:416:    <section class="if-card">
+  templates\portfolio\customer_detail_etapa24_backup.html:417:      <div class="if-card-header">
+  templates\portfolio\customer_detail_etapa24_backup.html:418:        <div>
+  templates\portfolio\customer_detail_etapa24_backup.html:419:          <h2 class="if-card-title">Información del cliente</h2>
+  templates\portfolio\customer_detail_etapa24_backup.html:420:          <p class="if-card-subtitle">Datos comerciales y de contacto.</p>
+  templates\portfolio\customer_detail_etapa24_backup.html:421:        </div>
+  templates\portfolio\customer_detail_etapa24_backup.html:422:      </div>
+  templates\portfolio\customer_detail_etapa24_backup.html:423:
+  templates\portfolio\customer_detail_etapa24_backup.html:424:      <div class="if-side-list">
+  templates\portfolio\customer_detail_etapa24_backup.html:425:        <div><span>Email</span><strong>{{ customer.email|default:"Sin email" }}</strong></div>
+  templates\portfolio\customer_detail_etapa24_backup.html:426:        <div><span>Teléfono</span><strong>{{ customer.phone|default:"Sin teléfono" }}</strong></div>
+  templates\portfolio\customer_detail_etapa24_backup.html:427:        <div><span>Cluster</span><strong>{{ customer.cluster|default:"Sin cluster" }}</strong></div>
+  templates\portfolio\customer_detail_etapa24_backup.html:428:        <div><span>Estado</span><strong>{% if customer.is_active %}Activo{% else %}Inactivo{% endif %}</strong></div>
+  templates\portfolio\customer_detail_etapa24_backup.html:429:      </div>
+  templates\portfolio\customer_detail_etapa24_backup.html:430:    </section>
+  templates\portfolio\customer_detail_etapa24_backup.html:431:
+  templates\portfolio\customer_detail_etapa24_backup.html:432:    <section class="if-card if-section">
+  templates\portfolio\customer_detail_etapa24_backup.html:433:      <div class="if-card-header">
+  templates\portfolio\customer_detail_etapa24_backup.html:434:        <div>
+  templates\portfolio\customer_detail_etapa24_backup.html:435:          <h2 class="if-card-title">Promesas</h2>
+> templates\portfolio\customer_detail_etapa24_backup.html:436:          <p class="if-card-subtitle">Compromisos formales de pago.</p>
+  templates\portfolio\customer_detail_etapa24_backup.html:437:        </div>
+  templates\portfolio\customer_detail_etapa24_backup.html:438:      </div>
+  templates\portfolio\customer_detail_etapa24_backup.html:439:
+  templates\portfolio\customer_detail_etapa24_backup.html:440:      <div class="if-list">
+> templates\portfolio\customer_detail_etapa24_backup.html:441:        {% for promise in promises %}
+  templates\portfolio\customer_detail_etapa24_backup.html:442:          <div class="if-mini-card">
+  templates\portfolio\customer_detail_etapa24_backup.html:443:            <div class="if-mini-card-top">
+> templates\portfolio\customer_detail_etapa24_backup.html:444:              <strong>{{ promise.promise_date|date:"d/m/Y" }}</strong>
+  templates\portfolio\customer_detail_etapa24_backup.html:445:
+  templates\portfolio\customer_detail_etapa24_backup.html:446:              {% if promise.status == "ACTIVE" %}
+  templates\portfolio\customer_detail_etapa24_backup.html:447:                <span class="if-pill if-pill-status-success">Vigente</span>
+  templates\portfolio\customer_detail_etapa24_backup.html:448:              {% elif promise.status == "EXPIRED" %}
+  templates\portfolio\customer_detail_etapa24_backup.html:449:                <span class="if-pill if-pill-status-danger">Vencida</span>
+  templates\portfolio\customer_detail_etapa24_backup.html:450:              {% elif promise.status == "FULFILLED" %}
+  templates\portfolio\customer_detail_etapa24_backup.html:451:                <span class="if-pill if-pill-status-success">Cumplida</span>
+  templates\portfolio\customer_detail_etapa24_backup.html:452:              {% elif promise.status == "CANCELLED" %}
+  templates\portfolio\customer_detail_etapa24_backup.html:453:                <span class="if-badge">Cancelada</span>
+  templates\portfolio\customer_detail_etapa24_backup.html:454:              {% else %}
+  templates\portfolio\customer_detail_etapa24_backup.html:455:                <span class="if-badge">Pendiente</span>
+  templates\portfolio\customer_detail_etapa24_backup.html:456:              {% endif %}
+  templates\portfolio\customer_detail_etapa24_backup.html:457:            </div>
+  templates\portfolio\customer_detail_etapa24_backup.html:458:
+> templates\portfolio\customer_detail_etapa24_backup.html:459:            <p><strong>Monto:</strong> {{ promise.promised_amount|clp }}</p>
+  templates\portfolio\customer_detail_etapa24_backup.html:460:            <p><strong>Pago confirmado:</strong> {% if promise.payment_confirmed %}Sí{% else %}No{% endif %}</p>
+  templates\portfolio\customer_detail_etapa24_backup.html:461:
+  templates\portfolio\customer_detail_etapa24_backup.html:462:            <p>
+  templates\portfolio\customer_detail_etapa24_backup.html:463:              <strong>Documentos:</strong>
+  templates\portfolio\customer_detail_etapa24_backup.html:464:              {% for relation in promise.promise_documents.all %}
+  templates\portfolio\customer_detail_etapa24_backup.html:465:                {{ relation.document.document_number }}{% if not forloop.last %}, {% endif %}
+  templates\portfolio\customer_detail_etapa24_backup.html:466:              {% empty %}
+  templates\portfolio\customer_detail_etapa24_backup.html:467:                Sin documentos asociados
+  templates\portfolio\customer_detail_etapa24_backup.html:468:              {% endfor %}
+  templates\portfolio\customer_detail_etapa24_backup.html:469:            </p>
+  templates\portfolio\customer_detail_etapa24_backup.html:470:
+  templates\portfolio\customer_detail_etapa24_backup.html:471:            {% if promise.notes %}
+  templates\portfolio\customer_detail_etapa24_backup.html:472:              <p>{{ promise.notes }}</p>
+  templates\portfolio\customer_detail_etapa24_backup.html:473:            {% endif %}
+  templates\portfolio\customer_detail_etapa24_backup.html:474:          </div>
+  templates\portfolio\customer_detail_etapa24_backup.html:475:        {% empty %}
+  templates\portfolio\customer_detail_etapa24_backup.html:476:          <div class="if-empty-compact">Cliente sin promesas.</div>
+  templates\portfolio\customer_detail_etapa24_backup.html:477:        {% endfor %}
+  templates\portfolio\customer_detail_etapa24_backup.html:478:      </div>
+  templates\portfolio\customer_detail_etapa24_backup.html:479:    </section>
+  templates\portfolio\customer_detail_etapa24_backup.html:480:
+  templates\portfolio\customer_detail_etapa24_backup.html:481:    <section class="if-card if-section">
+  templates\portfolio\customer_detail_etapa24_backup.html:482:      <div class="if-card-header">
+  templates\portfolio\customer_detail_etapa24_backup.html:483:        <div>
+  templates\portfolio\customer_detail_etapa24_backup.html:484:          <h2 class="if-card-title">Contactos</h2>
+  templates\portfolio\customer_detail_etapa24_backup.html:485:          <p class="if-card-subtitle">Personas de contacto.</p>
+  templates\portfolio\customer_detail_etapa24_backup.html:486:        </div>
+  templates\portfolio\customer_detail_etapa24_backup.html:487:      </div>
+  templates\portfolio\customer_detail_etapa24_backup.html:488:
+  templates\portfolio\customer_detail_etapa24_backup.html:489:      <div class="if-list">
+  templates\portfolio\customer_detail_etapa24_backup.html:490:        {% for contact in contacts %}
+  templates\portfolio\customer_detail_etapa24_backup.html:491:          <div class="if-mini-card">
+  templates\portfolio\customer_detail_etapa24_backup.html:492:            <strong>{{ contact.name }}</strong>
+  templates\portfolio\customer_detail_etapa24_backup.html:493:            <p>{{ contact.email|default:"Sin email" }}</p>
+  templates\portfolio\customer_detail_etapa24_backup.html:494:            <p>{{ contact.phone|default:"Sin teléfono" }}</p>
+  templates\portfolio\customer_detail_etapa24_backup.html:495:          </div>
+  templates\portfolio\customer_detail_etapa24_backup.html:496:        {% empty %}
+  templates\portfolio\customer_detail_etapa24_backup.html:497:          <div class="if-empty-compact">Cliente sin contactos.</div>
+  templates\portfolio\customer_detail_etapa24_backup.html:498:        {% endfor %}
+  templates\portfolio\customer_detail_etapa24_backup.html:499:      </div>
+  templates\portfolio\customer_detail_etapa24_backup.html:500:    </section>
+  templates\portfolio\customer_detail_etapa24_backup.html:501:  </aside>
+  templates\portfolio\customer_detail_etapa24_backup.html:502:</div>
+  templates\portfolio\customer_detail_etapa24_backup.html:503:{% endblock %}
+
+
+
+=== CUSTOMER DETAIL COMPLETO ===
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Cuentas por cobrar | {{ customer.name }}{% endblock %}
+
+{% block content %}
+<div class="if-ar-workspace">
+
+{% include "portfolio/components/_workspace_nav.html" %}
+
+{% include "portfolio/components/_workspace_header.html" %}
+{% include "portfolio/components/_collection_state.html" %}
+
+  <div class="if-ar-layout">
+    <main class="if-ar-main">
+      {% include "portfolio/components/_account_state.html" %}
+      {% include "portfolio/components/_recent_context.html" %}
+    </main>
+
+    {% include "portfolio/components/_action_console.html" %}
+  </div>
+
+</div>
+
+<div class="if-modal" data-action-modal hidden>
+  <div class="if-modal-backdrop" data-close-modal></div>
+
+  <section class="if-modal-panel">
+    <header class="if-modal-header">
+      <div>
+        <h2>Registrar gestiÃ³n</h2>
+        <p data-action-modal-summary>Documentos seleccionados</p>
+      </div>
+      <button type="button" data-close-modal>Ã—</button>
+    </header>
+
+    <form
+    method="post"
+    enctype="multipart/form-data"
+    class="if-modal-body"
+    data-operational-upload-form
+>
+      {% csrf_token %}
+      <input type="hidden" name="form_type" value="action">
+      <div data-action-hidden-documents></div>
+
+      <label class="form-label">Tipo</label>
+      {{ action_form.action_type }}
+
+      <label class="form-label mt-2">TÃ­tulo</label>
+      {{ action_form.title }}
+
+      <label class="form-label mt-2">DescripciÃ³n</label>
+      {{ action_form.description }}
+
+      <div
+  class="if-upload-field mt-3"
+  data-operational-attachments
+>
+  <label class="form-label">
+    Adjuntos
+  </label>
+
+  <div class="if-upload-picker">
+    <input
+      type="file"
+      id="id_customer_action_attachments"
+      name="attachments"
+      multiple
+      data-operational-attachment-input
+      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.webp,.tif,.tiff,.zip,.msg,.eml"
+    >
+
+    <div class="if-upload-picker-content">
+      <div class="if-upload-picker-icon">
+        <i class="bi bi-cloud-arrow-up"></i>
+      </div>
+
+      <div class="if-upload-picker-copy">
+        <strong>Seleccionar archivos</strong>
+
+        <span>
+          Puedes elegir varios y quitarlos antes de guardar.
+          MÃ¡ximo 30 MB por archivo.
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <p
+    class="if-upload-empty"
+    data-operational-attachment-empty
+  >
+    No hay archivos seleccionados.
+  </p>
+
+  <div
+    class="if-upload-list"
+    data-operational-attachment-list
+  ></div>
+
+  <div
+    class="if-upload-error"
+    data-operational-attachment-error
+    hidden
+  ></div>
+</div>
+
+<div
+  class="if-upload-progress"
+  data-upload-progress
+  hidden
+>
+  <div class="if-upload-progress-track">
+    <div
+      class="if-upload-progress-bar"
+      data-upload-progress-bar
+      role="progressbar"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      aria-valuenow="0"
+    ></div>
+  </div>
+
+  <span
+    class="if-upload-progress-label"
+    data-upload-progress-label
+  >
+    Preparando cargaâ€¦
+  </span>
+</div>
+
+      <button
+    type="submit"
+    class="if-button-primary w-100 mt-3"
+    data-upload-submit
+>
+        Registrar gestiÃ³n
+      </button>
+    </form>
+  </section>
+</div>
+
+<div class="if-modal" data-promise-modal hidden>
+  <div class="if-modal-backdrop" data-close-modal></div>
+
+  <section class="if-modal-panel">
+    <header class="if-modal-header">
+      <div>
+        <h2>Registrar compromiso</h2>
+        <p data-promise-modal-summary>Documentos seleccionados</p>
+        <p class="if-modal-total" data-promise-modal-total></p>
+      </div>
+      <button type="button" data-close-modal>Ã—</button>
+    </header>
+
+<form
+  method="post"
+  enctype="multipart/form-data"
+  class="if-modal-body"
+  data-operational-upload-form
+>
+      {% csrf_token %}
+      <input type="hidden" name="form_type" value="promise">
+      <div data-promise-hidden-documents></div>
+
+      <label class="form-label">Fecha compromiso</label>
+      {{ promise_form.promise_date }}
+
+      <label class="form-label mt-2">Notas</label>
+      {{ promise_form.notes }}
+
+      <div
+  class="if-upload-field mt-3"
+  data-operational-attachments
+>
+  <label class="form-label">
+    Adjuntos
+  </label>
+
+  <div class="if-upload-picker">
+    <input
+      type="file"
+      id="id_customer_promise_attachments"
+      name="attachments"
+      multiple
+      data-operational-attachment-input
+      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.webp,.tif,.tiff,.zip,.msg,.eml"
+    >
+
+    <div class="if-upload-picker-content">
+      <div class="if-upload-picker-icon">
+        <i class="bi bi-cloud-arrow-up"></i>
+      </div>
+
+      <div class="if-upload-picker-copy">
+        <strong>Seleccionar archivos</strong>
+
+        <span>
+          Puedes elegir varios y quitarlos antes de guardar.
+          MÃ¡ximo 30 MB por archivo.
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <p
+    class="if-upload-empty"
+    data-operational-attachment-empty
+  >
+    No hay archivos seleccionados.
+  </p>
+
+  <div
+    class="if-upload-list"
+    data-operational-attachment-list
+  ></div>
+
+  <div
+    class="if-upload-error"
+    data-operational-attachment-error
+    hidden
+  ></div>
+</div>
+
+<div
+  class="if-upload-progress"
+  data-upload-progress
+  hidden
+>
+  <div class="if-upload-progress-track">
+    <div
+      class="if-upload-progress-bar"
+      data-upload-progress-bar
+      role="progressbar"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      aria-valuenow="0"
+    ></div>
+  </div>
+
+  <span
+    class="if-upload-progress-label"
+    data-upload-progress-label
+  >
+    Preparando cargaâ€¦
+  </span>
+</div>
+
+
+<button
+  type="submit"
+  class="if-button-primary w-100 mt-3"
+  data-upload-submit
+>
+  Registrar compromiso
+</button>
+    </form>
+  </section>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const bar = document.querySelector("[data-selection-bar]");
+  const countLabel = document.querySelector("[data-selection-count]");
+
+  const actionModal = document.querySelector("[data-action-modal]");
+  const promiseModal = document.querySelector("[data-promise-modal]");
+
+  function getSelectedDocs() {
+    return Array.from(document.querySelectorAll("[data-account-doc-checkbox]:checked"));
+  }
+
+  function parseAmount(raw) {
+    if (!raw) return 0;
+    return Number(String(raw).replace(",", ".")) || 0;
+  }
+
+  function formatCLP(amount) {
+    return new Intl.NumberFormat("es-CL", {
+      style: "currency",
+      currency: "CLP",
+      maximumFractionDigits: 0
+    }).format(amount);
+  }
+
+  function updateSelectionBar() {
+    if (!bar || !countLabel) return;
+
+    const count = getSelectedDocs().length;
+
+    if (count === 0) {
+      bar.hidden = true;
+      countLabel.textContent = "0 documentos seleccionados";
+      return;
+    }
+
+    bar.hidden = false;
+    countLabel.textContent = count === 1
+      ? "1 documento seleccionado"
+      : `${count} documentos seleccionados`;
+  }
+
+  function fillModal(modal, hiddenSelector, summarySelector) {
+    const selected = getSelectedDocs();
+    const hiddenBox = modal.querySelector(hiddenSelector);
+    const summary = modal.querySelector(summarySelector);
+    const total = modal.querySelector("[data-promise-modal-total]");
+
+    hiddenBox.innerHTML = "";
+
+    selected.forEach(function (checkbox) {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = modal === actionModal ? "document_id" : "document_ids";
+      input.value = checkbox.value;
+      hiddenBox.appendChild(input);
+    });
+
+    if (summary) {
+      summary.textContent = selected.length === 1
+        ? "1 documento seleccionado"
+        : `${selected.length} documentos seleccionados`;
+    }
+
+    if (total && modal === promiseModal) {
+      const amount = selected.reduce(function (sum, checkbox) {
+        return sum + parseAmount(checkbox.dataset.documentBalanceRaw);
+      }, 0);
+
+      total.textContent = "Total comprometido: " + formatCLP(amount);
+    }
+  }
+
+  function openModal(modal) {
+    if (!modal || !getSelectedDocs().length) return;
+    modal.hidden = false;
+  }
+
+  function closeModals() {
+    document.querySelectorAll(".if-modal").forEach(function (modal) {
+      modal.hidden = true;
+    });
+  }
+
+  document.querySelectorAll("[data-account-doc-checkbox]").forEach(function (checkbox) {
+    checkbox.addEventListener("change", updateSelectionBar);
+  });
+
+  const actionButton = document.querySelector("[data-open-action-modal]");
+  if (actionButton) {
+    actionButton.addEventListener("click", function () {
+      fillModal(actionModal, "[data-action-hidden-documents]", "[data-action-modal-summary]");
+      openModal(actionModal);
+    });
+  }
+
+  const promiseButton = document.querySelector("[data-open-promise-modal]");
+  if (promiseButton) {
+    promiseButton.addEventListener("click", function () {
+      fillModal(promiseModal, "[data-promise-hidden-documents]", "[data-promise-modal-summary]");
+      openModal(promiseModal);
+    });
+  }
+
+  document.querySelectorAll("[data-close-modal]").forEach(function (button) {
+    button.addEventListener("click", closeModals);
+  });
+
+  updateSelectionBar();
+});
+</script>
+{% endblock %}
+
+=== CLASES CSS DE ADJUNTOS Y COMPROMISOS ===
+
+  static\css\invoice-flow.css:4892:  .if-modal-panel {
+  static\css\invoice-flow.css:4893:    width: calc(100vw - 20px);
+  static\css\invoice-flow.css:4894:    max-height: calc(100vh - 20px);
+  static\css\invoice-flow.css:4895:    margin: 10px auto;
+  static\css\invoice-flow.css:4896:    border-radius: 18px;
+  static\css\invoice-flow.css:4897:  }
+  static\css\invoice-flow.css:4898:}
+  static\css\invoice-flow.css:4899:
+> static\css\invoice-flow.css:4900:/* DS-04 — Compromisos del cliente */
+  static\css\invoice-flow.css:4901:
+> static\css\invoice-flow.css:4902:.if-promise-list {
+  static\css\invoice-flow.css:4903:  display: grid;
+  static\css\invoice-flow.css:4904:  gap: .75rem;
+  static\css\invoice-flow.css:4905:}
+  static\css\invoice-flow.css:4906:
+> static\css\invoice-flow.css:4907:.if-promise-card {
+  static\css\invoice-flow.css:4908:  position: relative;
+  static\css\invoice-flow.css:4909:  padding: .85rem .9rem;
+  static\css\invoice-flow.css:4910:  background: #fff;
+  static\css\invoice-flow.css:4911:  border: 1px solid var(--if-border);
+  static\css\invoice-flow.css:4912:  border-radius: 16px;
+  static\css\invoice-flow.css:4913:}
+  static\css\invoice-flow.css:4914:
+> static\css\invoice-flow.css:4915:.if-promise-card::before {
+  static\css\invoice-flow.css:4916:  content: "";
+  static\css\invoice-flow.css:4917:  position: absolute;
+  static\css\invoice-flow.css:4918:  left: .85rem;
+  static\css\invoice-flow.css:4919:  right: .85rem;
+  static\css\invoice-flow.css:4920:  top: 0;
+  static\css\invoice-flow.css:4921:  height: 3px;
+  static\css\invoice-flow.css:4922:  border-radius: 999px;
+  static\css\invoice-flow.css:4923:  background: var(--if-primary-soft);
+  static\css\invoice-flow.css:4924:}
+  static\css\invoice-flow.css:4925:
+> static\css\invoice-flow.css:4926:.if-promise-card.is-active::before {
+  static\css\invoice-flow.css:4927:  background: var(--if-primary);
+  static\css\invoice-flow.css:4928:}
+  static\css\invoice-flow.css:4929:
+> static\css\invoice-flow.css:4930:.if-promise-card.is-expired::before {
+  static\css\invoice-flow.css:4931:  background: var(--if-warning);
+  static\css\invoice-flow.css:4932:}
+  static\css\invoice-flow.css:4933:
+> static\css\invoice-flow.css:4934:.if-promise-top {
+  static\css\invoice-flow.css:4935:  display: flex;
+  static\css\invoice-flow.css:4936:  justify-content: space-between;
+  static\css\invoice-flow.css:4937:  gap: .75rem;
+  static\css\invoice-flow.css:4938:  align-items: center;
+  static\css\invoice-flow.css:4939:}
+  static\css\invoice-flow.css:4940:
+> static\css\invoice-flow.css:4941:.if-promise-top time {
+  static\css\invoice-flow.css:4942:  color: var(--if-text-muted);
+  static\css\invoice-flow.css:4943:  font-size: .72rem;
+  static\css\invoice-flow.css:4944:  font-weight: 750;
+  static\css\invoice-flow.css:4945:}
+  static\css\invoice-flow.css:4946:
+> static\css\invoice-flow.css:4947:.if-promise-amount {
+  static\css\invoice-flow.css:4948:  display: block;
+  static\css\invoice-flow.css:4949:  margin-top: .55rem;
+  static\css\invoice-flow.css:4950:  color: var(--if-text);
+  static\css\invoice-flow.css:4951:  font-size: 1.15rem;
+  static\css\invoice-flow.css:4952:  font-weight: 900;
+  static\css\invoice-flow.css:4953:}
+  static\css\invoice-flow.css:4954:
+> static\css\invoice-flow.css:4955:.if-promise-docs {
+  static\css\invoice-flow.css:4956:  display: flex;
+  static\css\invoice-flow.css:4957:  flex-wrap: wrap;
+  static\css\invoice-flow.css:4958:  gap: .25rem;
+  static\css\invoice-flow.css:4959:  margin-top: .55rem;
+  static\css\invoice-flow.css:4960:}
+  static\css\invoice-flow.css:4961:
+> static\css\invoice-flow.css:4962:.if-promise-docs span {
+  static\css\invoice-flow.css:4963:  display: inline-flex;
+  static\css\invoice-flow.css:4964:  padding: .16rem .45rem;
+  static\css\invoice-flow.css:4965:  color: var(--if-text-muted);
+  static\css\invoice-flow.css:4966:  background: var(--if-surface-soft);
+  static\css\invoice-flow.css:4967:  border: 1px solid var(--if-border);
+  static\css\invoice-flow.css:4968:  border-radius: 999px;
+  static\css\invoice-flow.css:4969:  font-size: .68rem;
+  static\css\invoice-flow.css:4970:  font-weight: 700;
+  static\css\invoice-flow.css:4971:}
+  static\css\invoice-flow.css:4972:
+> static\css\invoice-flow.css:4973:.if-promise-note {
+  static\css\invoice-flow.css:4974:  margin: .55rem 0 0;
+  static\css\invoice-flow.css:4975:  color: var(--if-text-muted);
+  static\css\invoice-flow.css:4976:  font-size: .78rem;
+  static\css\invoice-flow.css:4977:  line-height: 1.35;
+  static\css\invoice-flow.css:4978:}
+  static\css\invoice-flow.css:4979:
+  static\css\invoice-flow.css:4980:/* DS-04 — Workspace Header refinado */
+  static\css\invoice-flow.css:4981:
+  static\css\invoice-flow.css:4982:.if-ar-header-v2 {
+  static\css\invoice-flow.css:4983:  display: grid;
+  static\css\invoice-flow.css:4984:  grid-template-columns: minmax(320px, .9fr) minmax(0, 1.35fr);
+  static\css\invoice-flow.css:4985:  gap: 1.5rem;
+  static\css\invoice-flow.css:4986:  align-items: stretch;
+  static\css\invoice-flow.css:4987:  padding: 1.35rem 1.5rem;
+  static\css\invoice-flow.css:4988:}
+  static\css\invoice-flow.css:4989:
+  static\css\invoice-flow.css:4990:.if-ar-header-identity {
+  static\css\invoice-flow.css:4991:  display: flex;
+  static\css\invoice-flow.css:4992:  flex-direction: column;
+  static\css\invoice-flow.css:4993:  justify-content: center;
+  static\css\invoice-flow.css:4994:  min-width: 0;
+  static\css\invoice-flow.css:4995:}
+  static\css\invoice-flow.css:4996:
+  static\css\invoice-flow.css:4997:.if-ar-header-identity .if-page-title {
+  static\css\invoice-flow.css:4998:  max-width: 520px;
+  static\css\invoice-flow.css:4999:  font-size: 1.75rem;
+  static\css\invoice-flow.css:5000:  line-height: 1.05;
+  static\css\invoice-flow.css:5001:}
+  static\css\invoice-flow.css:5002:
+  static\css\invoice-flow.css:5003:.if-ar-header-summary {
+  static\css\invoice-flow.css:5004:  display: grid;
+  static\css\invoice-flow.css:5005:  grid-template-columns: repeat(3, minmax(0, 1fr));
+  static\css\invoice-flow.css:5006:  gap: .75rem;
+  static\css\invoice-flow.css:5007:  align-content: center;
+  static\css\invoice-flow.css:5008:}
+  static\css\invoice-flow.css:6002:}
+  static\css\invoice-flow.css:6003:
+  static\css\invoice-flow.css:6004:.if-docx-pill-nc {
+  static\css\invoice-flow.css:6005:  background: #F8F1FF !important;
+  static\css\invoice-flow.css:6006:  color: #7C3AED !important;
+  static\css\invoice-flow.css:6007:  border-color: #D9C3FF !important;
+  static\css\invoice-flow.css:6008:}
+  static\css\invoice-flow.css:6009:
+> static\css\invoice-flow.css:6010:.if-docx-pill-promise {
+  static\css\invoice-flow.css:6011:  background: #EDF9F5 !important;
+  static\css\invoice-flow.css:6012:  color: #087A5C !important;
+  static\css\invoice-flow.css:6013:  border-color: #BEE7D8 !important;
+  static\css\invoice-flow.css:6014:}
+  static\css\invoice-flow.css:6015:
+  static\css\invoice-flow.css:6016:.if-docx-pill-credit {
+  static\css\invoice-flow.css:6017:  background: #E8FBF4 !important;
+  static\css\invoice-flow.css:6018:  color: #008B61 !important;
+  static\css\invoice-flow.css:6019:  border-color: #BFECD8 !important;
+  static\css\invoice-flow.css:6020:}
+  static\css\invoice-flow.css:6021:/* ETAPA 26.1 FIX — Badges consistentes con Cliente */
+  static\css\invoice-flow.css:6022:
+  static\css\invoice-flow.css:6023:.if-docx-pill-pending {
+  static\css\invoice-flow.css:6024:  color: #946B2E !important;
+  static\css\invoice-flow.css:6025:  background: #FFF6E8 !important;
+  static\css\invoice-flow.css:6026:  border-color: #F2DFBC !important;
+  static\css\invoice-flow.css:6027:}
+  static\css\invoice-flow.css:6028:
+  static\css\invoice-flow.css:6029:.if-docx-pill-closed,
+  static\css\invoice-flow.css:6030:.if-docx-pill-credit {
+  static\css\invoice-flow.css:6031:  color: #2E7D5B !important;
+  static\css\invoice-flow.css:6032:  background: #EAF7F1 !important;
+  static\css\invoice-flow.css:6033:  border-color: #CFEBDD !important;
+  static\css\invoice-flow.css:6034:}
+  static\css\invoice-flow.css:6035:
+  static\css\invoice-flow.css:6036:.if-docx-pill-payment,
+> static\css\invoice-flow.css:6037:.if-docx-pill-promise {
+  static\css\invoice-flow.css:6038:  color: #2F5F88 !important;
+  static\css\invoice-flow.css:6039:  background: #EAF4FC !important;
+  static\css\invoice-flow.css:6040:  border-color: #CFE4F5 !important;
+  static\css\invoice-flow.css:6041:}
+  static\css\invoice-flow.css:6042:
+  static\css\invoice-flow.css:6043:.if-docx-pill-nc {
+  static\css\invoice-flow.css:6044:  color: #946B2E !important;
+  static\css\invoice-flow.css:6045:  background: #FFF6E8 !important;
+  static\css\invoice-flow.css:6046:  border-color: #F2DFBC !important;
+  static\css\invoice-flow.css:6047:}
+  static\css\invoice-flow.css:6048:
+  static\css\invoice-flow.css:6049:
+  static\css\invoice-flow.css:6050:/* ETAPA 26.1 FIX — Movimientos financieros ordenados */
+  static\css\invoice-flow.css:6051:
+  static\css\invoice-flow.css:6052:#financial-movements .if-table {
+  static\css\invoice-flow.css:6053:  table-layout: fixed;
+  static\css\invoice-flow.css:6054:}
+  static\css\invoice-flow.css:6055:
+  static\css\invoice-flow.css:6056:#financial-movements .if-table th:nth-child(1),
+  static\css\invoice-flow.css:6057:#financial-movements .if-table td:nth-child(1) {
+  static\css\invoice-flow.css:6058:  width: 150px;
+  static\css\invoice-flow.css:6059:}
+  static\css\invoice-flow.css:6060:
+  static\css\invoice-flow.css:6061:#financial-movements .if-table th:nth-child(2),
+  static\css\invoice-flow.css:6062:#financial-movements .if-table td:nth-child(2) {
+  static\css\invoice-flow.css:6063:  width: 120px;
+  static\css\invoice-flow.css:6064:}
+  static\css\invoice-flow.css:6065:
+  static\css\invoice-flow.css:6066:#financial-movements .if-table th:nth-child(3),
+  static\css\invoice-flow.css:6067:#financial-movements .if-table td:nth-child(3) {
+  static\css\invoice-flow.css:6068:  width: 130px;
+  static\css\invoice-flow.css:6069:}
+  static\css\invoice-flow.css:6070:
+  static\css\invoice-flow.css:6071:#financial-movements .if-table th:nth-child(5),
+  static\css\invoice-flow.css:6072:#financial-movements .if-table td:nth-child(5) {
+  static\css\invoice-flow.css:6352:.if-docv3-panel .if-card-header {
+  static\css\invoice-flow.css:6353:  padding: 1rem 1.1rem;
+  static\css\invoice-flow.css:6354:}
+  static\css\invoice-flow.css:6355:
+  static\css\invoice-flow.css:6356:.if-docv3-panel .if-card-body {
+  static\css\invoice-flow.css:6357:  padding: 1rem 1.1rem 1.15rem;
+  static\css\invoice-flow.css:6358:}
+  static\css\invoice-flow.css:6359:
+> static\css\invoice-flow.css:6360:.if-docv3-panel.is-promise {
+  static\css\invoice-flow.css:6361:  border-color: #CFEBDD;
+  static\css\invoice-flow.css:6362:  background: linear-gradient(180deg, #F7FCFA, #fff);
+  static\css\invoice-flow.css:6363:}
+  static\css\invoice-flow.css:6364:
+  static\css\invoice-flow.css:6365:.if-docv3-panel form {
+  static\css\invoice-flow.css:6366:  display: grid;
+  static\css\invoice-flow.css:6367:  gap: .65rem;
+  static\css\invoice-flow.css:6368:}
+  static\css\invoice-flow.css:6369:
+  static\css\invoice-flow.css:6370:.if-docv3-panel input,
+  static\css\invoice-flow.css:6371:.if-docv3-panel select,
+  static\css\invoice-flow.css:6372:.if-docv3-panel textarea {
+  static\css\invoice-flow.css:6373:  width: 100%;
+  static\css\invoice-flow.css:6374:  min-height: 36px;
+  static\css\invoice-flow.css:6375:  border-color: var(--if-border);
+  static\css\invoice-flow.css:6376:  border-radius: 11px;
+  static\css\invoice-flow.css:6377:  font-size: .82rem;
+  static\css\invoice-flow.css:6378:}
+  static\css\invoice-flow.css:6379:
+  static\css\invoice-flow.css:6380:.if-docv3-panel textarea {
+  static\css\invoice-flow.css:6381:  min-height: 78px;
+  static\css\invoice-flow.css:6382:  resize: vertical;
+  static\css\invoice-flow.css:6383:}
+  static\css\invoice-flow.css:6384:
+  static\css\invoice-flow.css:6385:.if-docv3-panel .if-button-primary {
+  static\css\invoice-flow.css:6386:  min-height: 36px;
+  static\css\invoice-flow.css:6387:  font-size: .78rem;
+  static\css\invoice-flow.css:6388:  font-weight: 800;
+  static\css\invoice-flow.css:6389:}
+  static\css\invoice-flow.css:6390:
+  static\css\invoice-flow.css:6391:.if-docv3-lock {
+  static\css\invoice-flow.css:6392:  padding: 1rem;
+  static\css\invoice-flow.css:6393:  background: #FBFDFD;
+  static\css\invoice-flow.css:6394:  border: 1px dashed var(--if-border);
+  static\css\invoice-flow.css:6395:  border-radius: 15px;
+  static\css\invoice-flow.css:7722:    grid-template-columns: auto minmax(0, 1fr) 28px;
+  static\css\invoice-flow.css:7723:  }
+  static\css\invoice-flow.css:7724:
+  static\css\invoice-flow.css:7725:  .if-critical-amount {
+  static\css\invoice-flow.css:7726:    text-align: left;
+  static\css\invoice-flow.css:7727:  }
+  static\css\invoice-flow.css:7728:}
+  static\css\invoice-flow.css:7729:
+> static\css\invoice-flow.css:7730:/* Dashboard — consistencia visual próximos compromisos */
+  static\css\invoice-flow.css:7731:
+  static\css\invoice-flow.css:7732:.if-commitment-list {
+  static\css\invoice-flow.css:7733:  display: block;
+  static\css\invoice-flow.css:7734:}
+  static\css\invoice-flow.css:7735:
+  static\css\invoice-flow.css:7736:.if-commitment-row {
+  static\css\invoice-flow.css:7737:  display: grid;
+  static\css\invoice-flow.css:7738:  grid-template-columns: minmax(0, 1fr) auto;
+  static\css\invoice-flow.css:7739:  gap: .9rem;
+  static\css\invoice-flow.css:7740:  align-items: center;
+  static\css\invoice-flow.css:7741:  padding: .72rem .85rem;
+  static\css\invoice-flow.css:7742:}
+  static\css\invoice-flow.css:7743:
+  static\css\invoice-flow.css:7744:.if-commitment-row + .if-commitment-row {
+  static\css\invoice-flow.css:7745:  border-top: 1px solid var(--if-border);
+  static\css\invoice-flow.css:7746:}
+  static\css\invoice-flow.css:7747:
+  static\css\invoice-flow.css:7748:.if-commitment-main {
+  static\css\invoice-flow.css:7749:  min-width: 0;
+  static\css\invoice-flow.css:7750:}
+  static\css\invoice-flow.css:7751:
+  static\css\invoice-flow.css:7752:.if-commitment-customer {
+  static\css\invoice-flow.css:7753:  display: block;
+  static\css\invoice-flow.css:7754:  max-width: 100%;
+  static\css\invoice-flow.css:7755:  overflow: hidden;
+  static\css\invoice-flow.css:7756:  color: var(--if-text);
+  static\css\invoice-flow.css:7757:  font-size: .78rem;
+  static\css\invoice-flow.css:7758:  font-weight: 850;
+  static\css\invoice-flow.css:7759:  line-height: 1.2;
+  static\css\invoice-flow.css:7760:  text-overflow: ellipsis;
+  static\css\invoice-flow.css:7761:  white-space: nowrap;
+  static\css\invoice-flow.css:7762:}
+  static\css\invoice-flow.css:7763:
+  static\css\invoice-flow.css:7764:.if-commitment-date {
+  static\css\invoice-flow.css:7765:  display: block;
+  static\css\invoice-flow.css:7938:.if-critical-reason::before{
+  static\css\invoice-flow.css:7939:    content:"";
+  static\css\invoice-flow.css:7940:    width:6px;
+  static\css\invoice-flow.css:7941:    height:6px;
+  static\css\invoice-flow.css:7942:    border-radius:50%;
+  static\css\invoice-flow.css:7943:    background:#e68a7b;
+  static\css\invoice-flow.css:7944:}
+  static\css\invoice-flow.css:7945:
+> static\css\invoice-flow.css:7946:.if-reason-promise{
+  static\css\invoice-flow.css:7947:    color:#c75b4c;
+  static\css\invoice-flow.css:7948:}
+  static\css\invoice-flow.css:7949:
+> static\css\invoice-flow.css:7950:.if-reason-promise::before{
+  static\css\invoice-flow.css:7951:    background:#df7c6b;
+  static\css\invoice-flow.css:7952:}
+  static\css\invoice-flow.css:7953:
+  static\css\invoice-flow.css:7954:.if-reason-overdue{
+  static\css\invoice-flow.css:7955:    color:#b57b17;
+  static\css\invoice-flow.css:7956:}
+  static\css\invoice-flow.css:7957:
+  static\css\invoice-flow.css:7958:.if-reason-overdue::before{
+  static\css\invoice-flow.css:7959:    background:#d8a53b;
+  static\css\invoice-flow.css:7960:}
+  static\css\invoice-flow.css:7961:
+  static\css\invoice-flow.css:7962:.if-reason-balance{
+  static\css\invoice-flow.css:7963:    color:#1d8f73;
+  static\css\invoice-flow.css:7964:}
+  static\css\invoice-flow.css:7965:
+  static\css\invoice-flow.css:7966:.if-reason-balance::before{
+  static\css\invoice-flow.css:7967:    background:#39b89b;
+  static\css\invoice-flow.css:7968:}
+  static\css\invoice-flow.css:7969:
+  static\css\invoice-flow.css:7970:.if-reason-nomanagement{
+  static\css\invoice-flow.css:7971:    color:#5b6f93;
+  static\css\invoice-flow.css:7972:}
+  static\css\invoice-flow.css:7973:
+  static\css\invoice-flow.css:7974:.if-reason-nomanagement::before{
+  static\css\invoice-flow.css:7975:    background:#8ca6d9;
+  static\css\invoice-flow.css:7976:}
+  static\css\invoice-flow.css:7977:
+  static\css\invoice-flow.css:7978:.if-critical-customer,
+  static\css\invoice-flow.css:7979:.if-commitment-customer{
+  static\css\invoice-flow.css:7980:    line-height:1.28;
+  static\css\invoice-flow.css:7981:    margin-bottom:.12rem;
+  static\css\invoice-flow.css:7982:}
+  static\css\invoice-flow.css:7983:
+  static\css\invoice-flow.css:7984:.if-critical-secondary,
+  static\css\invoice-flow.css:7985:.if-commitment-secondary{
+  static\css\invoice-flow.css:11650:}
+  static\css\invoice-flow.css:11651:
+  static\css\invoice-flow.css:11652:.if-ar-workspace .if-customer-summary-panel .if-card-body {
+  static\css\invoice-flow.css:11653:  padding: 20px 22px 22px;
+  static\css\invoice-flow.css:11654:}
+  static\css\invoice-flow.css:11655:
+  static\css\invoice-flow.css:11656:/* Card principal de promesa */
+  static\css\invoice-flow.css:11657:
+> static\css\invoice-flow.css:11658:.if-ar-workspace .if-customer-summary-card {
+  static\css\invoice-flow.css:11659:  padding: 16px 17px;
+  static\css\invoice-flow.css:11660:  background: #ffffff;
+  static\css\invoice-flow.css:11661:  border: 1px solid #e1e9e5;
+  static\css\invoice-flow.css:11662:  border-radius: 15px;
+  static\css\invoice-flow.css:11663:  box-shadow: none;
+  static\css\invoice-flow.css:11664:}
+  static\css\invoice-flow.css:11665:
+> static\css\invoice-flow.css:11666:.if-ar-workspace .if-customer-summary-card.is-promise {
+  static\css\invoice-flow.css:11667:  background: #ffffff;
+  static\css\invoice-flow.css:11668:  border-color: #dce8e2;
+  static\css\invoice-flow.css:11669:}
+  static\css\invoice-flow.css:11670:
+> static\css\invoice-flow.css:11671:.if-ar-workspace .if-customer-summary-card.is-empty {
+  static\css\invoice-flow.css:11672:  background: #fbfcfb;
+  static\css\invoice-flow.css:11673:}
+  static\css\invoice-flow.css:11674:
+> static\css\invoice-flow.css:11675:.if-ar-workspace .if-customer-summary-card-top {
+  static\css\invoice-flow.css:11676:  display: flex;
+  static\css\invoice-flow.css:11677:  align-items: center;
+  static\css\invoice-flow.css:11678:  justify-content: space-between;
+  static\css\invoice-flow.css:11679:  gap: 12px;
+  static\css\invoice-flow.css:11680:  margin-bottom: 10px;
+  static\css\invoice-flow.css:11681:}
+  static\css\invoice-flow.css:11682:
+> static\css\invoice-flow.css:11683:.if-ar-workspace .if-customer-summary-card-top time {
+  static\css\invoice-flow.css:11684:  color: #77837d;
+  static\css\invoice-flow.css:11685:  font-size: 0.76rem;
+  static\css\invoice-flow.css:11686:  font-weight: 520;
+  static\css\invoice-flow.css:11687:  white-space: nowrap;
+  static\css\invoice-flow.css:11688:}
+  static\css\invoice-flow.css:11689:
+  static\css\invoice-flow.css:11690:.if-ar-workspace .if-customer-summary-amount,
+> static\css\invoice-flow.css:11691:.if-ar-workspace .if-customer-summary-card > strong {
+  static\css\invoice-flow.css:11692:  display: block;
+  static\css\invoice-flow.css:11693:  color: #2c3832;
+  static\css\invoice-flow.css:11694:  font-size: 1.02rem;
+  static\css\invoice-flow.css:11695:  font-weight: 680;
+  static\css\invoice-flow.css:11696:  line-height: 1.35;
+  static\css\invoice-flow.css:11697:}
+  static\css\invoice-flow.css:11698:
+> static\css\invoice-flow.css:11699:.if-ar-workspace .if-customer-summary-card > p {
+  static\css\invoice-flow.css:11700:  margin: 6px 0 0;
+  static\css\invoice-flow.css:11701:  color: #7b8781;
+  static\css\invoice-flow.css:11702:  font-size: 0.8rem;
+  static\css\invoice-flow.css:11703:  line-height: 1.45;
+  static\css\invoice-flow.css:11704:}
+  static\css\invoice-flow.css:11705:
+  static\css\invoice-flow.css:11706:.if-ar-workspace .if-customer-summary-note {
+  static\css\invoice-flow.css:11707:  margin-top: 8px !important;
+  static\css\invoice-flow.css:11708:  color: #69766f !important;
+  static\css\invoice-flow.css:11709:}
+  static\css\invoice-flow.css:11710:
+  static\css\invoice-flow.css:11711:/* Lista secundaria integrada */
+  static\css\invoice-flow.css:11712:
+  static\css\invoice-flow.css:11713:.if-ar-workspace .if-customer-summary-list {
+  static\css\invoice-flow.css:11714:  display: grid;
+  static\css\invoice-flow.css:11715:  gap: 0;
+  static\css\invoice-flow.css:11716:  margin-top: 14px;
+  static\css\invoice-flow.css:11717:}
+  static\css\invoice-flow.css:11718:
+  static\css\invoice-flow.css:11719:.if-ar-workspace .if-customer-summary-list > div {
+  static\css\invoice-flow.css:11720:  padding: 14px 2px;
+  static\css\invoice-flow.css:11721:}
+  static\css\invoice-flow.css:11722:
+  static\css\invoice-flow.css:11723:.if-ar-workspace .if-customer-summary-list > div + div {
+  static\css\invoice-flow.css:11724:  border-top: 1px solid #e6ece8;
+  static\css\invoice-flow.css:11725:}
+  static\css\invoice-flow.css:11726:
+  static\css\invoice-flow.css:11727:.if-ar-workspace .if-customer-summary-list span {
+  static\css\invoice-flow.css:11728:  display: block;
+  static\css\invoice-flow.css:11729:  margin-bottom: 5px;
+  static\css\invoice-flow.css:11730:  color: #849089;
+  static\css\invoice-flow.css:11731:  font-size: 0.67rem;
+  static\css\invoice-flow.css:11732:  font-weight: 700;
+  static\css\invoice-flow.css:11733:  letter-spacing: 0.055em;
+  static\css\invoice-flow.css:11734:  text-transform: uppercase;
+  static\css\invoice-flow.css:12412:    transform: translateX(230%);
+  static\css\invoice-flow.css:12413:  }
+  static\css\invoice-flow.css:12414:}
+  static\css\invoice-flow.css:12415:
+  static\css\invoice-flow.css:12416:/* =========================================================
+  static\css\invoice-flow.css:12417:   DOCUMENT TIMELINE — OPERATIONAL ATTACHMENTS
+  static\css\invoice-flow.css:12418:   ========================================================= */
+  static\css\invoice-flow.css:12419:
+> static\css\invoice-flow.css:12420:.if-timeline-attachments {
+  static\css\invoice-flow.css:12421:  margin-top: 0.9rem;
+  static\css\invoice-flow.css:12422:  padding-top: 0.85rem;
+  static\css\invoice-flow.css:12423:  border-top: 1px solid rgba(15, 23, 42, 0.07);
+  static\css\invoice-flow.css:12424:}
+  static\css\invoice-flow.css:12425:
+> static\css\invoice-flow.css:12426:.if-timeline-attachments-heading {
+  static\css\invoice-flow.css:12427:  display: flex;
+  static\css\invoice-flow.css:12428:  align-items: center;
+  static\css\invoice-flow.css:12429:  gap: 0.4rem;
+  static\css\invoice-flow.css:12430:  margin-bottom: 0.55rem;
+  static\css\invoice-flow.css:12431:  color: #64748b;
+  static\css\invoice-flow.css:12432:  font-size: 0.75rem;
+  static\css\invoice-flow.css:12433:  font-weight: 700;
+  static\css\invoice-flow.css:12434:  letter-spacing: 0.02em;
+  static\css\invoice-flow.css:12435:}
+  static\css\invoice-flow.css:12436:
+> static\css\invoice-flow.css:12437:.if-timeline-attachments-heading i {
+  static\css\invoice-flow.css:12438:  color: var(--if-primary, #5aa897);
+  static\css\invoice-flow.css:12439:  font-size: 0.9rem;
+  static\css\invoice-flow.css:12440:}
+  static\css\invoice-flow.css:12441:
+> static\css\invoice-flow.css:12442:.if-timeline-attachments-list {
+  static\css\invoice-flow.css:12443:  display: grid;
+  static\css\invoice-flow.css:12444:  gap: 0.45rem;
+  static\css\invoice-flow.css:12445:}
+  static\css\invoice-flow.css:12446:
+> static\css\invoice-flow.css:12447:.if-timeline-attachment {
+  static\css\invoice-flow.css:12448:  display: flex;
+  static\css\invoice-flow.css:12449:  align-items: center;
+  static\css\invoice-flow.css:12450:  min-width: 0;
+  static\css\invoice-flow.css:12451:  gap: 0.7rem;
+  static\css\invoice-flow.css:12452:  padding: 0.65rem 0.75rem;
+  static\css\invoice-flow.css:12453:  border: 1px solid rgba(90, 168, 151, 0.16);
+  static\css\invoice-flow.css:12454:  border-radius: 0.8rem;
+  static\css\invoice-flow.css:12455:  background: rgba(90, 168, 151, 0.045);
+  static\css\invoice-flow.css:12456:  color: inherit;
+  static\css\invoice-flow.css:12457:  text-decoration: none;
+  static\css\invoice-flow.css:12458:  transition:
+  static\css\invoice-flow.css:12459:    background-color 160ms ease,
+  static\css\invoice-flow.css:12460:    border-color 160ms ease,
+  static\css\invoice-flow.css:12461:    transform 160ms ease,
+  static\css\invoice-flow.css:12462:    box-shadow 160ms ease;
+  static\css\invoice-flow.css:12463:}
+  static\css\invoice-flow.css:12464:
+> static\css\invoice-flow.css:12465:.if-timeline-attachment:hover {
+  static\css\invoice-flow.css:12466:  border-color: rgba(90, 168, 151, 0.3);
+  static\css\invoice-flow.css:12467:  background: rgba(90, 168, 151, 0.085);
+  static\css\invoice-flow.css:12468:  color: inherit;
+  static\css\invoice-flow.css:12469:  text-decoration: none;
+  static\css\invoice-flow.css:12470:  transform: translateY(-1px);
+  static\css\invoice-flow.css:12471:  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.045);
+  static\css\invoice-flow.css:12472:}
+  static\css\invoice-flow.css:12473:
+> static\css\invoice-flow.css:12474:.if-timeline-attachment-icon {
+  static\css\invoice-flow.css:12475:  display: inline-flex;
+  static\css\invoice-flow.css:12476:  align-items: center;
+  static\css\invoice-flow.css:12477:  justify-content: center;
+  static\css\invoice-flow.css:12478:  flex: 0 0 2.15rem;
+  static\css\invoice-flow.css:12479:  width: 2.15rem;
+  static\css\invoice-flow.css:12480:  height: 2.15rem;
+  static\css\invoice-flow.css:12481:  border-radius: 0.65rem;
+  static\css\invoice-flow.css:12482:  background: rgba(90, 168, 151, 0.12);
+  static\css\invoice-flow.css:12483:  color: var(--if-primary, #4f9788);
+  static\css\invoice-flow.css:12484:  font-size: 1rem;
+  static\css\invoice-flow.css:12485:}
+  static\css\invoice-flow.css:12486:
+> static\css\invoice-flow.css:12487:.if-timeline-attachment-copy {
+  static\css\invoice-flow.css:12488:  display: flex;
+  static\css\invoice-flow.css:12489:  flex: 1 1 auto;
+  static\css\invoice-flow.css:12490:  min-width: 0;
+  static\css\invoice-flow.css:12491:  flex-direction: column;
+  static\css\invoice-flow.css:12492:  gap: 0.12rem;
+  static\css\invoice-flow.css:12493:}
+  static\css\invoice-flow.css:12494:
+> static\css\invoice-flow.css:12495:.if-timeline-attachment-copy strong {
+  static\css\invoice-flow.css:12496:  display: block;
+  static\css\invoice-flow.css:12497:  overflow: hidden;
+  static\css\invoice-flow.css:12498:  color: #25313d;
+  static\css\invoice-flow.css:12499:  font-size: 0.82rem;
+  static\css\invoice-flow.css:12500:  font-weight: 650;
+  static\css\invoice-flow.css:12501:  line-height: 1.25;
+  static\css\invoice-flow.css:12502:  text-overflow: ellipsis;
+  static\css\invoice-flow.css:12503:  white-space: nowrap;
+  static\css\invoice-flow.css:12504:}
+  static\css\invoice-flow.css:12505:
+> static\css\invoice-flow.css:12506:.if-timeline-attachment-copy small {
+  static\css\invoice-flow.css:12507:  color: #8793a1;
+  static\css\invoice-flow.css:12508:  font-size: 0.68rem;
+  static\css\invoice-flow.css:12509:  font-weight: 600;
+  static\css\invoice-flow.css:12510:  letter-spacing: 0.02em;
+  static\css\invoice-flow.css:12511:}
+  static\css\invoice-flow.css:12512:
+> static\css\invoice-flow.css:12513:.if-timeline-attachment-action {
+  static\css\invoice-flow.css:12514:  display: inline-flex;
+  static\css\invoice-flow.css:12515:  align-items: center;
+  static\css\invoice-flow.css:12516:  justify-content: center;
+  static\css\invoice-flow.css:12517:  flex: 0 0 1.9rem;
+  static\css\invoice-flow.css:12518:  width: 1.9rem;
+  static\css\invoice-flow.css:12519:  height: 1.9rem;
+  static\css\invoice-flow.css:12520:  border-radius: 999px;
+  static\css\invoice-flow.css:12521:  color: #6b7b88;
+  static\css\invoice-flow.css:12522:  transition:
+  static\css\invoice-flow.css:12523:    background-color 160ms ease,
+  static\css\invoice-flow.css:12524:    color 160ms ease;
+  static\css\invoice-flow.css:12525:}
+  static\css\invoice-flow.css:12526:
+> static\css\invoice-flow.css:12527:.if-timeline-attachment:hover
+> static\css\invoice-flow.css:12528:.if-timeline-attachment-action {
+  static\css\invoice-flow.css:12529:  background: rgba(90, 168, 151, 0.13);
+  static\css\invoice-flow.css:12530:  color: var(--if-primary, #4f9788);
+  static\css\invoice-flow.css:12531:}
+  static\css\invoice-flow.css:12532:
+  static\css\invoice-flow.css:12533:@media (max-width: 576px) {
+> static\css\invoice-flow.css:12534:  .if-timeline-attachment {
+  static\css\invoice-flow.css:12535:    padding: 0.6rem;
+  static\css\invoice-flow.css:12536:  }
+  static\css\invoice-flow.css:12537:
+> static\css\invoice-flow.css:12538:  .if-timeline-attachment-copy strong {
+  static\css\invoice-flow.css:12539:    font-size: 0.78rem;
+  static\css\invoice-flow.css:12540:  }
+  static\css\invoice-flow.css:12541:}
+  static\css\invoice-flow.css:12542:
+  static\css\invoice-flow.css:12543:/* =========================================================
+> static\css\invoice-flow.css:12544:   DOCUMENT DETAIL — PROMISE SIDEBAR ATTACHMENTS
+  static\css\invoice-flow.css:12545:   ========================================================= */
+  static\css\invoice-flow.css:12546:
+> static\css\invoice-flow.css:12547:.if-promise-attachments {
+  static\css\invoice-flow.css:12548:  margin-top: 0.75rem;
+  static\css\invoice-flow.css:12549:  padding-top: 0.7rem;
+  static\css\invoice-flow.css:12550:  border-top: 1px solid rgba(15, 23, 42, 0.07);
+  static\css\invoice-flow.css:12551:}
+  static\css\invoice-flow.css:12552:
+> static\css\invoice-flow.css:12553:.if-promise-attachments-label {
+  static\css\invoice-flow.css:12554:  display: flex;
+  static\css\invoice-flow.css:12555:  align-items: center;
+  static\css\invoice-flow.css:12556:  gap: 0.35rem;
+  static\css\invoice-flow.css:12557:  margin-bottom: 0.45rem;
+  static\css\invoice-flow.css:12558:  color: #6f7b87;
+  static\css\invoice-flow.css:12559:  font-size: 0.7rem;
+  static\css\invoice-flow.css:12560:  font-weight: 700;
+  static\css\invoice-flow.css:12561:  line-height: 1;
+  static\css\invoice-flow.css:12562:}
+  static\css\invoice-flow.css:12563:
+> static\css\invoice-flow.css:12564:.if-promise-attachments-label i {
+  static\css\invoice-flow.css:12565:  color: var(--if-primary, #4f9788);
+  static\css\invoice-flow.css:12566:  font-size: 0.8rem;
+  static\css\invoice-flow.css:12567:}
+  static\css\invoice-flow.css:12568:
+> static\css\invoice-flow.css:12569:.if-promise-attachments-list {
+  static\css\invoice-flow.css:12570:  display: grid;
+  static\css\invoice-flow.css:12571:  gap: 0.35rem;
+  static\css\invoice-flow.css:12572:}
+  static\css\invoice-flow.css:12573:
+> static\css\invoice-flow.css:12574:.if-promise-attachment {
+  static\css\invoice-flow.css:12575:  display: flex;
+  static\css\invoice-flow.css:12576:  align-items: center;
+  static\css\invoice-flow.css:12577:  min-width: 0;
+  static\css\invoice-flow.css:12578:  gap: 0.45rem;
+  static\css\invoice-flow.css:12579:  padding: 0.45rem 0.5rem;
+  static\css\invoice-flow.css:12580:  border: 1px solid rgba(90, 168, 151, 0.15);
+  static\css\invoice-flow.css:12581:  border-radius: 0.65rem;
+  static\css\invoice-flow.css:12582:  background: rgba(90, 168, 151, 0.045);
+  static\css\invoice-flow.css:12583:  color: #475569;
+  static\css\invoice-flow.css:12584:  text-decoration: none;
+  static\css\invoice-flow.css:12585:  transition:
+  static\css\invoice-flow.css:12586:    background-color 150ms ease,
+  static\css\invoice-flow.css:12587:    border-color 150ms ease,
+  static\css\invoice-flow.css:12588:    color 150ms ease,
+  static\css\invoice-flow.css:12589:    transform 150ms ease;
+  static\css\invoice-flow.css:12590:}
+  static\css\invoice-flow.css:12591:
+> static\css\invoice-flow.css:12592:.if-promise-attachment:hover {
+  static\css\invoice-flow.css:12593:  border-color: rgba(90, 168, 151, 0.3);
+  static\css\invoice-flow.css:12594:  background: rgba(90, 168, 151, 0.09);
+  static\css\invoice-flow.css:12595:  color: var(--if-primary, #3f8578);
+  static\css\invoice-flow.css:12596:  text-decoration: none;
+  static\css\invoice-flow.css:12597:  transform: translateY(-1px);
+  static\css\invoice-flow.css:12598:}
+  static\css\invoice-flow.css:12599:
+> static\css\invoice-flow.css:12600:.if-promise-attachment-icon {
+  static\css\invoice-flow.css:12601:  display: inline-flex;
+  static\css\invoice-flow.css:12602:  align-items: center;
+  static\css\invoice-flow.css:12603:  justify-content: center;
+  static\css\invoice-flow.css:12604:  flex: 0 0 1.65rem;
+  static\css\invoice-flow.css:12605:  width: 1.65rem;
+  static\css\invoice-flow.css:12606:  height: 1.65rem;
+  static\css\invoice-flow.css:12607:  border-radius: 0.45rem;
+  static\css\invoice-flow.css:12608:  background: rgba(90, 168, 151, 0.12);
+  static\css\invoice-flow.css:12609:  color: var(--if-primary, #4f9788);
+  static\css\invoice-flow.css:12610:  font-size: 0.78rem;
+  static\css\invoice-flow.css:12611:}
+  static\css\invoice-flow.css:12612:
+> static\css\invoice-flow.css:12613:.if-promise-attachment-name {
+  static\css\invoice-flow.css:12614:  flex: 1 1 auto;
+  static\css\invoice-flow.css:12615:  min-width: 0;
+  static\css\invoice-flow.css:12616:  overflow: hidden;
+  static\css\invoice-flow.css:12617:  font-size: 0.71rem;
+  static\css\invoice-flow.css:12618:  font-weight: 600;
+  static\css\invoice-flow.css:12619:  line-height: 1.2;
+  static\css\invoice-flow.css:12620:  text-overflow: ellipsis;
+  static\css\invoice-flow.css:12621:  white-space: nowrap;
+  static\css\invoice-flow.css:12622:}
+  static\css\invoice-flow.css:12623:
+> static\css\invoice-flow.css:12624:.if-promise-attachment-download {
+  static\css\invoice-flow.css:12625:  display: inline-flex;
+  static\css\invoice-flow.css:12626:  align-items: center;
+  static\css\invoice-flow.css:12627:  justify-content: center;
+  static\css\invoice-flow.css:12628:  flex: 0 0 1.45rem;
+  static\css\invoice-flow.css:12629:  width: 1.45rem;
+  static\css\invoice-flow.css:12630:  height: 1.45rem;
+  static\css\invoice-flow.css:12631:  border-radius: 999px;
+  static\css\invoice-flow.css:12632:  color: #81909d;
+  static\css\invoice-flow.css:12633:  font-size: 0.72rem;
+  static\css\invoice-flow.css:12634:  transition:
+  static\css\invoice-flow.css:12635:    background-color 150ms ease,
+  static\css\invoice-flow.css:12636:    color 150ms ease;
+  static\css\invoice-flow.css:12637:}
+  static\css\invoice-flow.css:12638:
+> static\css\invoice-flow.css:12639:.if-promise-attachment:hover
+> static\css\invoice-flow.css:12640:.if-promise-attachment-download {
+  static\css\invoice-flow.css:12641:  background: rgba(90, 168, 151, 0.13);
+  static\css\invoice-flow.css:12642:  color: var(--if-primary, #3f8578);
+  static\css\invoice-flow.css:12643:}
+  static\css\invoice-flow.css:12644:
+  static\css\invoice-flow.css:12645:/* =========================================================
+  static\css\invoice-flow.css:12646:   CLIENTE 360 — ADJUNTOS EN HISTORIA OPERACIONAL
+  static\css\invoice-flow.css:12647:   ========================================================= */
+  static\css\invoice-flow.css:12648:
+  static\css\invoice-flow.css:12649:.if-ar-workspace
+  static\css\invoice-flow.css:12650:  .if-customer-recent-timeline
+> static\css\invoice-flow.css:12651:  .if-timeline-attachments {
+  static\css\invoice-flow.css:12652:  margin-top: 0.8rem;
+  static\css\invoice-flow.css:12653:  padding-top: 0.75rem;
+  static\css\invoice-flow.css:12654:}
+  static\css\invoice-flow.css:12655:
+  static\css\invoice-flow.css:12656:.if-ar-workspace
+  static\css\invoice-flow.css:12657:  .if-customer-recent-timeline
+> static\css\invoice-flow.css:12658:  .if-timeline-attachments-list {
+  static\css\invoice-flow.css:12659:  grid-template-columns: repeat(
+  static\css\invoice-flow.css:12660:    auto-fit,
+  static\css\invoice-flow.css:12661:    minmax(min(100%, 230px), 1fr)
+  static\css\invoice-flow.css:12662:  );
+  static\css\invoice-flow.css:12663:}
+  static\css\invoice-flow.css:12664:
+  static\css\invoice-flow.css:12665:.if-ar-workspace
+  static\css\invoice-flow.css:12666:  .if-customer-recent-timeline
+> static\css\invoice-flow.css:12667:  .if-timeline-attachment {
+  static\css\invoice-flow.css:12668:  padding: 0.55rem 0.65rem;
+  static\css\invoice-flow.css:12669:  border-radius: 0.7rem;
+  static\css\invoice-flow.css:12670:}
+  static\css\invoice-flow.css:12671:
+  static\css\invoice-flow.css:12672:.if-ar-workspace
+  static\css\invoice-flow.css:12673:  .if-customer-recent-timeline
+> static\css\invoice-flow.css:12674:  .if-timeline-attachment-icon {
+  static\css\invoice-flow.css:12675:  flex-basis: 1.95rem;
+  static\css\invoice-flow.css:12676:  width: 1.95rem;
+  static\css\invoice-flow.css:12677:  height: 1.95rem;
+  static\css\invoice-flow.css:12678:  border-radius: 0.55rem;
+  static\css\invoice-flow.css:12679:  font-size: 0.88rem;
+  static\css\invoice-flow.css:12680:}
+  static\css\invoice-flow.css:12681:
+  static\css\invoice-flow.css:12682:.if-ar-workspace
+  static\css\invoice-flow.css:12683:  .if-customer-recent-timeline
+> static\css\invoice-flow.css:12684:  .if-timeline-attachment-copy strong {
+  static\css\invoice-flow.css:12685:  font-size: 0.78rem;
+  static\css\invoice-flow.css:12686:}
+
+
+
+=== DESCARGA DE ADJUNTOS ===
+
+  apps\management\services\attachments.py:282:                break
+  apps\management\services\attachments.py:283:
+  apps\management\services\attachments.py:284:            yield chunk
+  apps\management\services\attachments.py:285:
+  apps\management\services\attachments.py:286:    finally:
+  apps\management\services\attachments.py:287:        streaming_body.close()
+  apps\management\services\attachments.py:288:
+  apps\management\services\attachments.py:289:
+> apps\management\services\attachments.py:290:def build_attachment_download_response(attachment):
+  apps\management\services\attachments.py:291:    """
+  apps\management\services\attachments.py:292:    Recupera el adjunto privado desde S3 y construye una respuesta
+  apps\management\services\attachments.py:293:    HTTP de descarga sin exponer una URL directa del bucket.
+  apps\management\services\attachments.py:294:    """
+  apps\management\services\attachments.py:295:    s3_object = get_attachment_s3_object(attachment)
+  apps\management\services\attachments.py:296:    streaming_body = s3_object["Body"]
+  apps\management\services\attachments.py:297:
+  apps\management\services\attachments.py:298:    content_type = (
+  apps\management\services\attachments.py:299:        s3_object.get("ContentType")
+  apps\management\services\attachments.py:300:        or attachment.mime_type
+  apps\management\services\attachments.py:301:        or "application/octet-stream"
+  apps\management\services\attachments.py:302:    )
+  apps\management\services\attachments.py:303:
+  apps\management\services\attachments.py:304:    response = StreamingHttpResponse(
+  apps\management\services\attachments.py:305:        streaming_content=_stream_s3_body(streaming_body),
+  apps\management\services\attachments.py:306:        content_type=content_type,
+  apps\management\services\attachments.py:307:    )
+  apps\management\services\attachments.py:308:
+  apps\management\services\attachments.py:309:    encoded_filename = quote(
+  apps\management\services\attachments.py:310:        attachment.original_filename,
+  apps\management\services\attachments.py:311:        safe="",
+  apps\management\services\attachments.py:312:    )
+  apps\management\services\attachments.py:313:
+  apps\management\services\attachments.py:314:    response["Content-Disposition"] = (
+  apps\management\services\attachments.py:315:        "attachment; "
+  apps\management\services\attachments.py:316:        f"filename*=UTF-8''{encoded_filename}"
+  apps\management\services\attachments.py:317:    )
+  apps\management\services\attachments.py:318:
+  apps\management\services\attachments.py:319:    content_length = s3_object.get("ContentLength")
+  apps\management\services\attachments.py:320:
+  apps\management\services\attachments.py:321:    if content_length is not None:
+  apps\management\services\attachments.py:322:        response["Content-Length"] = str(content_length)
+  apps\management\services\attachments.py:323:
+  apps\management\services\attachments.py:324:    response["Cache-Control"] = "private, no-store, max-age=0"
+  apps\management\services\attachments.py:325:    response["Pragma"] = "no-cache"
+  apps\management\urls.py:7:urlpatterns = [
+  apps\management\urls.py:8:    path("", views.my_work, name="index"),
+  apps\management\urls.py:9:    path("my-work/", views.my_work, name="my_work"),
+  apps\management\urls.py:10:    path("document/<int:id>/", views.document_detail, name="document_detail"),
+  apps\management\urls.py:11:    path("alerts/", views.alerts_center, name="alerts_center"),
+  apps\management\urls.py:12:    path("alerts/<int:alert_id>/resolve/", views.alert_resolve, name="alert_resolve"),
+  apps\management\urls.py:13:    path("alerts/<int:alert_id>/postpone/", views.alert_postpone, name="alert_postpone"),
+  apps\management\urls.py:14:    path("alerts/<int:alert_id>/dismiss/", views.alert_dismiss, name="alert_dismiss"),
+> apps\management\urls.py:15:    path("attachments/<int:attachment_id>/download/",views.operational_attachment_download,name="operational_attachment_download",),
+  apps\management\urls.py:16:]
+  apps\management\views.py:53:from django.http import (
+  apps\management\views.py:54:    Http404,
+  apps\management\views.py:55:    StreamingHttpResponse,
+  apps\management\views.py:56:)
+  apps\management\views.py:57:from django.shortcuts import get_object_or_404
+  apps\management\views.py:58:
+  apps\management\views.py:59:from apps.management.models import OperationalAttachment
+  apps\management\views.py:60:from apps.management.services.attachments import (
+> apps\management\views.py:61:    build_attachment_download_response,
+  apps\management\views.py:62:)
+  apps\management\views.py:63:
+  apps\management\views.py:64:from apps.management.services.actions import (
+  apps\management\views.py:65:    create_collection_action,
+  apps\management\views.py:66:)
+  apps\management\views.py:67:
+  apps\management\views.py:68:from apps.management.services.promises import (
+  apps\management\views.py:69:    create_payment_promise,
+  apps\management\views.py:70:)
+  apps\management\views.py:71:
+  apps\management\views.py:72:def my_work(request):
+  apps\management\views.py:73:    """
+  apps\management\views.py:74:    Gestión operacional centrada en clientes.
+  apps\management\views.py:75:
+  apps\management\views.py:76:    Cada fila representa un cliente y resume exclusivamente los documentos
+  apps\management\views.py:77:    que pertenecen al alcance visible del usuario:
+  apps\management\views.py:78:
+  apps\management\views.py:79:    - Cobrador: documentos asignados activamente al usuario.
+  apps\management\views.py:80:    - Supervisor: Mi cartera o Toda la cartera.
+  apps\management\views.py:81:    """
+  apps\management\views.py:82:
+  apps\management\views.py:83:    today = timezone.localdate()
+  apps\management\views.py:84:    now = timezone.now()
+  apps\management\views.py:85:
+  apps\management\views.py:86:    role = OperationalAlertService.get_effective_role(request.user)
+  apps\management\views.py:87:    is_supervisor = role in OperationalAlertService.FULL_VISIBILITY_ROLES
+  apps\management\views.py:88:
+  apps\management\views.py:89:    requested_scope = request.GET.get("scope", "my")
+  apps\management\views.py:90:
+  apps\management\views.py:91:    if not is_supervisor:
+  apps\management\views.py:92:        selected_scope = "my"
+  apps\management\views.py:93:    elif requested_scope == "all":
+  apps\management\views.py:94:        selected_scope = "all"
+  apps\management\views.py:95:    else:
+  apps\management\views.py:96:        selected_scope = "my"
+  apps\management\views.py:1502:def alert_dismiss(request, alert_id):
+  apps\management\views.py:1503:    alert = get_object_or_404(OperationalAlert, id=alert_id)
+  apps\management\views.py:1504:    OperationalAlertService.mark_dismissed(alert, user=request.user)
+  apps\management\views.py:1505:    messages.warning(request, "Alerta descartada correctamente.")
+  apps\management\views.py:1506:    return redirect("management:alerts_center")
+  apps\management\views.py:1507:
+  apps\management\views.py:1508:
+  apps\management\views.py:1509:@login_required
+> apps\management\views.py:1510:def operational_attachment_download(request, attachment_id):
+  apps\management\views.py:1511:    attachment = get_object_or_404(
+  apps\management\views.py:1512:        OperationalAttachment.objects.select_related(
+  apps\management\views.py:1513:            "content_type",
+  apps\management\views.py:1514:            "uploaded_by",
+  apps\management\views.py:1515:        ),
+  apps\management\views.py:1516:        pk=attachment_id,
+  apps\management\views.py:1517:    )
+  apps\management\views.py:1518:
+  apps\management\views.py:1519:    if not request.user.has_perm(
+  apps\management\views.py:1520:        "management.view_operationalattachment"
+  apps\management\views.py:1521:    ):
+  apps\management\views.py:1522:        raise Http404
+  apps\management\views.py:1523:
+  apps\management\views.py:1524:    if attachment.attached_to is None:
+  apps\management\views.py:1525:        raise Http404
+  apps\management\views.py:1526:
+  apps\management\views.py:1527:    try:
+> apps\management\views.py:1528:        return build_attachment_download_response(
+  apps\management\views.py:1529:            attachment,
+  apps\management\views.py:1530:        )
+  apps\management\views.py:1531:    except ValidationError as exc:
+  apps\management\views.py:1532:        raise Http404(str(exc)) from exc
+
+

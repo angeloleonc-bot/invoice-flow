@@ -18,6 +18,8 @@ from apps.portfolio.services.workload import WorkloadService
 from apps.management.models import OperationalAlert
 from apps.management.services.alerts import OperationalAlertService
 
+from apps.management.services.workspace import WorkspacePortfolioService
+
 class DashboardService:
     """
     Servicio del Dashboard Supervisor Operacional.
@@ -46,6 +48,13 @@ class DashboardService:
         aging = self.get_aging()
         total_aging_documents = sum(bucket["count"] for bucket in aging) or 1
         unattended_portfolio = self.get_unattended_portfolio()
+
+        review_service = WorkspacePortfolioService(
+            user=user,
+            selected_scope="all",
+        )
+
+        customer_review_summary = review_service.get_review_summary()
 
         operational_alerts = OperationalAlertService.get_visible_active_alerts(user)
 
@@ -87,6 +96,7 @@ class DashboardService:
             "operational_alerts_by_responsible": OperationalAlertService.alerts_by_responsible(user),
             "critical_customer_summary": OperationalAlertService.critical_customer_summary_for_user(user),
             "unattended_portfolio": unattended_portfolio,
+            "customer_review_summary": customer_review_summary,
         }
 
     def get_kpis(self):

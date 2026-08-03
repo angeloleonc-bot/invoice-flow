@@ -77,6 +77,8 @@ class WorkspacePortfolioService:
             ),
         )
 
+        self._review_customer_sets_cache = None
+
     def visible_documents(self):
         """
         Definición única de documentos visibles en el Workspace.
@@ -158,6 +160,196 @@ class WorkspacePortfolioService:
                 due_at__lte=self.now,
             )
         )
+
+    def get_review_customer_sets(self):
+        """
+        Obtiene los clientes que requieren revisión dentro del alcance
+        visible del Workspace.
+
+        Definición mínima:
+
+        1. Cliente con promesa vencida asociada a un documento abierto visible.
+        2. Cliente crítico que no registra ninguna gestión dentro del alcance.
+        3. Cliente que simultáneamente mantiene saldo pendiente y saldo a favor.
+
+        El resultado se calcula una sola vez por instancia del servicio.
+        """
+
+        if self._review_customer_sets_cache is not None:
+            return self._review_customer_sets_cache
+
+        visible_open_documents = self.visible_open_documents()
+        visible_documents = self.visible_documents()
+
+        expired_promise_customer_ids = set(
+            PaymentPromise.objects
+            .filter(
+                status=PaymentPromise.Status.EXPIRED,
+                payment_confirmed=False,
+                promise_documents__document__in=(
+                    visible_open_documents
+                ),
+            )
+            .values_list(
+                "customer_id",
+                flat=True,
+            )
+            .distinct()
+        )
+
+        critical_customer_ids = set(
+            self.active_alerts()
+            .filter(
+                alert_type=(
+                    OperationalAlert
+                    .AlertType
+                    .CRITICAL_CUSTOMER
+                ),
+                customer_id__in=self.visible_customer_ids(),
+            )
+            .exclude(customer_id__isnull=True)
+            .values_list(
+                "customer_id",
+                flat=True,
+            )
+            .distinct()
+        )
+
+        managed_customer_ids = set(
+            self.scoped_actions()
+            .exclude(customer_id__isnull=True)
+            .values_list(
+                "customer_id",
+                flat=True,
+            )
+            .distinct()
+        )
+
+        critical_without_management_customer_ids = (
+            critical_customer_ids - managed_customer_ids
+        )
+
+        pending_balance_customer_ids = set(
+            visible_open_documents
+            .values_list(
+                "customer_id",
+                flat=True,
+            )
+            .distinct()
+        )
+
+        credit_balance_customer_ids = set(
+            visible_documents
+            .filter(overpayment_amount__gt=0)
+            .values_list(
+                "customer_id",
+                flat=True,
+            )
+            .distinct()
+        )
+
+        mixed_balance_customer_ids = (
+            pending_balance_customer_ids
+            & credit_balance_customer_ids
+        )
+
+        review_customer_ids = (
+            expired_promise_customer_ids
+            | critical_without_management_customer_ids
+            | mixed_balance_customer_ids
+        )
+
+        self._review_customer_sets_cache = {
+            "all": review_customer_ids,
+            "expired_promise": expired_promise_customer_ids,
+            "critical_without_management": (
+                critical_without_management_customer_ids
+            ),
+            "mixed_balance": mixed_balance_customer_ids,
+        }
+
+        return self._review_customer_sets_cache
+
+
+    def get_review_customer_ids(self):
+        """
+        Retorna los IDs de clientes que requieren revisión.
+        """
+
+        return self.get_review_customer_sets()["all"]
+
+
+    def get_review_summary(self):
+        """
+        Entrega el conteo total y el desglose por razón.
+
+        Un cliente puede cumplir más de una condición. El total utiliza
+        clientes únicos, mientras que los desgloses representan cada señal.
+        """
+
+        customer_sets = self.get_review_customer_sets()
+
+        return {
+            "total": len(customer_sets["all"]),
+            "expired_promise": len(
+                customer_sets["expired_promise"]
+            ),
+            "critical_without_management": len(
+                customer_sets[
+                    "critical_without_management"
+                ]
+            ),
+            "mixed_balance": len(
+                customer_sets["mixed_balance"]
+            ),
+        }
+
+
+    def get_review_reasons_by_customer(self, customer_ids):
+        """
+        Determina una única razón principal por cliente.
+
+        Prioridad:
+
+        1. Promesa vencida.
+        2. Cliente crítico sin gestión.
+        3. Saldo pendiente junto con saldo a favor.
+        """
+
+        customer_ids = set(customer_ids)
+
+        if not customer_ids:
+            return {}
+
+        customer_sets = self.get_review_customer_sets()
+
+        result = {}
+
+        for customer_id in customer_ids:
+            if customer_id in customer_sets["expired_promise"]:
+                result[customer_id] = {
+                    "key": "expired_promise",
+                    "label": "Promesa vencida",
+                }
+
+            elif (
+                customer_id
+                in customer_sets[
+                    "critical_without_management"
+                ]
+            ):
+                result[customer_id] = {
+                    "key": "critical_without_management",
+                    "label": "Cliente crítico sin gestión",
+                }
+
+            elif customer_id in customer_sets["mixed_balance"]:
+                result[customer_id] = {
+                    "key": "mixed_balance",
+                    "label": "Saldo pendiente y saldo a favor",
+                }
+
+        return result
 
     def get_kpis(self):
         """

@@ -352,34 +352,53 @@
 
 
       <section class="if-saas-panel if-customer-risk-panel">
-        <div class="if-customer-risk-heading">
-          <span>
-            <i class="bi bi-person-exclamation"></i>
-          </span>
+  <div class="if-customer-risk-heading">
+    <span>
+      <i class="bi bi-person-exclamation"></i>
+    </span>
 
-          <div>
-            <strong>Clientes que requieren revisión</strong>
-            <p>Situaciones sin cobertura operacional suficiente.</p>
-          </div>
-        </div>
+    <div>
+      <strong>Clientes que requieren revisión</strong>
+      <p>Situaciones excepcionales que requieren análisis.</p>
+    </div>
+  </div>
 
-        <div class="if-customer-risk-grid">
-          <div>
-            <strong>{{ critical_customer_summary.without_management }}</strong>
-            <span>Sin gestión</span>
-          </div>
+  <div class="if-customer-risk-total">
+    <strong>{{ customer_review_summary.total }}</strong>
+    <span>clientes</span>
+  </div>
 
-          <div>
-            <strong>{{ critical_customer_summary.overdue_promises }}</strong>
-            <span>Promesa vencida</span>
-          </div>
+  <div class="if-customer-risk-grid">
+    <div>
+      <strong>
+        {{ customer_review_summary.expired_promise }}
+      </strong>
+      <span>Promesa vencida</span>
+    </div>
 
-          <div>
-            <strong>{{ critical_customer_summary.without_responsible }}</strong>
-            <span>Sin responsable</span>
-          </div>
-        </div>
-      </section>
+    <div>
+      <strong>
+        {{ customer_review_summary.critical_without_management }}
+      </strong>
+      <span>Crítico sin gestión</span>
+    </div>
+
+    <div>
+      <strong>
+        {{ customer_review_summary.mixed_balance }}
+      </strong>
+      <span>Saldo mixto</span>
+    </div>
+  </div>
+
+  <a
+    href="{% url 'management:my_work' %}?scope=all&filter=requires_review"
+    class="if-customer-risk-action"
+  >
+    Ver clientes
+    <i class="bi bi-arrow-right"></i>
+  </a>
+</section>
 
     </aside>
   </div>

@@ -108,6 +108,7 @@ def my_work(request):
         "without_management",
         "with_credit",
         "critical",
+        "requires_review",
     }
 
     requested_filter = request.GET.get("filter", "").strip()
@@ -468,17 +469,29 @@ def my_work(request):
             Q(has_active_promise=True)
             | Q(has_expired_promise=True)
         )
+
     elif selected_filter == "without_management":
         customers = customers.filter(
             last_action_date__isnull=True,
         )
+
     elif selected_filter == "with_credit":
         customers = customers.filter(
             total_overpayment__gt=0,
         )
+
     elif selected_filter == "critical":
         customers = customers.filter(
             is_critical=True,
+        )
+
+    elif selected_filter == "requires_review":
+        review_customer_ids = (
+            workspace_service.get_review_customer_ids()
+        )
+
+        customers = customers.filter(
+            id__in=review_customer_ids,
         )
 
     sort_fields = {
@@ -595,51 +608,16 @@ def my_work(request):
 
         is_paginated = paginator.num_pages > 1
 
-    page_number = request.GET.get("page", "1")
-
-    if selected_page_size == "all":
-        customers = list(customers)
-
-        page_obj = None
-        pagination_page_range = []
-        total_filtered_customers = len(customers)
-        result_start = 1 if customers else 0
-        result_end = total_filtered_customers
-        is_paginated = False
-
-    else:
-        paginator = Paginator(
-            customers,
-            int(selected_page_size),
-        )
-
-        page_obj = paginator.get_page(page_number)
-        customers = list(page_obj.object_list)
-
-        pagination_page_range = list(
-            paginator.get_elided_page_range(
-                page_obj.number,
-                on_each_side=1,
-                on_ends=1,
-            )
-        )
-
-        total_filtered_customers = paginator.count
-
-        if paginator.count:
-            result_start = page_obj.start_index()
-            result_end = page_obj.end_index()
-        else:
-            result_start = 0
-            result_end = 0
-
-        is_paginated = paginator.num_pages > 1
-
 
     customer_ids = [
         customer.id
         for customer in customers
     ]
+
+    review_reasons_by_customer = (
+        workspace_service
+        .get_review_reasons_by_customer(customer_ids)
+    )
 
     financial_summary = (
         workspace_service
@@ -769,6 +747,21 @@ def my_work(request):
     )
 
     for customer in customers:
+        review_reason = review_reasons_by_customer.get(
+            customer.id,
+        )
+
+        customer.requires_review = review_reason is not None
+        customer.review_reason_key = (
+            review_reason["key"]
+            if review_reason
+            else ""
+        )
+        customer.review_reason_label = (
+            review_reason["label"]
+            if review_reason
+            else ""
+        )
         collector_names = collectors_by_customer.get(
             customer.id,
             [],
@@ -912,6 +905,8 @@ def my_work(request):
         "all": build_page_size_url("all"),
     }
 
+    review_summary = workspace_service.get_review_summary()
+
     context = {
         "customers": customers,
         "is_supervisor": is_supervisor,
@@ -939,6 +934,8 @@ def my_work(request):
         "kpi_pending_balance": kpis["pending_balance"] or 0,
         "kpi_attention_customers": kpis["attention_customers"] or 0,
         "kpi_expired_promises": kpis["expired_promises"] or 0,
+        "kpi_review_customers": review_summary["total"],
+        "review_summary": review_summary,
     }
 
     return render(

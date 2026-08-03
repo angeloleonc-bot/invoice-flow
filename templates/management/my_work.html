@@ -56,16 +56,26 @@
     </div>
   </article>
 
-  <article class="if-portfolio-kpi">
-    <span class="if-portfolio-kpi-icon">
-      <i class="bi bi-exclamation-circle"></i>
+<a
+  href="{% url 'management:my_work' %}?scope={{ selected_scope }}&filter=requires_review"
+  class="if-portfolio-kpi if-portfolio-kpi-link"
+>
+  <span class="if-portfolio-kpi-icon">
+    <i class="bi bi-person-exclamation"></i>
+  </span>
+
+  <div>
+    <span class="if-portfolio-kpi-label">
+      Requieren revisión
     </span>
-    <div>
-      <span class="if-portfolio-kpi-label">Requieren atención</span>
-      <strong>{{ kpi_attention_customers }}</strong>
-      <small>Clientes con señales operacionales</small>
-    </div>
-  </article>
+
+    <strong>{{ kpi_review_customers }}</strong>
+
+    <small>
+      Clientes con situaciones excepcionales
+    </small>
+  </div>
+</a>
 
   <article class="if-portfolio-kpi">
     <span class="if-portfolio-kpi-icon">
@@ -149,6 +159,12 @@
         <option value="critical" {% if selected_filter == 'critical' %}selected{% endif %}>
           Cliente crítico
         </option>
+        <option
+  value="requires_review"
+  {% if selected_filter == 'requires_review' %}selected{% endif %}
+>
+  Requieren revisión
+</option>
       </select>
     </div>
 
@@ -391,18 +407,25 @@
   title="Doble clic para abrir Cliente 360"
 >
   <td class="if-portfolio-customer-cell">
-    <div class="if-portfolio-customer">
-      <strong>{{ customer.name }}</strong>
+<div class="if-portfolio-customer">
+  <strong>{{ customer.name }}</strong>
 
-      <span class="if-portfolio-customer-rut">
-        {{ customer.rut }}
-      </span>
+  <span class="if-portfolio-customer-rut">
+    {{ customer.rut }}
+  </span>
 
-<small class="if-portfolio-customer-collector">
-  <i class="bi bi-person"></i>
-  {{ customer.collector_display }}
-</small>
-    </div>
+  <small class="if-portfolio-customer-collector">
+    <i class="bi bi-person"></i>
+    {{ customer.collector_display }}
+  </small>
+
+  {% if customer.requires_review %}
+    <small class="if-portfolio-review-reason">
+      <i class="bi bi-exclamation-diamond"></i>
+      {{ customer.review_reason_label }}
+    </small>
+  {% endif %}
+</div>
   </td>
 
   <td class="text-end if-portfolio-total">

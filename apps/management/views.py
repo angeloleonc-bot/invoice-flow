@@ -69,6 +69,10 @@ from apps.management.services.promises import (
     create_payment_promise,
 )
 
+from apps.management.services.workspace import (
+    WorkspacePortfolioService,
+)
+
 def my_work(request):
     """
     Gestión operacional centrada en clientes.
@@ -150,6 +154,12 @@ def my_work(request):
                 selected_collector = str(
                     selected_collector_user.pk
                 )
+
+    workspace_service = WorkspacePortfolioService(
+        user=request.user,
+        selected_scope=selected_scope,
+        selected_collector_user=selected_collector_user,
+    )
 
     allowed_sort_keys = {
         "customer",
@@ -371,22 +381,12 @@ def my_work(request):
         alert_type=OperationalAlert.AlertType.CRITICAL_CUSTOMER,
     )
 
-    customers = (
-        Customer.objects
-        .filter(
-            is_active=True,
-            documents__assignments__is_active=True,
-        )
-    )
+    visible_customer_ids = workspace_service.visible_customer_ids()
 
-    if selected_scope == "my":
-        customers = customers.filter(
-            documents__assignments__assigned_to=request.user,
-        )
-    elif selected_collector_user is not None:
-        customers = customers.filter(
-            documents__assignments__assigned_to=selected_collector_user,
-        )
+    customers = Customer.objects.filter(
+        is_active=True,
+        id__in=visible_customer_ids,
+    )
 
     customers = (
         customers
@@ -395,62 +395,6 @@ def my_work(request):
                 Sum(
                     "documents__balance_amount",
                     filter=open_document_filter,
-                ),
-                zero_decimal,
-            ),
-            current_balance=Coalesce(
-                Sum(
-                    "documents__balance_amount",
-                    filter=current_filter,
-                ),
-                zero_decimal,
-            ),
-            aging_0_15=Coalesce(
-                Sum(
-                    "documents__balance_amount",
-                    filter=aging_0_15_filter,
-                ),
-                zero_decimal,
-            ),
-            aging_16_30=Coalesce(
-                Sum(
-                    "documents__balance_amount",
-                    filter=aging_16_30_filter,
-                ),
-                zero_decimal,
-            ),
-            aging_31_45=Coalesce(
-                Sum(
-                    "documents__balance_amount",
-                    filter=aging_31_45_filter,
-                ),
-                zero_decimal,
-            ),
-            aging_46_60=Coalesce(
-                Sum(
-                    "documents__balance_amount",
-                    filter=aging_46_60_filter,
-                ),
-                zero_decimal,
-            ),
-            aging_61_90=Coalesce(
-                Sum(
-                    "documents__balance_amount",
-                    filter=aging_61_90_filter,
-                ),
-                zero_decimal,
-            ),
-            aging_91_120=Coalesce(
-                Sum(
-                    "documents__balance_amount",
-                    filter=aging_91_120_filter,
-                ),
-                zero_decimal,
-            ),
-            aging_121_plus=Coalesce(
-                Sum(
-                    "documents__balance_amount",
-                    filter=aging_121_plus_filter,
                 ),
                 zero_decimal,
             ),
@@ -507,29 +451,7 @@ def my_work(request):
         .distinct()
     )
 
-    kpi_queryset = customers
-
-    kpis = kpi_queryset.aggregate(
-        active_customers=Count("id", distinct=True),
-        pending_balance=Coalesce(
-            Sum("total_balance"),
-            zero_decimal,
-        ),
-        attention_customers=Count(
-            "id",
-            filter=(
-                Q(has_expired_promise=True)
-                | Q(has_active_alert=True)
-                | Q(last_action_date__isnull=True)
-            ),
-            distinct=True,
-        ),
-        expired_promises=Count(
-            "id",
-            filter=Q(has_expired_promise=True),
-            distinct=True,
-        ),
-    )
+    kpis = workspace_service.get_kpis()
 
     if search_customer:
         customers = customers.filter(
@@ -562,18 +484,53 @@ def my_work(request):
     sort_fields = {
         "customer": "name",
         "total_balance": "total_balance",
-        "current_balance": "current_balance",
-        "aging_0_15": "aging_0_15",
-        "aging_16_30": "aging_16_30",
-        "aging_31_45": "aging_31_45",
-        "aging_46_60": "aging_46_60",
-        "aging_61_90": "aging_61_90",
-        "aging_91_120": "aging_91_120",
-        "aging_121_plus": "aging_121_plus",
         "latest_event": "latest_event_date",
     }
 
-    if selected_sort in sort_fields and selected_direction in {"asc", "desc"}:
+    aging_sort_filters = {
+        "current_balance": current_filter,
+        "aging_0_15": aging_0_15_filter,
+        "aging_16_30": aging_16_30_filter,
+        "aging_31_45": aging_31_45_filter,
+        "aging_46_60": aging_46_60_filter,
+        "aging_61_90": aging_61_90_filter,
+        "aging_91_120": aging_91_120_filter,
+        "aging_121_plus": aging_121_plus_filter,
+    }
+
+    deferred_aging_sort = selected_sort in aging_sort_filters
+
+    if (
+        deferred_aging_sort
+        and selected_direction in {"asc", "desc"}
+    ):
+        customers = customers.annotate(
+            **{
+                selected_sort: Coalesce(
+                    Sum(
+                        "documents__balance_amount",
+                        filter=aging_sort_filters[selected_sort],
+                    ),
+                    zero_decimal,
+                )
+            }
+        )
+
+        order_field = selected_sort
+
+        if selected_direction == "desc":
+            order_field = f"-{order_field}"
+
+        customers = customers.order_by(
+            order_field,
+            "name",
+            "id",
+        )
+
+    elif (
+        selected_sort in sort_fields
+        and selected_direction in {"asc", "desc"}
+    ):
         order_field = sort_fields[selected_sort]
 
         if selected_direction == "desc":
@@ -582,7 +539,9 @@ def my_work(request):
         customers = customers.order_by(
             order_field,
             "name",
+            "id",
         )
+
     else:
         selected_sort = ""
         selected_direction = ""
@@ -593,6 +552,7 @@ def my_work(request):
             "-has_active_alert",
             "-total_balance",
             "name",
+            "id",
         )
 
     page_number = request.GET.get("page", "1")
@@ -634,6 +594,110 @@ def my_work(request):
             result_end = 0
 
         is_paginated = paginator.num_pages > 1
+
+    page_number = request.GET.get("page", "1")
+
+    if selected_page_size == "all":
+        customers = list(customers)
+
+        page_obj = None
+        pagination_page_range = []
+        total_filtered_customers = len(customers)
+        result_start = 1 if customers else 0
+        result_end = total_filtered_customers
+        is_paginated = False
+
+    else:
+        paginator = Paginator(
+            customers,
+            int(selected_page_size),
+        )
+
+        page_obj = paginator.get_page(page_number)
+        customers = list(page_obj.object_list)
+
+        pagination_page_range = list(
+            paginator.get_elided_page_range(
+                page_obj.number,
+                on_each_side=1,
+                on_ends=1,
+            )
+        )
+
+        total_filtered_customers = paginator.count
+
+        if paginator.count:
+            result_start = page_obj.start_index()
+            result_end = page_obj.end_index()
+        else:
+            result_start = 0
+            result_end = 0
+
+        is_paginated = paginator.num_pages > 1
+
+
+    customer_ids = [
+        customer.id
+        for customer in customers
+    ]
+
+    financial_summary = (
+        workspace_service
+        .get_page_financial_summary(customer_ids)
+    )
+
+    for customer in customers:
+        summary = financial_summary.get(
+            customer.id,
+            {},
+        )
+
+        customer.total_balance = summary.get(
+            "total_balance",
+            customer.total_balance or Decimal("0.00"),
+        )
+        customer.current_balance = summary.get(
+            "current_balance",
+            Decimal("0.00"),
+        )
+        customer.aging_0_15 = summary.get(
+            "aging_0_15",
+            Decimal("0.00"),
+        )
+        customer.aging_16_30 = summary.get(
+            "aging_16_30",
+            Decimal("0.00"),
+        )
+        customer.aging_31_45 = summary.get(
+            "aging_31_45",
+            Decimal("0.00"),
+        )
+        customer.aging_46_60 = summary.get(
+            "aging_46_60",
+            Decimal("0.00"),
+        )
+        customer.aging_61_90 = summary.get(
+            "aging_61_90",
+            Decimal("0.00"),
+        )
+        customer.aging_91_120 = summary.get(
+            "aging_91_120",
+            Decimal("0.00"),
+        )
+        customer.aging_121_plus = summary.get(
+            "aging_121_plus",
+            Decimal("0.00"),
+        )
+        customer.total_overpayment = summary.get(
+            "total_overpayment",
+            customer.total_overpayment or Decimal("0.00"),
+        )
+        customer.open_documents_count = summary.get(
+            "open_documents_count",
+            customer.open_documents_count or 0,
+        )
+
+
 
     assignment_rows = (
         DocumentAssignment.objects

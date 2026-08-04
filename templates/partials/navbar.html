@@ -2,63 +2,157 @@
   <div class="container-xl">
 
     <div class="navbar-nav flex-row order-md-last ms-auto if-topbar-actions">
-      <span class="if-env-pill">Entorno MVP</span>
 
-<div class="if-notification-wrapper">
-  <button class="if-icon-button if-notification-trigger" type="button" aria-label="Notificaciones">
-    <i class="bi bi-bell"></i>
-    {% if navbar_new_alerts_count %}
-      <span class="if-notification-badge">{{ navbar_new_alerts_count }}</span>
-    {% endif %}
-  </button>
+      <span class="if-env-pill">
+        Entorno MVP
+      </span>
 
-  <div class="if-notification-dropdown">
-    <div class="if-notification-header">
-      <strong>Alertas operacionales</strong>
-      <span>{{ navbar_new_alerts_count }} nuevas</span>
-    </div>
+      <div class="if-notification-wrapper">
+        <button
+          class="if-icon-button if-notification-trigger"
+          type="button"
+          aria-label="Notificaciones"
+        >
+          <i class="bi bi-bell" aria-hidden="true"></i>
 
-    <div class="if-notification-list">
-      {% for alert in navbar_recent_alerts %}
-        <a class="if-notification-item" href="{% url 'management:alerts_center' %}">
-          <span class="if-notification-severity if-notification-severity-{{ alert.severity|lower }}"></span>
-          <span>
-            <strong>{{ alert.title }}</strong>
-            <small>{{ alert.created_at|date:"d/m/Y H:i" }}</small>
-          </span>
-        </a>
-      {% empty %}
-        <div class="if-notification-empty">No hay alertas activas.</div>
-      {% endfor %}
-    </div>
+          {% if navbar_new_alerts_count %}
+            <span class="if-notification-badge">
+              {{ navbar_new_alerts_count }}
+            </span>
+          {% endif %}
+        </button>
 
-    <a class="if-notification-footer" href="{% url 'management:alerts_center' %}">
-      Ver todas
-    </a>
-  </div>
-</div>
+        <div class="if-notification-dropdown">
+          <div class="if-notification-header">
+            <strong>Alertas operacionales</strong>
+            <span>{{ navbar_new_alerts_count }} nuevas</span>
+          </div>
 
-      <div class="if-user-chip">
-        <span class="if-user-avatar">U</span>
-        <span class="if-user-meta">
-          <strong>Usuario</strong>
-          <small>Supervisor</small>
-        </span>
-        <form
-  method="post"
-  action="{% url 'accounts:logout' %}"
-  class="if-logout-form"
->
-  {% csrf_token %}
+          <div class="if-notification-list">
+            {% for alert in navbar_recent_alerts %}
+              <a
+                class="if-notification-item"
+                href="{% url 'management:alerts_center' %}"
+              >
+                <span
+                  class="if-notification-severity if-notification-severity-{{ alert.severity|lower }}"
+                ></span>
 
-  <button
-    type="submit"
-    class="if-logout-button"
-  >
-    Cerrar sesión
-  </button>
-</form>
+                <span>
+                  <strong>{{ alert.title }}</strong>
+                  <small>
+                    {{ alert.created_at|date:"d/m/Y H:i" }}
+                  </small>
+                </span>
+              </a>
+            {% empty %}
+              <div class="if-notification-empty">
+                No hay alertas activas.
+              </div>
+            {% endfor %}
+          </div>
+
+          <a
+            class="if-notification-footer"
+            href="{% url 'management:alerts_center' %}"
+          >
+            Ver todas
+          </a>
+        </div>
       </div>
+
+      {% if request.user.is_authenticated %}
+        <div class="dropdown if-user-menu-wrapper">
+
+          <button
+            type="button"
+            class="if-user-trigger"
+            id="user-menu-trigger"
+            data-bs-toggle="dropdown"
+            data-bs-auto-close="true"
+            aria-expanded="false"
+            aria-haspopup="true"
+          >
+            <span
+              class="if-user-avatar"
+              aria-hidden="true"
+            >
+              {{ current_user_initials }}
+            </span>
+
+            <span class="if-user-meta">
+              <strong title="{{ current_user_display_name }}">
+                {{ current_user_display_name }}
+              </strong>
+
+              <small title="{{ current_user_role_name }}">
+                {{ current_user_role_name }}
+              </small>
+            </span>
+
+            <i
+              class="bi bi-chevron-down if-user-chevron"
+              aria-hidden="true"
+            ></i>
+          </button>
+
+          <div
+            class="dropdown-menu dropdown-menu-end if-user-menu"
+            aria-labelledby="user-menu-trigger"
+          >
+            <div class="if-user-menu-header">
+
+              <span
+                class="if-user-menu-avatar"
+                aria-hidden="true"
+              >
+                {{ current_user_initials }}
+              </span>
+
+              <div class="if-user-menu-identity">
+                <strong title="{{ current_user_display_name }}">
+                  {{ current_user_display_name }}
+                </strong>
+
+                {% if current_user_identifier %}
+                  <span title="{{ current_user_identifier }}">
+                    {{ current_user_identifier }}
+                  </span>
+                {% endif %}
+
+                <small>
+                  {{ current_user_role_name }}
+                </small>
+              </div>
+
+            </div>
+
+            <div class="if-user-menu-divider"></div>
+
+            <form
+              method="post"
+              action="{% url 'accounts:logout' %}"
+              class="if-user-logout-form"
+            >
+              {% csrf_token %}
+
+              <button
+                type="submit"
+                class="if-user-logout"
+              >
+                <i
+                  class="bi bi-box-arrow-right"
+                  aria-hidden="true"
+                ></i>
+
+                <span>Cerrar sesión</span>
+              </button>
+            </form>
+          </div>
+
+        </div>
+      {% endif %}
+
     </div>
   </div>
 </header>

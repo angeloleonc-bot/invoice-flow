@@ -1,6 +1,14 @@
 from django.contrib.auth import get_user_model
-from django.test import TestCase, override_settings
+from django.contrib.messages import get_messages
+from django.template.loader import render_to_string
+from django.test import (
+    RequestFactory,
+    TestCase,
+    override_settings,
+)
+from django.urls import reverse
 
+from apps.accounts.context_processors import current_user_context
 from apps.accounts.models import Role
 from apps.accounts.services.role_service import (
     RoleConfigurationError,
@@ -1260,3 +1268,449 @@ class IdentityRevalidationServiceTests(TestCase):
                 user=self.user,
                 adapter=adapter,
             )
+
+class LoginViewTests(TestCase):
+    @override_settings(
+        ENTRA_AUTH_ENABLED=True,
+        LOGIN_REDIRECT_URL="/",
+    )
+    def test_login_renders_corporate_microsoft_action(self):
+        response = self.client.get(
+            reverse("accounts:login")
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(
+            response,
+            "accounts/login.html",
+        )
+        self.assertContains(
+            response,
+            "Continuar con Microsoft",
+        )
+        self.assertContains(
+            response,
+            reverse("accounts:entra_login"),
+        )
+        self.assertNotContains(
+            response,
+            "modo desarrollo",
+        )
+        self.assertNotContains(
+            response,
+            "dev-login",
+        )
+
+    @override_settings(
+        ENTRA_AUTH_ENABLED=False,
+        LOGIN_REDIRECT_URL="/",
+    )
+    def test_login_shows_message_when_entra_is_disabled(self):
+        response = self.client.get(
+            reverse("accounts:login")
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            "El acceso corporativo todavía no está habilitado.",
+        )
+        self.assertNotContains(
+            response,
+            "Continuar con Microsoft",
+        )
+
+    @override_settings(
+        ENTRA_AUTH_ENABLED=True,
+        LOGIN_REDIRECT_URL="/",
+    )
+    def test_authenticated_user_is_redirected_from_login(self):
+        user = User.objects.create_user(
+            username="authenticated.user",
+            email="authenticated.user@example.com",
+        )
+
+        self.client.force_login(user)
+
+        response = self.client.get(
+            reverse("accounts:login")
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "/")
+
+    @override_settings(
+        ENTRA_AUTH_ENABLED=True,
+        LOGIN_REDIRECT_URL="/",
+    )
+    def test_login_rejects_external_next_url(self):
+        response = self.client.get(
+            reverse("accounts:login"),
+            {
+                "next": "https://example.com/malicious",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context["next_url"],
+            "/",
+        )
+
+    @override_settings(
+        ENTRA_AUTH_ENABLED=True,
+        LOGIN_REDIRECT_URL="/",
+    )
+    def test_login_accepts_internal_next_url(self):
+        response = self.client.get(
+            reverse("accounts:login"),
+            {
+                "next": "/portfolio/customers/",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context["next_url"],
+            "/portfolio/customers/",
+        )
+
+
+class CurrentUserContextTests(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+
+    def _build_request(self, user):
+        request = self.factory.get("/")
+        request.user = user
+        return request
+
+    def test_uses_full_name_when_available(self):
+        user = User.objects.create_user(
+            username="angelo.leon",
+            email="angelo.leon@example.com",
+            first_name="Angelo",
+            last_name="León",
+        )
+
+        context = current_user_context(
+            self._build_request(user)
+        )
+
+        self.assertEqual(
+            context["current_user_display_name"],
+            "Angelo León",
+        )
+        self.assertEqual(
+            context["current_user_initials"],
+            "AL",
+        )
+        self.assertEqual(
+            context["current_user_identifier"],
+            "angelo.leon@example.com",
+        )
+
+    def test_uses_username_when_full_name_is_empty(self):
+        user = User.objects.create_user(
+            username="corporate.user",
+            email="",
+        )
+
+        context = current_user_context(
+            self._build_request(user)
+        )
+
+        self.assertEqual(
+            context["current_user_display_name"],
+            "corporate.user",
+        )
+        self.assertEqual(
+            context["current_user_initials"],
+            "CO",
+        )
+        self.assertEqual(
+            context["current_user_identifier"],
+            "corporate.user",
+        )
+
+    def test_returns_effective_role_display_name(self):
+        user = User.objects.create_user(
+            username="supervisor.user",
+            first_name="Supervisor",
+            last_name="User",
+        )
+
+        supervisor_role = Role.objects.get(
+            code=Role.SUPERVISOR,
+        )
+
+        collector_role = Role.objects.get(
+            code=Role.COBRADOR,
+        )
+
+        user.roles.set(
+            [
+                collector_role,
+                supervisor_role,
+            ]
+        )
+
+        context = current_user_context(
+            self._build_request(user)
+        )
+
+        self.assertEqual(
+            context["current_user_role_name"],
+            "Supervisor",
+        )
+
+    def test_user_without_role_has_safe_fallback(self):
+        user = User.objects.create_user(
+            username="user.without.role",
+        )
+
+        context = current_user_context(
+            self._build_request(user)
+        )
+
+        self.assertEqual(
+            context["current_user_role_name"],
+            "Sin rol asignado",
+        )
+
+    def test_superuser_is_displayed_as_administrator(self):
+        user = User.objects.create_superuser(
+            username="admin.user",
+            email="admin@example.com",
+            password="test-password",
+        )
+
+        context = current_user_context(
+            self._build_request(user)
+        )
+
+        self.assertEqual(
+            context["current_user_role_name"],
+            "Administrador",
+        )
+
+    def test_anonymous_user_returns_empty_context(self):
+        from django.contrib.auth.models import AnonymousUser
+
+        context = current_user_context(
+            self._build_request(AnonymousUser())
+        )
+
+        self.assertEqual(
+            context["current_user_display_name"],
+            "",
+        )
+        self.assertEqual(
+            context["current_user_initials"],
+            "",
+        )
+        self.assertEqual(
+            context["current_user_role_name"],
+            "",
+        )
+        self.assertEqual(
+            context["current_user_identifier"],
+            "",
+        )
+
+
+class UserNavbarTemplateTests(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+
+        self.user = User.objects.create_user(
+            username="angelo.leon",
+            email="angelo.leon@example.com",
+            first_name="Angelo",
+            last_name="León",
+        )
+
+        supervisor_role = Role.objects.get(
+            code=Role.SUPERVISOR,
+        )
+
+        self.user.roles.set([supervisor_role])
+
+    def test_navbar_renders_real_user_identity(self):
+        request = self.factory.get("/")
+        request.user = self.user
+
+        user_context = current_user_context(request)
+
+        html = render_to_string(
+            "partials/navbar.html",
+            {
+                **user_context,
+                "request": request,
+                "navbar_new_alerts_count": 0,
+                "navbar_recent_alerts": [],
+            },
+        )
+
+        self.assertIn("Angelo León", html)
+        self.assertIn("AL", html)
+        self.assertIn("Supervisor", html)
+        self.assertIn("angelo.leon@example.com", html)
+        self.assertIn("Cerrar sesión", html)
+
+    def test_navbar_logout_uses_post_form(self):
+        request = self.factory.get("/")
+        request.user = self.user
+
+        user_context = current_user_context(request)
+
+        html = render_to_string(
+            "partials/navbar.html",
+            {
+                **user_context,
+                "request": request,
+                "navbar_new_alerts_count": 0,
+                "navbar_recent_alerts": [],
+            },
+        )
+
+        self.assertIn('method="post"', html)
+        self.assertIn(
+            f'action="{reverse("accounts:logout")}"',
+            html,
+        )
+        self.assertNotIn(
+            f'href="{reverse("accounts:logout")}"',
+            html,
+        )
+
+    def test_navbar_does_not_render_nonexistent_profile_links(self):
+        request = self.factory.get("/")
+        request.user = self.user
+
+        user_context = current_user_context(request)
+
+        html = render_to_string(
+            "partials/navbar.html",
+            {
+                **user_context,
+                "request": request,
+                "navbar_new_alerts_count": 0,
+                "navbar_recent_alerts": [],
+            },
+        )
+
+        self.assertNotIn("Mi perfil", html)
+        self.assertNotIn("Configuración de cuenta", html)
+
+
+class LogoutViewTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="logout.user",
+            email="logout.user@example.com",
+        )
+
+    @override_settings(
+        ENTRA_GLOBAL_LOGOUT_ENABLED=False,
+    )
+    def test_logout_rejects_get_request(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse("accounts:logout")
+        )
+
+        self.assertEqual(response.status_code, 405)
+
+    @override_settings(
+        ENTRA_GLOBAL_LOGOUT_ENABLED=False,
+    )
+    def test_logout_accepts_post_and_redirects_to_login(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            reverse("accounts:logout")
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("accounts:login"),
+            fetch_redirect_response=False,
+        )
+
+    @override_settings(
+        ENTRA_GLOBAL_LOGOUT_ENABLED=False,
+    )
+    def test_logout_removes_authenticated_user_from_session(self):
+        self.client.force_login(self.user)
+
+        self.client.post(
+            reverse("accounts:logout")
+        )
+
+        response = self.client.get(
+            reverse("accounts:login")
+        )
+
+        self.assertFalse(
+            response.wsgi_request.user.is_authenticated
+        )
+
+    @override_settings(
+        ENTRA_GLOBAL_LOGOUT_ENABLED=False,
+    )
+    def test_logout_adds_success_message(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            reverse("accounts:logout"),
+            follow=True,
+        )
+
+        message_texts = [
+            str(message)
+            for message in get_messages(
+                response.wsgi_request
+            )
+        ]
+
+        self.assertIn(
+            "Sesión cerrada correctamente.",
+            message_texts,
+        )
+
+        self.assertContains(
+            response,
+            "Sesión cerrada correctamente.",
+        )
+
+    @override_settings(
+        ENTRA_GLOBAL_LOGOUT_ENABLED=True,
+        ENTRA_AUTHORITY=(
+            "https://login.microsoftonline.com/"
+            "test-tenant"
+        ),
+        ENTRA_POST_LOGOUT_REDIRECT_URI=(
+            "https://invoice-flow.example.com/"
+            "accounts/login/"
+        ),
+    )
+    def test_global_logout_redirects_to_microsoft(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            reverse("accounts:logout")
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            response["Location"].startswith(
+                "https://login.microsoftonline.com/"
+                "test-tenant/oauth2/v2.0/logout?"
+            )
+        )
+        self.assertIn(
+            "post_logout_redirect_uri=",
+            response["Location"],
+        )

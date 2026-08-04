@@ -7,13 +7,13 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 
-User=invoiceflow
+User=deploy
 Group=docker
 
-WorkingDirectory=/opt/invoice-flow
+WorkingDirectory=/opt/apps/invoice-flow
 EnvironmentFile=/etc/invoice-flow/sync.env
 
-ExecStart=/opt/invoice-flow/scripts/run_operational_sync.sh
+ExecStart=/opt/apps/invoice-flow/scripts/run_operational_sync.sh
 
 TimeoutStartSec=30min
 KillSignal=SIGTERM
@@ -23,6 +23,3 @@ StandardError=journal
 SyslogIdentifier=invoice-flow-sync
 
 Nice=10
-
-[Install]
-WantedBy=multi-user.target

@@ -1,54 +1,171 @@
-{% extends "base.html" %}
+{% extends "accounts/base_auth.html" %}
+{% load static %}
 
 {% block title %}Iniciar sesión | Invoice Flow{% endblock %}
 
 {% block content %}
-<section class="if-auth-page">
-  <div class="if-auth-card">
-    <div class="if-auth-card__header">
-      <p class="if-auth-card__eyebrow">
-        Invoice Flow
-      </p>
+<section class="if-auth-page" aria-labelledby="auth-title">
 
-      <h1 class="if-auth-card__title">
-        Iniciar sesión
-      </h1>
+  <div class="if-auth-shell">
 
-      <p class="if-auth-card__description">
-        Accede con tu cuenta corporativa.
-      </p>
-    </div>
+    <header class="if-auth-brand">
+      <div class="if-auth-brand__identity">
+        <span class="if-auth-brand__mark" aria-hidden="true">
+          IF
+        </span>
 
-    {% if messages %}
-      <div class="if-auth-messages">
-        {% for message in messages %}
-          <div class="if-auth-message if-auth-message--{{ message.tags }}">
-            {{ message }}
-          </div>
-        {% endfor %}
+        <div class="if-auth-brand__text">
+          <strong>Invoice Flow</strong>
+          <span>Gestión de cobranza</span>
+        </div>
       </div>
-    {% endif %}
 
-    <div class="if-auth-card__actions">
-      {% if entra_auth_enabled %}
-        <a
-          href="{% url 'accounts:entra_login' %}?next={{ next_url|urlencode }}"
-          class="if-button if-button--primary"
+      <p class="if-auth-brand__description">
+        Ingresa con tu cuenta corporativa para continuar.
+      </p>
+    </header>
+
+    <div class="if-auth-card">
+
+      <div class="if-auth-card__header">
+        <p class="if-auth-card__eyebrow">
+          Acceso seguro
+        </p>
+
+        <h1 id="auth-title" class="if-auth-card__title">
+          Bienvenido
+        </h1>
+
+        <p class="if-auth-card__description">
+          Utiliza tu identidad corporativa de Microsoft para acceder a
+          Invoice Flow.
+        </p>
+      </div>
+
+      {% if messages %}
+        <div
+          class="if-auth-messages"
+          aria-live="polite"
+          aria-atomic="true"
         >
-          Continuar con Microsoft
-        </a>
-      {% else %}
-        <div class="if-auth-message if-auth-message--info">
-          El acceso corporativo todavía no está habilitado.
+          {% for message in messages %}
+            <div
+              class="if-auth-message if-auth-message--{{ message.tags|default:'info' }}"
+              role="{% if 'error' in message.tags or 'danger' in message.tags %}alert{% else %}status{% endif %}"
+            >
+              <span class="if-auth-message__icon" aria-hidden="true">
+                {% if "success" in message.tags %}
+                  <i class="bi bi-check2-circle"></i>
+                {% elif "error" in message.tags or "danger" in message.tags %}
+                  <i class="bi bi-exclamation-circle"></i>
+                {% elif "warning" in message.tags %}
+                  <i class="bi bi-exclamation-triangle"></i>
+                {% else %}
+                  <i class="bi bi-info-circle"></i>
+                {% endif %}
+              </span>
+
+              <span class="if-auth-message__text">
+                {{ message }}
+              </span>
+            </div>
+          {% endfor %}
         </div>
       {% endif %}
 
-      {% if dev_login_enabled %}
-        <p class="if-auth-card__development">
-          El acceso local de desarrollo permanece habilitado.
-        </p>
-      {% endif %}
+      <div class="if-auth-card__actions">
+
+        {% if entra_auth_enabled %}
+          <a
+            href="{% url 'accounts:entra_login' %}?next={{ next_url|urlencode }}"
+            class="if-auth-primary-action"
+            data-auth-submit
+          >
+            <span class="if-microsoft-logo" aria-hidden="true">
+              <span class="if-microsoft-logo__red"></span>
+              <span class="if-microsoft-logo__green"></span>
+              <span class="if-microsoft-logo__blue"></span>
+              <span class="if-microsoft-logo__yellow"></span>
+            </span>
+
+            <span data-auth-label>
+              Continuar con Microsoft
+            </span>
+
+            <span
+              class="if-auth-action-spinner"
+              aria-hidden="true"
+              hidden
+            ></span>
+          </a>
+        {% else %}
+          <div
+            class="if-auth-message if-auth-message--warning"
+            role="status"
+          >
+            <span class="if-auth-message__icon" aria-hidden="true">
+              <i class="bi bi-exclamation-triangle"></i>
+            </span>
+
+            <span class="if-auth-message__text">
+              El acceso corporativo todavía no está habilitado.
+            </span>
+          </div>
+        {% endif %}
+
+        {% if dev_login_enabled %}
+          <div class="if-auth-development">
+            <div class="if-auth-divider">
+              <span>Acceso de desarrollo</span>
+            </div>
+
+            <p class="if-auth-development__description">
+              Disponible únicamente en el entorno local de desarrollo.
+            </p>
+
+            <a
+              href="{% url 'accounts:dev_login' %}?next={{ next_url|urlencode }}"
+              class="if-auth-secondary-action"
+              data-auth-submit
+            >
+              <i class="bi bi-person-gear" aria-hidden="true"></i>
+
+              <span data-auth-label>
+                Ingresar en modo desarrollo
+              </span>
+
+              <span
+                class="if-auth-action-spinner"
+                aria-hidden="true"
+                hidden
+              ></span>
+            </a>
+          </div>
+        {% endif %}
+
+      </div>
+
+      <footer class="if-auth-card__footer">
+        <i class="bi bi-shield-check" aria-hidden="true"></i>
+
+        <span>
+          El acceso se valida mediante la identidad corporativa y los
+          permisos asignados en Invoice Flow.
+        </span>
+      </footer>
+
     </div>
+
+    <p class="if-auth-page__footer">
+      El acceso corporativo es el método principal. El acceso local queda
+      reservado exclusivamente para desarrollo.
+    </p>
+
   </div>
+
 </section>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/auth.js' %}"></script>
 {% endblock %}

@@ -1,0 +1,44 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: invoice_flow_web
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    ports:
+      - "127.0.0.1:18004:8000"
+
+    volumes:
+      - /opt/apps/invoice-flow-data/staticfiles:/app/staticfiles
+      - /opt/apps/invoice-flow-data/media:/app/media
+      - /opt/apps/invoice-flow-data/logs:/app/logs
+
+    command:
+      - gunicorn
+      - config.wsgi:application
+      - --bind
+      - 0.0.0.0:8000
+      - --workers
+      - "3"
+      - --timeout
+      - "120"
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - python manage.py check >/dev/null 2>&1 || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"

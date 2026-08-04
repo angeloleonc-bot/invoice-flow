@@ -92,10 +92,11 @@ def _clear_entra_flow(request: HttpRequest) -> None:
 @require_GET
 def login_view(request: HttpRequest) -> HttpResponse:
     """
-    Página de entrada a Invoice Flow.
+    Renderiza la entrada principal a Invoice Flow.
 
-    En desarrollo puede conservarse el acceso local.
-    En producción, Entra será el mecanismo normal de autenticación.
+    Microsoft Entra ID es el mecanismo corporativo.
+    El acceso local solo se muestra cuando desarrollo y la
+    configuración explícita de dev login están habilitados.
     """
 
     if request.user.is_authenticated:
@@ -106,9 +107,24 @@ def login_view(request: HttpRequest) -> HttpResponse:
             )
         )
 
+    dev_login_enabled = bool(
+        settings.DEBUG
+        and getattr(
+            settings,
+            "DEV_LOGIN_ENABLED",
+            False,
+        )
+    )
+
     context = {
-        "entra_auth_enabled": settings.ENTRA_AUTH_ENABLED,
-        "dev_login_enabled": settings.DEV_LOGIN_ENABLED,
+        "entra_auth_enabled": bool(
+            getattr(
+                settings,
+                "ENTRA_AUTH_ENABLED",
+                False,
+            )
+        ),
+        "dev_login_enabled": dev_login_enabled,
         "next_url": _safe_next_url(
             request,
             request.GET.get("next"),
@@ -120,7 +136,6 @@ def login_view(request: HttpRequest) -> HttpResponse:
         "accounts/login.html",
         context,
     )
-
 
 @require_GET
 def entra_login_view(
@@ -379,15 +394,24 @@ def entra_callback_view(
 @require_POST
 def logout_view(request: HttpRequest) -> HttpResponse:
     """
-    Cierra siempre la sesión local.
+    Cierra la sesión local de Django.
 
-    Si ENTRA_GLOBAL_LOGOUT_ENABLED=True, redirige también al endpoint
-    de cierre de sesión de Microsoft.
+    Cuando el cierre global de Microsoft Entra está habilitado,
+    redirige también al endpoint corporativo de logout.
     """
 
     django_logout(request)
 
-    if not settings.ENTRA_GLOBAL_LOGOUT_ENABLED:
+    messages.success(
+        request,
+        "Sesión cerrada correctamente.",
+    )
+
+    if not getattr(
+        settings,
+        "ENTRA_GLOBAL_LOGOUT_ENABLED",
+        False,
+    ):
         return redirect("accounts:login")
 
     logout_endpoint = (
@@ -406,14 +430,6 @@ def logout_view(request: HttpRequest) -> HttpResponse:
     return redirect(
         f"{logout_endpoint}?{query}"
     )
-
-AUTH_MESSAGE_MAP = {
-    "session_expired": "Tu sesión expiró. Inicia sesión nuevamente.",
-    "invalid_identity": "No fue posible validar tu identidad corporativa.",
-    "access_revoked": "Tu acceso fue revocado o no se encuentra habilitado.",
-    "token_expired": "El token de autenticación expiró. Inicia sesión nuevamente.",
-    "logout": "Sesión cerrada correctamente.",
-}
 
 
 def _get_client_ip(request):
@@ -444,8 +460,17 @@ def dev_login_view(request):
     Bloqueado explícitamente cuando DEBUG=False.
     """
 
-    if not settings.DEBUG:
-        return HttpResponseForbidden("Dev login is disabled outside DEBUG mode.")
+    if not (
+        settings.DEBUG
+        and getattr(
+            settings,
+            "DEV_LOGIN_ENABLED",
+            False,
+        )
+    ):
+        return HttpResponseForbidden(
+            "El acceso local de desarrollo no está habilitado."
+        )
 
     next_url = request.GET.get("next") or "/dashboard/"
 

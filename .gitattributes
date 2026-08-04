@@ -1,0 +1,7 @@
+*.sh text eol=lf
+Dockerfile text eol=lf
+compose.yml text eol=lf
+
+deploy/systemd/*.service text eol=lf
+deploy/systemd/*.timer text eol=lf
+deploy/systemd/*.env.example text eol=lf

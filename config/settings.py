@@ -8,6 +8,25 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv(BASE_DIR / ".env")
 
+def env_bool(name: str, default: bool = False) -> bool:
+    """
+    Lee una variable de entorno como booleano.
+
+    Valores verdaderos:
+    1, true, yes, on
+
+    Valores falsos:
+    0, false, no, off
+    """
+    default_value = "true" if default else "false"
+
+    return (
+        os.getenv(name, default_value)
+        .strip()
+        .lower()
+        in {"1", "true", "yes", "on"}
+    )
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -16,7 +35,10 @@ load_dotenv(BASE_DIR / ".env")
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "unsafe-dev-secret-key")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("DJANGO_DEBUG", "True") == "True"
+DEBUG = env_bool(
+    "DJANGO_DEBUG",
+    default=True,
+)
 
 ALLOWED_HOSTS = os.getenv(
     "DJANGO_ALLOWED_HOSTS",
@@ -62,9 +84,11 @@ TEMPLATES = [
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.request',
-                "apps.management.context_processors.operational_alerts_context",
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+
+                "apps.accounts.context_processors.current_user_context",
+                "apps.management.context_processors.operational_alerts_context",
             ],
         },
     },
@@ -149,13 +173,25 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
+STATIC_ROOT = Path(
+    os.getenv(
+        "DJANGO_STATIC_ROOT",
+        BASE_DIR / "staticfiles",
+    )
+)
+
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
 
-MEDIA_URL = "media/"
-MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_URL = "/media/"
+MEDIA_ROOT = Path(
+    os.getenv(
+        "DJANGO_MEDIA_ROOT",
+        BASE_DIR / "media",
+    )
+)
 
 # Authentication / identity
 AUTH_USER_MODEL = "accounts.User"
@@ -165,9 +201,9 @@ AUTH_USER_MODEL = "accounts.User"
 # Microsoft Entra ID — Identidad y autorización
 # ============================================================
 
-ENTRA_AUTH_ENABLED = (
-    os.getenv("ENTRA_AUTH_ENABLED", "True").strip().lower()
-    in {"1", "true", "yes", "on"}
+ENTRA_AUTH_ENABLED = env_bool(
+    "ENTRA_AUTH_ENABLED",
+    default=True,
 )
 
 ENTRA_TENANT_ID = os.getenv(
@@ -252,20 +288,14 @@ IDENTITY_REVALIDATION_GRACE_MINUTES = int(
     )
 )
 
-ENTRA_GLOBAL_LOGOUT_ENABLED = (
-    os.getenv(
-        "ENTRA_GLOBAL_LOGOUT_ENABLED",
-        "False",
-    ).strip().lower()
-    in {"1", "true", "yes", "on"}
+ENTRA_GLOBAL_LOGOUT_ENABLED = env_bool(
+    "ENTRA_GLOBAL_LOGOUT_ENABLED",
+    default=False,
 )
 
-DEV_LOGIN_ENABLED = (
-    os.getenv(
-        "DEV_LOGIN_ENABLED",
-        "False",
-    ).strip().lower()
-    in {"1", "true", "yes", "on"}
+DEV_LOGIN_ENABLED = env_bool(
+    "DEV_LOGIN_ENABLED",
+    default=False,
 )
 
 ENTRA_APPLICATION_SCOPES = (
@@ -281,8 +311,52 @@ LOGOUT_REDIRECT_URL = "accounts:login"
 # ============================================================
 
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = env_bool(
+    "DJANGO_SESSION_COOKIE_SECURE",
+    default=False,
+)
 SESSION_COOKIE_SAMESITE = "Lax"
+
+CSRF_COOKIE_SECURE = env_bool(
+    "DJANGO_CSRF_COOKIE_SECURE",
+    default=False,
+)
+
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "DJANGO_CSRF_TRUSTED_ORIGINS",
+        "",
+    ).split(",")
+    if origin.strip()
+]
+
+SECURE_PROXY_SSL_HEADER = (
+    "HTTP_X_FORWARDED_PROTO",
+    "https",
+)
+
+SECURE_SSL_REDIRECT = env_bool(
+    "DJANGO_SECURE_SSL_REDIRECT",
+    default=False,
+)
+
+SECURE_HSTS_SECONDS = int(
+    os.getenv(
+        "DJANGO_SECURE_HSTS_SECONDS",
+        "0",
+    )
+)
+
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool(
+    "DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS",
+    default=False,
+)
+
+SECURE_HSTS_PRELOAD = env_bool(
+    "DJANGO_SECURE_HSTS_PRELOAD",
+    default=False,
+)
 
 INACTIVITY_TIMEOUT_MINUTES = int(
     os.getenv(

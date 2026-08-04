@@ -1,9 +1,8 @@
 [Unit]
-Description=Run Invoice Flow operational synchronization every 30 minutes
+Description=Run Invoice Flow operational synchronization daily at 06:00
 
 [Timer]
-OnBootSec=5min
-OnUnitActiveSec=30min
+OnCalendar=*-*-* 06:00:00
 
 Persistent=true
 AccuracySec=1min

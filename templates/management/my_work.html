@@ -126,6 +126,23 @@
       >
     </div>
 
+    <div class="if-portfolio-filter-field">
+  <label for="cluster">Cluster</label>
+
+  <select id="cluster" name="cluster">
+    <option value="">Todos</option>
+
+    {% for cluster in cluster_options %}
+      <option
+        value="{{ cluster }}"
+        {% if selected_cluster == cluster %}selected{% endif %}
+      >
+        {{ cluster }}
+      </option>
+    {% endfor %}
+  </select>
+</div>
+
     {% if is_supervisor and selected_scope == 'all' %}
     <div class="if-portfolio-filter-field">
       <label for="collector">Cobrador</label>

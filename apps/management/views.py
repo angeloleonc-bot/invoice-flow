@@ -101,6 +101,7 @@ def my_work(request):
 
     search_customer = request.GET.get("customer", "").strip()
     search_rut = request.GET.get("rut", "").strip()
+    requested_cluster = request.GET.get("cluster", "").strip()
 
     allowed_portfolio_filters = {
         "",
@@ -384,6 +385,28 @@ def my_work(request):
 
     visible_customer_ids = workspace_service.visible_customer_ids()
 
+    cluster_options = list(
+        Customer.objects
+        .filter(
+            is_active=True,
+            id__in=visible_customer_ids,
+        )
+        .exclude(cluster__isnull=True)
+        .exclude(cluster="")
+        .values_list(
+            "cluster",
+            flat=True,
+        )
+        .distinct()
+        .order_by("cluster")
+    )
+
+    selected_cluster = (
+        requested_cluster
+        if requested_cluster in cluster_options
+        else ""
+    )
+
     customers = Customer.objects.filter(
         is_active=True,
         id__in=visible_customer_ids,
@@ -462,6 +485,11 @@ def my_work(request):
     if search_rut:
         customers = customers.filter(
             rut__icontains=search_rut,
+        )
+
+    if selected_cluster:
+        customers = customers.filter(
+            cluster=selected_cluster,
         )
 
     if selected_filter == "with_promises":
@@ -913,6 +941,8 @@ def my_work(request):
         "selected_scope": selected_scope,
         "search_customer": search_customer,
         "search_rut": search_rut,
+        "cluster_options": cluster_options,
+        "selected_cluster": selected_cluster,
         "selected_collector": selected_collector,
         "selected_filter": selected_filter,
         "selected_sort": selected_sort,

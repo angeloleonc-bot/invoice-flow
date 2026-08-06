@@ -528,6 +528,43 @@ def customer_detail(request, customer_id):
     today = timezone.localdate()
 
     customer = get_object_or_404(Customer, id=customer_id)
+
+    active_customer_assignments = (
+        DocumentAssignment.objects
+        .filter(
+            document__customer=customer,
+            is_active=True,
+            assigned_to__is_active=True,
+        )
+        .select_related("assigned_to")
+        .order_by(
+            "assigned_to__first_name",
+            "assigned_to__last_name",
+            "assigned_to__username",
+        )
+    )
+
+    customer_responsibles = []
+    seen_responsible_ids = set()
+
+    for assignment in active_customer_assignments:
+        responsible = assignment.assigned_to
+
+        if responsible.id in seen_responsible_ids:
+            continue
+
+        seen_responsible_ids.add(responsible.id)
+
+        display_name = responsible.get_full_name().strip()
+
+        customer_responsibles.append(
+            {
+                "id": responsible.id,
+                "display_name": display_name or responsible.username,
+                "username": responsible.username,
+            }
+        )
+
     action_form = CollectionActionForm()
     promise_form = WorkspacePaymentPromiseForm()
 
@@ -1118,6 +1155,7 @@ def customer_detail(request, customer_id):
         "portfolio/customer_detail.html",
         {
             "customer": customer,
+            "customer_responsibles": customer_responsibles,
             "documents": documents,
             "account_show_all": account_show_all,
             "account_documents_count": account_documents_count,

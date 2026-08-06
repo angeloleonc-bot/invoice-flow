@@ -109,13 +109,29 @@
           {% endif %}
         </div>
 
-        <div>
-          <span>Responsable</span>
-          <strong>
-            {{ request.user.get_full_name|default:request.user.username }}
-          </strong>
-          <small>Ejecutivo actual.</small>
-        </div>
+<div>
+  <span>Responsable</span>
+
+  {% if customer_responsibles|length == 1 %}
+    <strong>
+      {{ customer_responsibles.0.display_name }}
+    </strong>
+    <small>Ejecutivo asignado.</small>
+
+  {% elif customer_responsibles|length > 1 %}
+    <strong>Responsabilidad compartida</strong>
+
+    <small>
+      {% for responsible in customer_responsibles %}
+        {{ responsible.display_name }}{% if not forloop.last %}, {% endif %}
+      {% endfor %}
+    </small>
+
+  {% else %}
+    <strong>Sin responsable</strong>
+    <small>No existen asignaciones activas.</small>
+  {% endif %}
+</div>
 
       </div>
 

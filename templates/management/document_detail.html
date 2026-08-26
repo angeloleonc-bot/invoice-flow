@@ -81,6 +81,10 @@
             <span>NC aplicada</span>
             <strong>{{ financial_summary.total_credit_notes|clp }}</strong>
           </div>
+          <div>
+            <span>Reconciliación manual</span>
+            <strong>{{ financial_summary.total_manual_reconciliations|clp }}</strong>
+          </div>
           <div class="is-balance">
             <span>Saldo actual</span>
             <strong>{{ financial_summary.balance_amount|clp }}</strong>
@@ -96,6 +100,11 @@
           {% endif %}
           {% if financial_summary.total_credit_notes > 0 %}
             <span class="if-badge if-badge-warning">NC aplicada</span>
+          {% endif %}
+          {% if financial_summary.total_manual_reconciliations > 0 %}
+            <span class="if-badge if-badge-soft">
+              Reconciliación manual
+            </span>
           {% endif %}
           {% if document.overpayment_amount > 0 %}
             <span class="if-badge if-badge-success">Saldo a favor {{ document.overpayment_amount|clp }}</span>
@@ -128,7 +137,9 @@
                 <div class="if-timeline-entry-card">
                   <div class="if-timeline-entry-top">
                     <span class="if-badge if-badge-soft">{{ event.label }}</span>
-                    <time>{{ event.date|date:"d/m/Y" }}</time>
+                    {% if not event.hide_date %}
+                      <time>{{ event.date|date:"d/m/Y" }}</time>
+                    {% endif %}
                   </div>
 
                   <h3>{{ event.title }}</h3>
@@ -199,7 +210,9 @@
         <div class="if-card-header">
           <div>
             <h2 class="if-card-title">Movimientos financieros</h2>
-            <p class="if-card-subtitle">Pagos y notas de crédito aplicados.</p>
+            <p class="if-card-subtitle">
+              Pagos, notas de crédito y reconciliaciones aplicadas.
+            </p>
           </div>
         </div>
 
@@ -219,7 +232,13 @@
                 {% for movement in latest_financial_movements %}
                   <tr>
                     <td>{{ movement.label }}</td>
-                    <td>{{ movement.date|date:"d/m/Y" }}</td>
+                    <td>
+                      {% if movement.hide_date %}
+                        —
+                      {% else %}
+                        {{ movement.date|date:"d/m/Y" }}
+                      {% endif %}
+                    </td>
                     <td>{{ movement.reference|default:"Sin referencia" }}</td>
                     <td class="if-muted">{{ movement.description|default:"Sin comentario" }}</td>
                     <td class="text-end"><strong>{{ movement.amount|clp }}</strong></td>

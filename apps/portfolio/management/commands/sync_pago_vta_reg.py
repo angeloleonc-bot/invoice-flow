@@ -2,18 +2,17 @@ from datetime import datetime
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand
-from django.db import connection, models, transaction
-from django.db.models import Sum
-from django.db.models.functions import Coalesce
+from django.db import connection, transaction
+
 
 from apps.portfolio.models import (
-    CreditNoteApplication,
     Document,
-    DocumentStatus,
-    DocumentSubStatus,
     PaymentRecord,
 )
 
+from apps.portfolio.services.financial import (
+    recalculate_document_financial_state,
+)
 
 class Command(BaseCommand):
     help = "Sincroniza pagos desde Pago_Vta_Reg y recalcula saldos de documentos."
@@ -81,7 +80,7 @@ class Command(BaseCommand):
                 affected_document_ids.add(document.id)
 
             for document_id in affected_document_ids:
-                self._recalculate_document_balance(document_id)
+                recalculate_document_financial_state(document_id)
 
         self.stdout.write(self.style.SUCCESS("Sincronización Pago_Vta_Reg completada."))
         self.stdout.write(f"Filas fuente: {len(rows)}")
@@ -146,112 +145,6 @@ class Command(BaseCommand):
 
         return qs.order_by("id").first()
 
-    def _recalculate_document_balance(self, document_id):
-        document = Document.objects.select_related("status", "sub_status").get(id=document_id)
-
-        total_credit_notes = (
-            CreditNoteApplication.objects
-            .filter(document=document)
-            .aggregate(total=Coalesce(Sum("credit_amount"), Decimal("0")))
-            ["total"]
-        )
-
-        total_paid = (
-            PaymentRecord.objects
-            .filter(document=document)
-            .aggregate(total=Coalesce(Sum("amount"), Decimal("0")))
-            ["total"]
-        )
-
-        raw_balance = document.original_amount - total_credit_notes - total_paid
-
-        if raw_balance < 0:
-            new_balance = Decimal("0")
-            overpayment_amount = abs(raw_balance)
-        else:
-            new_balance = raw_balance
-            overpayment_amount = Decimal("0")
-
-        # Ignorar diferencias de hasta $1 por redondeo
-        if overpayment_amount <= Decimal("1.00"):
-            overpayment_amount = Decimal("0")
-
-        update_fields = ["balance_amount", "overpayment_amount", "updated_at"]
-
-        document.balance_amount = new_balance
-        document.overpayment_amount = overpayment_amount
-
-        paid_status = DocumentStatus.objects.filter(
-            name__iexact="Pagada",
-            is_active=True,
-        ).first()
-
-        closed_status = DocumentStatus.objects.filter(
-            name__iexact="Cerrada",
-            is_active=True,
-        ).first()
-
-        pending_status = DocumentStatus.objects.filter(
-            name__iexact="Pendiente",
-            is_active=True,
-        ).first()
-
-        paid_substatus = DocumentSubStatus.objects.filter(
-            name__iexact="Pago total informado",
-            is_active=True,
-        ).first()
-
-        partial_payment_substatus = DocumentSubStatus.objects.filter(
-            name__iexact="Pago parcial informado",
-            is_active=True,
-        ).first()
-
-        covered_by_nc_substatus = DocumentSubStatus.objects.filter(
-            name__iexact="Cubierto por NC",
-            is_active=True,
-        ).first()
-
-        overpayment_substatus = DocumentSubStatus.objects.filter(
-            name__iexact="Saldo a favor cliente",
-            is_active=True,
-        ).first()
-
-        if new_balance <= 0:
-            if overpayment_amount > 0 and paid_status:
-                document.status = paid_status
-                update_fields.append("status")
-
-                if overpayment_substatus:
-                    document.sub_status = overpayment_substatus
-                    update_fields.append("sub_status")
-
-            elif total_paid > 0 and paid_status:
-                document.status = paid_status
-                update_fields.append("status")
-
-                if paid_substatus:
-                    document.sub_status = paid_substatus
-                    update_fields.append("sub_status")
-
-            elif total_credit_notes >= document.original_amount and closed_status:
-                document.status = closed_status
-                update_fields.append("status")
-
-                if covered_by_nc_substatus:
-                    document.sub_status = covered_by_nc_substatus
-                    update_fields.append("sub_status")
-
-        else:
-            if total_paid > 0 and partial_payment_substatus:
-                document.sub_status = partial_payment_substatus
-                update_fields.append("sub_status")
-
-            if document.status and document.status.name.lower() in ["pagada", "cerrada"]:
-                if pending_status:
-                    document.status = pending_status
-                    update_fields.append("status")
-
-        document.save(update_fields=list(dict.fromkeys(update_fields)))
 
     def _parse_date(self, value):
         if isinstance(value, datetime):

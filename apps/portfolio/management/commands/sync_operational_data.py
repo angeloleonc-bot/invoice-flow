@@ -7,13 +7,18 @@ from django.core.management.base import BaseCommand, CommandError
 class Command(BaseCommand):
     help = (
         "Ejecuta la sincronización operacional completa de Invoice Flow "
-        "en el orden requerido: facturas, notas de crédito y pagos."
+        "en el orden requerido: facturas, notas de crédito, "
+        "pagos y reconciliaciones manuales."
     )
 
     SYNC_COMMANDS = (
         ("sync_fact_vta_reg", "Facturas"),
         ("sync_nc_vta_reg", "Notas de crédito"),
         ("sync_pago_vta_reg", "Pagos"),
+        (
+            "sync_manual_reconciliation",
+            "Reconciliaciones manuales",
+        ),
     )
 
     def handle(self, *args, **options):

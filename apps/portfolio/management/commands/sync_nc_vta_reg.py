@@ -1,11 +1,14 @@
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand
-from django.db import connection, models, transaction
-from django.db.models import Sum
+from django.db import connection, transaction
 from django.utils import timezone
 
-from apps.portfolio.models import CreditNoteApplication, Document, DocumentStatus, DocumentSubStatus
+from apps.portfolio.models import CreditNoteApplication, Document
+
+from apps.portfolio.services.financial import (
+    recalculate_document_financial_state,
+)
 
 
 class Command(BaseCommand):
@@ -65,7 +68,7 @@ class Command(BaseCommand):
                 recalculated_documents.add(document.id)
 
             for document_id in recalculated_documents:
-                self._recalculate_document_balance(document_id)
+                recalculate_document_financial_state(document_id)
 
         self.stdout.write(self.style.SUCCESS("Sincronización NC_Vta_Reg1 completada."))
         self.stdout.write(f"Filas fuente: {len(rows)}")
@@ -108,63 +111,6 @@ class Command(BaseCommand):
             cursor.execute(query)
             columns = [column[0] for column in cursor.description]
             return [dict(zip(columns, row)) for row in cursor.fetchall()]
-
-    def _recalculate_document_balance(self, document_id):
-        document = Document.objects.get(id=document_id)
-
-        totals = (
-            CreditNoteApplication.objects
-            .filter(document=document)
-            .aggregate(
-                total_credit_notes=Sum("credit_amount"),
-                invoice_amount=models.Max("invoice_amount"),
-            )
-        )
-
-        total_credit_notes = totals["total_credit_notes"] or Decimal("0")
-        invoice_amount = totals["invoice_amount"] or document.original_amount
-
-        raw_balance = invoice_amount - total_credit_notes
-
-        if raw_balance < 0:
-            new_balance = Decimal("0")
-            overpayment_amount = abs(raw_balance)
-        else:
-            new_balance = raw_balance
-            overpayment_amount = Decimal("0")
-
-        # Ignorar diferencias de hasta $1 por redondeo
-        if overpayment_amount <= Decimal("1.00"):
-            overpayment_amount = Decimal("0")
-
-        update_fields = ["original_amount", "balance_amount", "overpayment_amount", "updated_at"]
-
-        document.original_amount = invoice_amount
-        document.balance_amount = new_balance
-        document.overpayment_amount = overpayment_amount
-
-        if new_balance <= 0:
-            closed_status = DocumentStatus.objects.filter(
-                name__iexact="Cerrada",
-                is_active=True,
-            ).first()
-
-            covered_by_nc_substatus = DocumentSubStatus.objects.filter(
-                name__iexact="Cubierto por NC",
-                is_active=True,
-            ).first()
-
-            if closed_status:
-                document.status = closed_status
-                update_fields.append("status")
-
-            if covered_by_nc_substatus:
-                document.sub_status = covered_by_nc_substatus
-                update_fields.append("sub_status")
-
-        document.save(update_fields=list(dict.fromkeys(update_fields)))
-
-
 
 
     def _decimal(self, value):

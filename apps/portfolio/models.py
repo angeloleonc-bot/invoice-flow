@@ -340,6 +340,64 @@ class CreditNoteApplication(models.Model):
 
     def __str__(self):
         return f"NC {self.credit_document_number} → Factura {self.target_invoice_number}"
+
+
+class ManualReconciliationApplication(models.Model):
+    document = models.ForeignKey(
+        Document,
+        on_delete=models.CASCADE,
+        related_name="manual_reconciliations",
+    )
+    customer = models.ForeignKey(
+        Customer,
+        on_delete=models.CASCADE,
+        related_name="manual_reconciliations",
+    )
+
+    source_id = models.BigIntegerField(unique=True)
+
+    invoice_number = models.CharField(
+        max_length=100,
+    )
+    source_rut = models.CharField(
+        max_length=100,
+    )
+
+    amount = models.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+    )
+
+    timeline_order_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    source_table = models.CharField(
+        max_length=120,
+        default="Pago_Reconciliacion_Manual",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Aplicación de reconciliación manual"
+        verbose_name_plural = "Aplicaciones de reconciliación manual"
+        ordering = ["-timeline_order_at", "-created_at"]
+        indexes = [
+            models.Index(fields=["document"]),
+            models.Index(fields=["customer"]),
+            models.Index(fields=["source_id"]),
+            models.Index(fields=["invoice_number"]),
+            models.Index(fields=["timeline_order_at"]),
+        ]
+
+    def __str__(self):
+        return (
+            f"Reconciliación manual {self.amount} "
+            f"→ Factura {self.invoice_number}"
+        )
     
 class DocumentSupport(models.Model):
     id = models.BigIntegerField(

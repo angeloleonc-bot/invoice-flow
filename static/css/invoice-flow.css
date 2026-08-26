@@ -13506,3 +13506,43 @@ a.if-action-link:hover {
   font-weight: 600;
   text-decoration: none;
 }
+/* ETAPA 36 - DOCUMENT 360 FINANCIAL GRID */
+
+.if-docv3-money {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+    align-items: stretch;
+}
+
+.if-docv3-money > div {
+    min-width: 0;
+    height: 100%;
+}
+
+.if-docv3-money > div strong {
+    display: block;
+    overflow-wrap: anywhere;
+}
+
+/* Pantallas medianas */
+@media (max-width: 1350px) {
+    .if-docv3-money {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+/* Tablet */
+@media (max-width: 900px) {
+    .if-docv3-money {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* Móvil */
+@media (max-width: 576px) {
+    .if-docv3-money {
+        grid-template-columns: 1fr;
+    }
+}
+

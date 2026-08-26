@@ -6,7 +6,10 @@ from datetime import datetime, time
 from .models import Customer, CustomerContact, Document, DocumentAssignment, PaymentRecord
 from apps.management.models import CollectionAction, PaymentPromise
 from .services.workload import WorkloadRecommendationService, WorkloadService
-from apps.portfolio.models import CreditNoteApplication
+from apps.portfolio.models import (
+    CreditNoteApplication,
+    ManualReconciliationApplication,
+)
 from apps.management.forms import CollectionActionForm, WorkspacePaymentPromiseForm
 from django.core.exceptions import ValidationError
 from apps.management.services.actions import (
@@ -575,6 +578,7 @@ def customer_detail(request, customer_id):
             "tags",
             "credit_note_applications",
             "payments",
+            "manual_reconciliations",
             "promise_documents__promise",
             "collection_actions",
         )
@@ -799,6 +803,26 @@ def customer_detail(request, customer_id):
     credit_note_kpis = credit_notes.aggregate(
         total_credit_notes=Sum("credit_amount"),
         total_credit_note_count=Count("id"),
+    )
+
+    manual_reconciliations = (
+        ManualReconciliationApplication.objects
+        .filter(customer=customer)
+        .select_related(
+            "document",
+            "customer",
+        )
+        .order_by(
+            "-timeline_order_at",
+            "-created_at",
+        )
+    )
+
+    manual_reconciliation_kpis = (
+        manual_reconciliations.aggregate(
+            total_manual_reconciliations=Sum("amount"),
+            total_manual_reconciliation_count=Count("id"),
+        )
     )
 
     document_kpis = documents_base.aggregate(
@@ -1138,6 +1162,61 @@ def customer_detail(request, customer_id):
             }
         )
 
+    for reconciliation in manual_reconciliations:
+        reconciliation_document = reconciliation.document
+
+        reconciliation_credit_notes = (
+            CreditNoteApplication.objects
+            .filter(document=reconciliation_document)
+            .aggregate(
+                total=Coalesce(
+                    Sum("credit_amount"),
+                    Decimal("0"),
+                )
+            )["total"]
+        )
+
+        reconciliation_payments = (
+            PaymentRecord.objects
+            .filter(document=reconciliation_document)
+            .aggregate(
+                total=Coalesce(
+                    Sum("amount"),
+                    Decimal("0"),
+                )
+            )["total"]
+        )
+
+        balance_before_manual = (
+            reconciliation_document.original_amount
+            - reconciliation_credit_notes
+            - reconciliation_payments
+        )
+
+        reconciliation_applied_amount = min(
+            reconciliation.amount,
+            max(
+                balance_before_manual,
+                Decimal("0"),
+            ),
+        )
+
+        timeline.append(
+            {
+                "type": "manual_reconciliation",
+                "label": "Reconciliación manual",
+                "date": reconciliation.timeline_order_at,
+                "title": "Reconciliación manual aplicada",
+                "description": None,
+                "document": reconciliation.document,
+                "amount": reconciliation_applied_amount,
+                "status": None,
+                "reason": None,
+                "attachments": [],
+                "hide_date": True,
+            }
+        )
+
     timeline = sorted(
         timeline,
         key=lambda event: event["date"] or timezone.now(),
@@ -1180,8 +1259,25 @@ def customer_detail(request, customer_id):
             "payments": payments,
             "total_paid": total_paid,
             "credit_notes": credit_notes,
-            "total_credit_notes": credit_note_kpis["total_credit_notes"] or 0,
-            "total_credit_note_count": credit_note_kpis["total_credit_note_count"] or 0,
+            "total_credit_notes": (
+                credit_note_kpis["total_credit_notes"] or 0
+            ),
+            "total_credit_note_count": (
+                credit_note_kpis[
+                    "total_credit_note_count"
+                ] or 0
+            ),
+            "manual_reconciliations": manual_reconciliations,
+            "total_manual_reconciliations": (
+                manual_reconciliation_kpis[
+                    "total_manual_reconciliations"
+                ] or 0
+            ),
+            "total_manual_reconciliation_count": (
+                manual_reconciliation_kpis[
+                    "total_manual_reconciliation_count"
+                ] or 0
+            ),
             "recommended_document": recommended_document,
             "recent_show_all": recent_show_all,
             "recent_events_count": recent_events_count,

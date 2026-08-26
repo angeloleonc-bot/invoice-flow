@@ -27,6 +27,8 @@
                 <i class="bi bi-cash-coin"></i>
               {% elif event.type == "credit_note" %}
                 <i class="bi bi-receipt"></i>
+              {% elif event.type == "manual_reconciliation" %}
+                <i class="bi bi-arrow-left-right"></i>
               {% elif event.type == "promesa" %}
                 <i class="bi bi-calendar-check"></i>
               {% else %}
@@ -50,9 +52,11 @@
                   {% endif %}
                 </div>
 
-                <time title="{{ event.date|date:'d/m/Y H:i' }}">
-                  {{ event.date|human_datetime }}
-                </time>
+                {% if not event.hide_date %}
+                  <time title="{{ event.date|date:'d/m/Y H:i' }}">
+                    {{ event.date|human_datetime }}
+                  </time>
+                {% endif %}
 
               </div>
 
@@ -136,6 +140,8 @@
                 <i class="bi bi-cash-coin"></i>
               {% elif event.type == "credit_note" %}
                 <i class="bi bi-receipt"></i>
+              {% elif event.type == "manual_reconciliation" %}
+                <i class="bi bi-arrow-left-right"></i>
               {% elif event.type == "promesa" %}
                 <i class="bi bi-calendar-check"></i>
               {% else %}
@@ -159,9 +165,11 @@
                   {% endif %}
                 </div>
 
-                <time title="{{ event.date|date:'d/m/Y H:i' }}">
-                  {{ event.date|human_datetime }}
-                </time>
+                {% if not event.hide_date %}
+                  <time title="{{ event.date|date:'d/m/Y H:i' }}">
+                    {{ event.date|human_datetime }}
+                  </time>
+                {% endif %}
 
               </div>
 

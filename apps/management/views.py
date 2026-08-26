@@ -25,6 +25,7 @@ from apps.portfolio.models import (
     DocumentSubStatus,
     PaymentRecord,
     CreditNoteApplication,
+    ManualReconciliationApplication,
 )
 from .forms import CollectionActionForm, PaymentPromiseForm
 from .models import CollectionAction, PaymentPromise, PromiseDocument
@@ -1008,10 +1009,52 @@ def document_detail(request, id):
         )["total"]
     )
 
+    manual_reconciliations = (
+        ManualReconciliationApplication.objects
+        .filter(document=document)
+        .select_related(
+            "document",
+            "customer",
+        )
+        .order_by(
+            "-timeline_order_at",
+            "-created_at",
+        )
+    )
+
+    total_manual_reconciliations = (
+        manual_reconciliations.aggregate(
+            total=Coalesce(
+                Sum("amount"),
+                Decimal("0"),
+            )
+        )["total"]
+    )
+
+    balance_before_manual = (
+        document.original_amount
+        - total_credit_notes
+        - total_paid
+    )
+
+    total_manual_reconciliations_applied = min(
+        total_manual_reconciliations,
+        max(
+            balance_before_manual,
+            Decimal("0"),
+        ),
+    )
+
     financial_summary = {
         "original_amount": document.original_amount,
         "total_credit_notes": total_credit_notes,
         "total_paid": total_paid,
+        "total_manual_reconciliations": (
+            total_manual_reconciliations_applied
+        ),
+        "total_manual_reconciliations_source": (
+            total_manual_reconciliations
+        ),
         "balance_amount": document.balance_amount,
         "overpayment_amount": document.overpayment_amount,
     }
@@ -1475,6 +1518,35 @@ def document_detail(request, id):
             }
         )
 
+    for reconciliation in manual_reconciliations:
+        reconciliation_applied_amount = min(
+            reconciliation.amount,
+            max(
+                (
+                    document.original_amount
+                    - total_credit_notes
+                    - total_paid
+                ),
+                Decimal("0"),
+            ),
+        )
+
+        timeline_events.append(
+            {
+                "type": "manual_reconciliation",
+                "date": reconciliation.timeline_order_at,
+                "label": "Reconciliación manual",
+                "title": "Reconciliación manual aplicada",
+                "description": None,
+                "amount": reconciliation_applied_amount,
+                "user": None,
+                "icon": "bi-arrow-left-right",
+                "status": None,
+                "reason": None,
+                "hide_date": True,
+            }
+        )
+
     timeline_events = sorted(
         timeline_events,
         key=lambda event: normalize_timeline_date(event["date"]),
@@ -1513,6 +1585,35 @@ def document_detail(request, id):
             }
         )
 
+    for reconciliation in manual_reconciliations:
+        reconciliation_applied_amount = min(
+            reconciliation.amount,
+            max(
+                (
+                    document.original_amount
+                    - total_credit_notes
+                    - total_paid
+                ),
+                Decimal("0"),
+            ),
+        )
+
+        financial_movements.append(
+            {
+                "type": "manual_reconciliation",
+                "date": reconciliation.timeline_order_at,
+                "label": "Reconciliación manual",
+                "title": "Reconciliación manual aplicada",
+                "amount": reconciliation_applied_amount,
+                "reference": (
+                    f"Factura {reconciliation.invoice_number}"
+                ),
+                "description": None,
+                "icon": "bi-arrow-left-right",
+                "hide_date": True,
+            }
+        )
+
     financial_movements = sorted(
         financial_movements,
         key=lambda movement: normalize_timeline_date(movement["date"]),
@@ -1538,6 +1639,10 @@ def document_detail(request, id):
         "current_assignment": current_assignment,
         "credit_notes": credit_notes,
         "total_credit_notes": total_credit_notes,
+        "manual_reconciliations": manual_reconciliations,
+        "total_manual_reconciliations": (
+            total_manual_reconciliations
+        ),
         "financial_summary": financial_summary,
         "financial_movements": financial_movements,
         "latest_financial_movements": latest_financial_movements,

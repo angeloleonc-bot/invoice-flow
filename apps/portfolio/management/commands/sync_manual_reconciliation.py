@@ -27,7 +27,6 @@ class Command(BaseCommand):
         created = 0
         updated = 0
         invalid_match = 0
-        duplicated_by_credit_note = 0
         skipped_zero = 0
 
         affected_document_ids = set()
@@ -46,13 +45,6 @@ class Command(BaseCommand):
 
                 if amount == Decimal("0"):
                     skipped_zero += 1
-                    continue
-
-                if self._is_already_covered_by_credit_note(
-                    document=document,
-                    amount=amount,
-                ):
-                    duplicated_by_credit_note += 1
                     continue
 
                 obj, was_created = (
@@ -87,10 +79,25 @@ class Command(BaseCommand):
 
                 affected_document_ids.add(document.id)
 
+            documents_with_financial_effect = 0
+            documents_without_financial_effect = 0
+
             for document_id in affected_document_ids:
-                recalculate_document_financial_state(
-                    document_id
+                financial_result = (
+                    recalculate_document_financial_state(
+                        document_id
+                    )
                 )
+
+                if (
+                    financial_result[
+                        "manual_reconciliation_applied"
+                    ]
+                    > Decimal("0")
+                ):
+                    documents_with_financial_effect += 1
+                else:
+                    documents_without_financial_effect += 1
 
         self.stdout.write(
             self.style.SUCCESS(
@@ -111,73 +118,24 @@ class Command(BaseCommand):
             f"Sin factura válida: {invalid_match}"
         )
         self.stdout.write(
-            "Duplicadas por NC: "
-            f"{duplicated_by_credit_note}"
+            f"Filas monto cero: {skipped_zero}"
         )
         self.stdout.write(
-            f"Filas monto cero: {skipped_zero}"
+            "Reconciliaciones válidas almacenadas: "
+            f"{created + updated}"
+        )
+        self.stdout.write(
+            "Facturas con efecto financiero neto: "
+            f"{documents_with_financial_effect}"
+        )
+        self.stdout.write(
+            "Facturas sin efecto financiero neto: "
+            f"{documents_without_financial_effect}"
         )
         self.stdout.write(
             "Facturas recalculadas: "
             f"{len(affected_document_ids)}"
         )
-
-    def _is_already_covered_by_credit_note(
-        self,
-        document,
-        amount,
-    ):
-        from apps.portfolio.models import (
-            CreditNoteApplication,
-        )
-
-        tolerance = Decimal("1.00")
-
-        credit_note_amounts = [
-            Decimal(str(value))
-            for value in (
-                CreditNoteApplication.objects
-                .filter(document=document)
-                .values_list(
-                    "credit_amount",
-                    flat=True,
-                )
-            )
-            if value is not None
-        ]
-
-        if not credit_note_amounts:
-            return False
-
-        # Caso 1:
-        # La reconciliación reproduce exactamente
-        # una NC individual aplicada a la factura.
-        if any(
-            credit_note_amount == amount
-            for credit_note_amount
-            in credit_note_amounts
-        ):
-            return True
-
-        # Caso 2:
-        # La reconciliación reproduce el total de
-        # varias NC aplicadas a la misma factura.
-        #
-        # Se acepta una diferencia máxima de $1
-        # debido a diferencias de redondeo observadas
-        # en la información fuente.
-        total_credit_notes = sum(
-            credit_note_amounts,
-            Decimal("0"),
-        )
-
-        if (
-            abs(total_credit_notes - amount)
-            <= tolerance
-        ):
-            return True
-
-        return False
 
     def _fetch_rows(self):
         query = """

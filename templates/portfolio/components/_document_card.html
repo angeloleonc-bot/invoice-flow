@@ -49,6 +49,15 @@
         </span>
       {% endif %}
 
+      {% if document.manual_reconciliations.count %}
+  <span
+    class="if-badge if-badge-soft"
+    title="Documento con reconciliación manual registrada"
+  >
+    Reconciliación manual
+  </span>
+{% endif %}
+
       {% if document.overpayment_amount > 0 %}
         <span class="if-badge if-badge-success">
           Saldo a favor {{ document.overpayment_amount|clp }}

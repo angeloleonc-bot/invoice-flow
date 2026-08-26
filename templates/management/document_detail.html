@@ -18,7 +18,14 @@
   <header class="if-docv3-header">
     <div class="if-docv3-client">
       <span>Cliente</span>
-      <h1>{{ customer.name }}</h1>
+      <h1>
+  <a
+    href="{% url 'portfolio:customer_detail' customer.id %}"
+    class="if-link"
+  >
+    {{ customer.name }}
+  </a>
+</h1>
       <p>RUT {{ customer.rut|default:"Sin RUT" }}</p>
     </div>
 

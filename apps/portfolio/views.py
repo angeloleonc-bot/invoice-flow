@@ -822,10 +822,12 @@ def customer_detail(request, customer_id):
 
     manual_reconciliation_kpis = (
         manual_reconciliations.aggregate(
-            total_manual_reconciliations=Sum("amount"),
+            total_manual_reconciliations_source=Sum("amount"),
             total_manual_reconciliation_count=Count("id"),
         )
     )
+
+    total_manual_reconciliations_applied = Decimal("0")
 
     document_kpis = documents_base.aggregate(
         total_balance=Sum("balance_amount"),
@@ -1195,12 +1197,22 @@ def customer_detail(request, customer_id):
             - reconciliation_payments
         )
 
+        reconciliation_net_amount = max(
+            reconciliation.amount
+            - reconciliation_credit_notes,
+            Decimal("0"),
+        )
+
         reconciliation_applied_amount = min(
-            reconciliation.amount,
+            reconciliation_net_amount,
             max(
                 balance_before_manual,
                 Decimal("0"),
             ),
+        )
+
+        total_manual_reconciliations_applied += (
+            reconciliation_applied_amount
         )
 
         timeline.append(
@@ -1271,8 +1283,11 @@ def customer_detail(request, customer_id):
             ),
             "manual_reconciliations": manual_reconciliations,
             "total_manual_reconciliations": (
+                total_manual_reconciliations_applied
+            ),
+            "total_manual_reconciliations_source": (
                 manual_reconciliation_kpis[
-                    "total_manual_reconciliations"
+                    "total_manual_reconciliations_source"
                 ] or 0
             ),
             "total_manual_reconciliation_count": (

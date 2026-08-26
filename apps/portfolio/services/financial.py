@@ -98,14 +98,26 @@ def recalculate_document_financial_state(document_id):
     total_paid = totals["total_paid"]
     total_manual = totals["total_manual_reconciliations"]
 
+    # Total_Recon_Manual representa el total reconciliado
+    # informado por la fuente e incluye las NC aplicadas.
+    #
+    # Por lo tanto, solo la parte que excede las NC
+    # constituye reconciliación manual adicional.
+    manual_net = max(
+        total_manual - total_credit_notes,
+        ZERO,
+    )
+
     balance_before_manual = (
         document.original_amount
         - total_credit_notes
         - total_paid
     )
 
+    # La reconciliación manual nunca puede generar
+    # un saldo a favor del cliente.
     manual_applicable = min(
-        total_manual,
+        manual_net,
         max(balance_before_manual, ZERO),
     )
 
@@ -272,6 +284,7 @@ def recalculate_document_financial_state(document_id):
         "total_credit_notes": total_credit_notes,
         "total_paid": total_paid,
         "total_manual_reconciliations": total_manual,
+        "manual_reconciliation_net": manual_net,
         "manual_reconciliation_applied": manual_applicable,
         "balance_amount": new_balance,
         "overpayment_amount": overpayment_amount,

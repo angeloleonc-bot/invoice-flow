@@ -1031,6 +1031,12 @@ def document_detail(request, id):
         )["total"]
     )
 
+    total_manual_reconciliations_net = max(
+        total_manual_reconciliations
+        - total_credit_notes,
+        Decimal("0"),
+    )
+
     balance_before_manual = (
         document.original_amount
         - total_credit_notes
@@ -1038,7 +1044,7 @@ def document_detail(request, id):
     )
 
     total_manual_reconciliations_applied = min(
-        total_manual_reconciliations,
+        total_manual_reconciliations_net,
         max(
             balance_before_manual,
             Decimal("0"),
@@ -1054,6 +1060,9 @@ def document_detail(request, id):
         ),
         "total_manual_reconciliations_source": (
             total_manual_reconciliations
+        ),
+        "total_manual_reconciliations_net": (
+            total_manual_reconciliations_net
         ),
         "balance_amount": document.balance_amount,
         "overpayment_amount": document.overpayment_amount,
@@ -1519,8 +1528,14 @@ def document_detail(request, id):
         )
 
     for reconciliation in manual_reconciliations:
+        reconciliation_net_amount = max(
+            reconciliation.amount
+            - total_credit_notes,
+            Decimal("0"),
+        )
+
         reconciliation_applied_amount = min(
-            reconciliation.amount,
+            reconciliation_net_amount,
             max(
                 (
                     document.original_amount
@@ -1586,8 +1601,14 @@ def document_detail(request, id):
         )
 
     for reconciliation in manual_reconciliations:
+        reconciliation_net_amount = max(
+            reconciliation.amount
+            - total_credit_notes,
+            Decimal("0"),
+        )
+
         reconciliation_applied_amount = min(
-            reconciliation.amount,
+            reconciliation_net_amount,
             max(
                 (
                     document.original_amount

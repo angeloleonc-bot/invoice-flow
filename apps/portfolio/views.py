@@ -1,7 +1,9 @@
 ﻿from django.contrib.auth import get_user_model
 from django.db.models import Count, Q, Sum
+from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
+from decimal import Decimal
 from datetime import datetime, time
 from .models import Customer, CustomerContact, Document, DocumentAssignment, PaymentRecord
 from apps.management.models import CollectionAction, PaymentPromise

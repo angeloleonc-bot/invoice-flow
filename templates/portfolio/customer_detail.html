@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% load money %}
-{% block title %}Cuentas por cobrar | {{ customer.name }}{% endblock %}
+{% block title %}Cuentas por cobrar | {{ customer.name }}
+{% endblock %}
 
 {% block content %}
 <div class="if-ar-workspace">
@@ -258,6 +259,46 @@
   </section>
 </div>
 
+
+<div
+  class="if-modal if-statement-modal"
+  data-statement-modal
+  hidden
+>
+  <div
+    class="if-modal-backdrop"
+    data-close-statement-modal
+  ></div>
+
+  <section class="if-modal-panel if-statement-modal-panel">
+    <header class="if-modal-header">
+      <div>
+        <h2>Enviar Estado de Cuenta</h2>
+        <p>
+          Selecciona documentos y destinatarios antes de continuar.
+        </p>
+      </div>
+
+      <button
+        type="button"
+        data-close-statement-modal
+        aria-label="Cerrar"
+      >
+        ×
+      </button>
+    </header>
+
+    <div
+      class="if-statement-modal-content"
+      data-statement-modal-content
+    >
+      <div class="if-statement-loading">
+        Preparando Estado de Cuenta...
+      </div>
+    </div>
+  </section>
+</div>
+
 <script>
 document.addEventListener("DOMContentLoaded", function () {
   const bar = document.querySelector("[data-selection-bar]");
@@ -367,6 +408,964 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   updateSelectionBar();
+});
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const openButton = document.querySelector(
+    "[data-open-statement-modal]"
+  );
+
+  const modal = document.querySelector(
+    "[data-statement-modal]"
+  );
+
+  const content = document.querySelector(
+    "[data-statement-modal-content]"
+  );
+
+  if (!openButton || !modal || !content) {
+    return;
+  }
+
+  let loaded = false;
+
+  function parseStatementAmount(raw) {
+    const value = Number(
+      String(raw || "0").replace(",", ".")
+    );
+
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  function formatStatementCLP(value) {
+    return new Intl.NumberFormat(
+      "es-CL",
+      {
+        style: "currency",
+        currency: "CLP",
+        maximumFractionDigits: 0
+      }
+    ).format(value);
+  }
+
+  function initializeStatementForm() {
+
+    const form = content.querySelector(
+      "[data-statement-form]"
+    );
+
+    if (!form) return;
+
+    const checkboxes = Array.from(
+      form.querySelectorAll(
+        "[data-statement-checkbox]"
+      )
+    );
+
+    const countTargets = form.querySelectorAll(
+      "[data-statement-selected-count]"
+    );
+
+    const totalTargets = form.querySelectorAll(
+      "[data-statement-selected-total]"
+    );
+
+    const footerCount = form.querySelector(
+      "[data-statement-footer-count]"
+    );
+
+    const submitButton = form.querySelector(
+      "[data-statement-preview-submit]"
+    );
+
+    function updateSummary() {
+
+      const selected = checkboxes.filter(
+        checkbox => checkbox.checked
+      );
+
+      const total = selected.reduce(
+        (sum, checkbox) => {
+          return (
+            sum
+            + parseStatementAmount(
+              checkbox.dataset.balance
+            )
+          );
+        },
+        0
+      );
+
+      countTargets.forEach(function (target) {
+        target.textContent = selected.length;
+      });
+
+      totalTargets.forEach(function (target) {
+        target.textContent = (
+          formatStatementCLP(total)
+        );
+      });
+
+      if (footerCount) {
+        footerCount.textContent =
+          selected.length === 1
+            ? "1 documento"
+            : `${selected.length} documentos`;
+      }
+
+      if (submitButton) {
+        submitButton.disabled = (
+          selected.length === 0
+        );
+      }
+    }
+
+    checkboxes.forEach(function (checkbox) {
+      checkbox.addEventListener(
+        "change",
+        updateSummary
+      );
+    });
+
+    form.querySelectorAll(
+      "[data-statement-select-group]"
+    ).forEach(function (button) {
+
+      button.addEventListener(
+        "click",
+        function () {
+
+          const group = button.closest(
+            "[data-statement-group]"
+          );
+
+          if (!group) return;
+
+          group.querySelectorAll(
+            "[data-statement-checkbox]"
+          ).forEach(function (checkbox) {
+            checkbox.checked = true;
+          });
+
+          updateSummary();
+        }
+      );
+    });
+
+    form.querySelectorAll(
+      "[data-statement-clear-group]"
+    ).forEach(function (button) {
+
+      button.addEventListener(
+        "click",
+        function () {
+
+          const group = button.closest(
+            "[data-statement-group]"
+          );
+
+          if (!group) return;
+
+          group.querySelectorAll(
+            "[data-statement-checkbox]"
+          ).forEach(function (checkbox) {
+            checkbox.checked = false;
+          });
+
+          updateSummary();
+        }
+      );
+    });
+
+    const search = form.querySelector(
+      "[data-statement-search]"
+    );
+
+    if (search) {
+      search.addEventListener(
+        "input",
+        function () {
+
+          const query = (
+            search.value || ""
+          ).trim().toLowerCase();
+
+          form.querySelectorAll(
+            "[data-statement-row]"
+          ).forEach(function (row) {
+
+            const haystack = (
+              row.dataset.searchText || ""
+            ).toLowerCase();
+
+            row.hidden = Boolean(
+              query
+              && !haystack.includes(query)
+            );
+          });
+        }
+      );
+    }
+
+    const ccToggle = form.querySelector(
+      "[data-statement-cc-toggle]"
+    );
+
+    const ccField = form.querySelector(
+      "[data-statement-cc-field]"
+    );
+
+    if (ccToggle && ccField) {
+      ccToggle.addEventListener(
+        "click",
+        function () {
+
+          const willOpen = ccField.hidden;
+
+          ccField.hidden = !willOpen;
+
+          ccToggle.setAttribute(
+            "aria-expanded",
+            willOpen ? "true" : "false"
+          );
+
+          ccToggle.textContent = willOpen
+            ? "− Quitar CC"
+            : "+ Agregar CC";
+
+          if (willOpen) {
+            const input = ccField.querySelector(
+              "input"
+            );
+
+            if (input) {
+              input.focus();
+            }
+          }
+        }
+      );
+    }
+
+    const toInput = form.querySelector(
+      "[data-statement-to]"
+    );
+
+    form.querySelectorAll(
+      "[data-statement-recipient]"
+    ).forEach(function (button) {
+
+      button.addEventListener(
+        "click",
+        function () {
+
+          if (!toInput) return;
+
+          const email = (
+            button.dataset.statementRecipient
+            || ""
+          ).trim();
+
+          if (!email) return;
+
+          const existing = toInput.value
+            .split(/[;,]+/)
+            .map(item => item.trim())
+            .filter(Boolean);
+
+          if (!existing.includes(email)) {
+            existing.push(email);
+          }
+
+          toInput.value = existing.join("; ");
+        }
+      );
+    });
+
+    form.addEventListener(
+      "submit",
+      function () {
+        if (submitButton) {
+          submitButton.disabled = true;
+          submitButton.textContent =
+            "Generando vista previa...";
+        }
+      }
+    );
+
+    const recipientField = toInput
+      ? toInput.closest(".if-statement-field")
+      : null;
+
+    if (recipientField) {
+      recipientField.classList.add(
+        "if-statement-recipient-field"
+      );
+
+      const label = recipientField.querySelector(
+        'label[for="id_statement_to"]'
+      ) || recipientField.querySelector("label");
+
+      let labelRow = recipientField.querySelector(
+        ".if-statement-field-label-row"
+      );
+
+      if (!labelRow && label) {
+        labelRow = document.createElement("div");
+        labelRow.className =
+          "if-statement-field-label-row";
+
+        recipientField.insertBefore(
+          labelRow,
+          label
+        );
+
+        labelRow.appendChild(label);
+      }
+
+      const ccToggleHost = ccToggle
+        ? ccToggle.closest(
+            ".if-statement-optional-field"
+          )
+        : null;
+
+      const ccFieldHost = ccField
+        ? ccField.closest(
+            ".if-statement-optional-field"
+          )
+        : null;
+
+      if (labelRow && ccToggle) {
+        labelRow.appendChild(ccToggle);
+      }
+
+      if (ccField && ccField.parentElement !== recipientField) {
+        recipientField.appendChild(ccField);
+      }
+
+      if (
+        ccToggleHost &&
+        ccToggleHost !== recipientField
+      ) {
+        ccToggleHost.remove();
+      }
+
+      if (
+        ccFieldHost &&
+        ccFieldHost !== recipientField &&
+        ccFieldHost.isConnected
+      ) {
+        ccFieldHost.remove();
+      }
+    }
+
+    const tools = form.querySelector(
+      ".if-statement-tools"
+    );
+
+    if (tools) {
+      const toolsInput = tools.querySelector("input");
+
+      if (toolsInput) {
+        toolsInput.classList.add(
+          "if-statement-tools-search"
+        );
+      }
+
+      const toolChildren = Array.from(
+        tools.children
+      );
+
+      const toolsSummary =
+        toolChildren.find(function (element) {
+          return (
+            element !== toolsInput &&
+            !element.classList.contains(
+              "if-statement-tools-actions"
+            )
+          );
+        });
+
+      if (toolsSummary) {
+        toolsSummary.classList.add(
+          "if-statement-tools-summary"
+        );
+      }
+
+      let toolsActions = tools.querySelector(
+        ".if-statement-tools-actions"
+      );
+
+      if (!toolsActions) {
+        toolsActions =
+          document.createElement("div");
+
+        toolsActions.className =
+          "if-statement-tools-actions";
+
+        tools.appendChild(toolsActions);
+      }
+
+      const selectAllButton = form.querySelector(
+        "[data-statement-select-all]"
+      );
+
+      const selectNoneButton = form.querySelector(
+        "[data-statement-select-none]"
+      );
+
+      if (
+        selectAllButton &&
+        selectAllButton.parentElement !== toolsActions
+      ) {
+        toolsActions.appendChild(
+          selectAllButton
+        );
+      }
+
+      if (
+        selectNoneButton &&
+        selectNoneButton.parentElement !== toolsActions
+      ) {
+        toolsActions.appendChild(
+          selectNoneButton
+        );
+      }
+    }
+
+    // ----------------------------------------------------
+    // Refinamiento toolbar v3:
+    // búsqueda + resumen + Todos/Ninguno en una sola barra
+    // ----------------------------------------------------
+    const toolsBar = form.querySelector(
+      ".if-statement-tools"
+    );
+
+    if (toolsBar) {
+      let toolsActions = toolsBar.querySelector(
+        ".if-statement-tools-actions"
+      );
+
+      if (!toolsActions) {
+        toolsActions = document.createElement("div");
+        toolsActions.className =
+          "if-statement-tools-actions";
+        toolsBar.appendChild(toolsActions);
+      }
+
+      const selectAllButton = form.querySelector(
+        "[data-statement-select-all]"
+      );
+
+      const selectNoneButton = form.querySelector(
+        "[data-statement-select-none]"
+      );
+
+      const originalActionHosts = [];
+
+      if (selectAllButton && selectAllButton.parentElement) {
+        originalActionHosts.push(
+          selectAllButton.parentElement
+        );
+      }
+
+      if (
+        selectNoneButton &&
+        selectNoneButton.parentElement
+      ) {
+        originalActionHosts.push(
+          selectNoneButton.parentElement
+        );
+      }
+
+      if (
+        selectAllButton &&
+        selectAllButton.parentElement !== toolsActions
+      ) {
+        toolsActions.appendChild(selectAllButton);
+      }
+
+      if (
+        selectNoneButton &&
+        selectNoneButton.parentElement !== toolsActions
+      ) {
+        toolsActions.appendChild(selectNoneButton);
+      }
+
+      originalActionHosts.forEach(function (host) {
+        if (
+          host &&
+          host !== toolsActions &&
+          !host.querySelector("button")
+        ) {
+          host.style.display = "none";
+          host.classList.add(
+            "if-statement-actions-relocated"
+          );
+        }
+      });
+    }
+
+    // ----------------------------------------------------
+    // Ocultar resumen duplicado del footer
+    // ----------------------------------------------------
+    const footer = form.querySelector(
+      ".if-statement-footer"
+    );
+
+    if (footer) {
+      const footerChildren = Array.from(
+        footer.children
+      );
+
+      const footerSummary = footerChildren.find(
+        function (element) {
+          const text = (
+            element.textContent || ""
+          ).toLowerCase();
+
+          const hasActionButton = Boolean(
+            element.querySelector("button")
+          );
+
+          return (
+            !hasActionButton &&
+            text.includes("document")
+          );
+        }
+      );
+
+      if (footerSummary) {
+        footerSummary.classList.add(
+          "if-statement-footer-summary-hidden"
+        );
+      }
+    }
+
+    // ==================================================
+    // ETAPA 37 - TOOLBAR V4
+    //
+    // Mover físicamente:
+    // búsqueda + resumen
+    // al header del primer grupo de documentos.
+    //
+    // Los botones Todos/Ninguno reales son:
+    // data-statement-select-group
+    // data-statement-clear-group
+    // ==================================================
+
+    const statementTools = form.querySelector(
+      ".if-statement-tools"
+    );
+
+    const firstStatementGroup = form.querySelector(
+      "[data-statement-group]"
+    );
+
+    const statementSearch = form.querySelector(
+      "[data-statement-search]"
+    );
+
+    const statementSummary = form.querySelector(
+      ".if-statement-selection-summary"
+    );
+
+    if (
+      statementTools &&
+      firstStatementGroup &&
+      statementSearch
+    ) {
+
+      const groupHeader =
+        firstStatementGroup.querySelector(
+          "header"
+        );
+
+      const groupSelectButton =
+        firstStatementGroup.querySelector(
+          "[data-statement-select-group]"
+        );
+
+      const groupClearButton =
+        firstStatementGroup.querySelector(
+          "[data-statement-clear-group]"
+        );
+
+      if (
+        groupHeader &&
+        groupSelectButton &&
+        groupClearButton
+      ) {
+
+        let actionsHost =
+          groupSelectButton.parentElement;
+
+        if (
+          !actionsHost ||
+          actionsHost === groupHeader
+        ) {
+          actionsHost =
+            document.createElement("div");
+
+          groupHeader.appendChild(
+            actionsHost
+          );
+        }
+
+        actionsHost.classList.add(
+          "if-statement-group-toolbar"
+        );
+
+        statementSearch.classList.add(
+          "if-statement-search-inline"
+        );
+
+        actionsHost.insertBefore(
+          statementSearch,
+          actionsHost.firstChild
+        );
+
+        if (statementSummary) {
+          statementSummary.classList.add(
+            "if-statement-summary-inline"
+          );
+
+          actionsHost.insertBefore(
+            statementSummary,
+            groupSelectButton
+          );
+        }
+
+        // La barra original queda sin contenido útil.
+        statementTools.classList.add(
+          "if-statement-tools-relocated"
+        );
+      }
+    }
+
+
+    // ==================================================
+    // FOOTER:
+    // quitar cantidad y explicación repetida
+    // ==================================================
+
+    const statementFooter = form.querySelector(
+      ".if-statement-footer"
+    );
+
+    if (statementFooter) {
+
+      const footerCounter = form.querySelector(
+        "[data-statement-footer-count]"
+      );
+
+      if (
+        footerCounter &&
+        footerCounter.parentElement
+      ) {
+        footerCounter.parentElement.classList.add(
+          "if-statement-footer-copy-hidden"
+        );
+      }
+
+      statementFooter.classList.add(
+        "if-statement-footer-compact"
+      );
+    }
+
+    // ==================================================
+    // PREVIEW AJAX + VALIDACIÓN INLINE
+    //
+    // Mantiene el modal abierto si Django rechaza
+    // destinatarios, asunto, selección, etc.
+    // ==================================================
+
+    if (
+      form.dataset.statementAjaxPreviewBound
+      !== "1"
+    ) {
+
+      form.dataset.statementAjaxPreviewBound = "1";
+
+      form.addEventListener(
+        "submit",
+        async function (event) {
+
+          event.preventDefault();
+
+          let errorBox = form.querySelector(
+            "[data-statement-form-error]"
+          );
+
+          if (!errorBox) {
+            errorBox =
+              document.createElement("div");
+
+            errorBox.className =
+              "if-statement-inline-error";
+
+            errorBox.setAttribute(
+              "data-statement-form-error",
+              ""
+            );
+
+            const context = form.querySelector(
+              ".if-statement-context"
+            );
+
+            if (
+              context
+              && context.nextSibling
+            ) {
+              context.parentNode.insertBefore(
+                errorBox,
+                context.nextSibling
+              );
+            } else {
+              form.prepend(errorBox);
+            }
+          }
+
+          errorBox.hidden = true;
+          errorBox.innerHTML = "";
+
+          const previewButton =
+            form.querySelector(
+              "[data-statement-preview-submit]"
+            );
+
+          const originalButtonText =
+            previewButton
+              ? previewButton.textContent
+              : "";
+
+          if (previewButton) {
+            previewButton.disabled = true;
+            previewButton.textContent =
+              "Generando vista previa...";
+          }
+
+          try {
+
+            const response = await fetch(
+              form.action,
+              {
+                method: "POST",
+                body: new FormData(form),
+                headers: {
+                  "X-Requested-With":
+                    "XMLHttpRequest"
+                },
+                credentials: "same-origin"
+              }
+            );
+
+            let payload = null;
+
+            try {
+              payload = await response.json();
+            } catch (jsonError) {
+              throw new Error(
+                "No fue posible validar "
+                + "la vista previa."
+              );
+            }
+
+            if (
+              !response.ok
+              || !payload
+              || payload.ok !== true
+            ) {
+
+              const errors = (
+                payload
+                && Array.isArray(
+                  payload.errors
+                )
+              )
+                ? payload.errors
+                : [
+                    "No fue posible generar "
+                    + "la vista previa."
+                  ];
+
+              errorBox.innerHTML = (
+                '<strong>Revisa la información ingresada.</strong>'
+                + '<ul>'
+                + errors.map(
+                    function (message) {
+                      return (
+                        "<li>"
+                        + String(message)
+                            .replaceAll("&", "&amp;")
+                            .replaceAll("<", "&lt;")
+                            .replaceAll(">", "&gt;")
+                        + "</li>"
+                      );
+                    }
+                  ).join("")
+                + "</ul>"
+              );
+
+              errorBox.hidden = false;
+
+              const recipientError =
+                errors.some(
+                  function (message) {
+                    const normalized =
+                      String(message)
+                        .toLowerCase();
+
+                    return (
+                      normalized.includes(
+                        "correo"
+                      )
+                      || normalized.includes(
+                        "destinatario"
+                      )
+                    );
+                  }
+                );
+
+              if (recipientError) {
+                const toField =
+                  form.querySelector(
+                    "[data-statement-to]"
+                  );
+
+                if (toField) {
+                  toField.focus();
+                  toField.select();
+                }
+              }
+
+              return;
+            }
+
+            if (!payload.preview_url) {
+              throw new Error(
+                "El servidor no devolvió "
+                + "la vista previa."
+              );
+            }
+
+            window.location.assign(
+              payload.preview_url
+            );
+
+          } catch (error) {
+
+            errorBox.innerHTML = (
+              "<strong>"
+              + "No fue posible generar "
+              + "la vista previa."
+              + "</strong>"
+              + "<p>"
+              + String(
+                  error.message
+                  || "Error inesperado."
+                )
+                  .replaceAll("&", "&amp;")
+                  .replaceAll("<", "&lt;")
+                  .replaceAll(">", "&gt;")
+              + "</p>"
+            );
+
+            errorBox.hidden = false;
+
+          } finally {
+
+            if (
+              previewButton
+              && !window.location.href.includes(
+                "/statements/"
+              )
+            ) {
+              previewButton.disabled = false;
+              previewButton.textContent =
+                originalButtonText
+                || "Generar vista previa";
+            }
+          }
+        }
+      );
+    }
+
+    updateSummary();
+  }
+
+  async function loadStatementForm() {
+
+    if (loaded) {
+      initializeStatementForm();
+      return;
+    }
+
+    content.innerHTML = (
+      '<div class="if-statement-loading">'
+      + 'Preparando Estado de Cuenta...'
+      + '</div>'
+    );
+
+    try {
+      const response = await fetch(
+        openButton.dataset.statementFormUrl,
+        {
+          headers: {
+            "X-Requested-With":
+              "XMLHttpRequest"
+          },
+          credentials: "same-origin"
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          "No fue posible cargar "
+          + "el Estado de Cuenta."
+        );
+      }
+
+      content.innerHTML = (
+        await response.text()
+      );
+
+      loaded = true;
+
+      initializeStatementForm();
+
+    } catch (error) {
+
+      content.innerHTML = (
+        '<div class="if-statement-error">'
+        + error.message
+        + '</div>'
+      );
+    }
+  }
+
+  openButton.addEventListener(
+    "click",
+    async function () {
+      modal.hidden = false;
+      await loadStatementForm();
+    }
+  );
+
+  document.querySelectorAll(
+    "[data-close-statement-modal]"
+  ).forEach(function (button) {
+
+    button.addEventListener(
+      "click",
+      function () {
+        modal.hidden = true;
+      }
+    );
+  });
+
 });
 </script>
 {% endblock %}

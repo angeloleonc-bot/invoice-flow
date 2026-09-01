@@ -1,0 +1,275 @@
+{% load money %}
+
+<form
+  method="post"
+  action="{% url 'portfolio:customer_statement_create_preview' customer.id %}"
+  class="if-statement-form"
+  data-statement-form
+>
+  {% csrf_token %}
+
+  <div class="if-statement-context">
+    <div>
+      <span>De</span>
+      <strong>{{ sender_email }}</strong>
+    </div>
+
+    <div>
+      <span>Documentos disponibles</span>
+      <strong>{{ statement_document_count }}</strong>
+    </div>
+  </div>
+
+  <div class="if-statement-field">
+    <label for="id_statement_to">
+      Para
+    </label>
+
+    <input
+      id="id_statement_to"
+      name="to_emails"
+      type="text"
+      value="{{ default_to }}"
+      autocomplete="off"
+      placeholder="correo@cliente.cl"
+      required
+      data-statement-to
+    >
+
+    <small>
+      Puedes ingresar varios correos separados por coma o punto y coma.
+    </small>
+
+    {% if suggested_emails %}
+      <div class="if-statement-recipient-suggestions">
+        {% for email in suggested_emails %}
+          <button
+            type="button"
+            data-statement-recipient="{{ email }}"
+          >
+            {{ email }}
+          </button>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="if-statement-optional-field">
+    <button
+      type="button"
+      class="if-statement-optional-toggle"
+      data-statement-cc-toggle
+      aria-expanded="false"
+    >
+      + Agregar CC
+    </button>
+
+    <div
+      class="if-statement-field if-statement-cc-field"
+      data-statement-cc-field
+      hidden
+    >
+      <label for="id_statement_cc">
+        CC
+        <span>Opcional</span>
+      </label>
+
+      <input
+        id="id_statement_cc"
+        name="cc_emails"
+        type="text"
+        autocomplete="off"
+        placeholder="correo@cliente.cl"
+      >
+
+      <small>
+        Puedes ingresar varios correos separados
+        por coma o punto y coma.
+      </small>
+    </div>
+  </div>
+
+  <div class="if-statement-field">
+    <label for="id_statement_subject">
+      Asunto
+    </label>
+
+    <input
+      id="id_statement_subject"
+      name="subject"
+      type="text"
+      value="{{ default_subject }}"
+      maxlength="255"
+      required
+    >
+  </div>
+
+  <div class="if-statement-field">
+    <label for="id_statement_message">
+      Mensaje adicional
+      <span>Opcional</span>
+    </label>
+
+    <textarea
+      id="id_statement_message"
+      name="message_body"
+      rows="4"
+      maxlength="5000"
+      placeholder="Comentario que acompañará el Estado de Cuenta."
+    >{{ default_message_body }}</textarea>
+  </div>
+
+  <div class="if-statement-tools">
+    <input
+      type="search"
+      placeholder="Buscar documento..."
+      data-statement-search
+    >
+
+    <div class="if-statement-selection-summary">
+      <strong data-statement-selected-count>
+        {{ statement_document_count }}
+      </strong>
+      <span>seleccionados</span>
+
+      <strong data-statement-selected-total>
+        -
+      </strong>
+    </div>
+  </div>
+
+  <div class="if-statement-groups">
+
+    {% for group in groups %}
+      <section
+        class="if-statement-group"
+        data-statement-group="{{ group.code }}"
+      >
+        <header>
+          <div>
+            <h3>{{ group.label }}</h3>
+            <p>
+              {{ group.count }} documento{{ group.count|pluralize }}
+              · {{ group.total|clp }}
+            </p>
+          </div>
+
+          {% if group.count %}
+            <div>
+              <button
+                type="button"
+                data-statement-select-group
+              >
+                Todos
+              </button>
+
+              <button
+                type="button"
+                data-statement-clear-group
+              >
+                Ninguno
+              </button>
+            </div>
+          {% endif %}
+        </header>
+
+        {% if group.documents %}
+
+          <div class="if-statement-table-wrap">
+            <table class="if-statement-table">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Documento</th>
+                  <th>Emisión</th>
+                  <th>Vencimiento</th>
+                  <th>Días en mora</th>
+                  <th>Monto original</th>
+                  <th>Saldo</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {% for document in group.documents %}
+                  <tr
+                    data-statement-row
+                    data-search-text="{{ document.document_number }} {{ document.document_type }} {{ document.trans_id }}"
+                  >
+                    <td>
+                      <input
+                        type="checkbox"
+                        name="selected_keys"
+                        value="{{ document.selection_key }}"
+                        checked
+                        data-statement-checkbox
+                        data-balance="{{ document.balance_amount }}"
+                        aria-label="Seleccionar documento {{ document.document_number }}"
+                      >
+                    </td>
+
+                    <td>
+                      <strong>{{ document.document_number }}</strong>
+                      <small>{{ document.document_type }}</small>
+                    </td>
+
+                    <td>
+                      {{ document.issue_date|date:"d/m/Y" }}
+                    </td>
+
+                    <td>
+                      {{ document.due_date|date:"d/m/Y" }}
+                    </td>
+
+                    <td>
+                      {% if document.category == "OVERDUE" %}
+                        <strong>{{ document.days_from_due }}</strong>
+                      {% else %}
+                        <span class="if-muted">—</span>
+                      {% endif %}
+                    </td>
+
+                    <td class="is-money">
+                      {{ document.original_amount|clp }}
+                    </td>
+
+                    <td class="is-money">
+                      <strong>{{ document.balance_amount|clp }}</strong>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+        {% else %}
+          <div class="if-statement-empty">
+            Sin documentos en esta categoría.
+          </div>
+        {% endif %}
+
+      </section>
+    {% endfor %}
+
+  </div>
+
+  <footer class="if-statement-footer">
+    <div>
+      <strong data-statement-footer-count>
+        {{ statement_document_count }} documentos
+      </strong>
+
+      <span>
+        No se enviará ningún correo en este paso.
+      </span>
+    </div>
+
+    <button
+      type="submit"
+      class="if-button-contrast"
+      data-statement-preview-submit
+    >
+      Generar vista previa
+    </button>
+  </footer>
+
+</form>

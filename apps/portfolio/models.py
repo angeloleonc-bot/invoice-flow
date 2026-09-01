@@ -1,3 +1,5 @@
+import uuid
+
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
@@ -399,6 +401,175 @@ class ManualReconciliationApplication(models.Model):
             f"→ Factura {self.invoice_number}"
         )
     
+
+class CustomerStatement(models.Model):
+    """
+    Snapshot y evidencia de un Estado de Cuenta.
+
+    No participa en cartera, aging, dashboard,
+    asignaciones ni cálculo financiero.
+    """
+
+    class Status(models.TextChoices):
+        PREVIEW = "PREVIEW", "Vista previa"
+        SENDING = "SENDING", "Enviando"
+        SENT = "SENT", "Enviado"
+        FAILED = "FAILED", "Error de envío"
+        INVALIDATED = "INVALIDATED", "Invalidado"
+
+    public_id = models.UUIDField(
+        default=uuid.uuid4,
+        editable=False,
+        unique=True,
+    )
+
+    customer = models.ForeignKey(
+        Customer,
+        on_delete=models.PROTECT,
+        related_name="customer_statements",
+    )
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="customer_statements_created",
+    )
+
+    sender_email = models.EmailField(
+        max_length=254,
+    )
+
+    to_emails = models.JSONField(
+        default=list,
+    )
+
+    cc_emails = models.JSONField(
+        default=list,
+        blank=True,
+    )
+
+    subject = models.CharField(
+        max_length=255,
+    )
+
+    message_body = models.TextField(
+        blank=True,
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PREVIEW,
+    )
+
+    document_count = models.PositiveIntegerField(
+        default=0,
+    )
+
+    overdue_total = models.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+        default=0,
+    )
+
+    due_today_total = models.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+        default=0,
+    )
+
+    upcoming_total = models.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+        default=0,
+    )
+
+    grand_total = models.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+        default=0,
+    )
+
+    snapshot = models.JSONField(
+        default=dict,
+    )
+
+    snapshot_hash = models.CharField(
+        max_length=64,
+        blank=True,
+    )
+
+    expires_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    sent_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    provider = models.CharField(
+        max_length=50,
+        blank=True,
+        default="microsoft_graph",
+    )
+
+    provider_message_id = models.CharField(
+        max_length=255,
+        blank=True,
+    )
+
+    pdf_filename = models.CharField(
+        max_length=255,
+        blank=True,
+    )
+
+    xlsx_filename = models.CharField(
+        max_length=255,
+        blank=True,
+    )
+
+    error_message = models.TextField(
+        blank=True,
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+    )
+
+    class Meta:
+        verbose_name = "Estado de cuenta"
+        verbose_name_plural = "Estados de cuenta"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(
+                fields=["customer", "-created_at"],
+            ),
+            models.Index(
+                fields=["status", "-created_at"],
+            ),
+            models.Index(
+                fields=["created_by", "-created_at"],
+            ),
+            models.Index(
+                fields=["sent_at"],
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"Estado de cuenta {self.customer} "
+            f"- {self.created_at:%Y-%m-%d %H:%M}"
+        )
+
+
 class DocumentSupport(models.Model):
     id = models.BigIntegerField(
         primary_key=True,

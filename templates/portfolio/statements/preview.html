@@ -1,0 +1,329 @@
+{% extends "base.html" %}
+{% load money %}
+{% load static %}
+
+{% block title %}Vista previa Estado de Cuenta | {{ statement.customer.name }}
+
+
+{% endblock %}
+
+{% block content %}
+
+<div class="if-statement-preview-page">
+
+  <div class="if-statement-preview-nav">
+    <a
+      href="{% url 'portfolio:customer_detail' statement.customer.id %}"
+      class="if-ar-inline-link"
+      data-statement-leave
+    >
+      ← Volver al cliente
+    </a>
+
+    <span>
+      Vista previa
+    </span>
+  </div>
+
+  <header class="if-statement-preview-header">
+    <div>
+      <p>ESTADO DE CUENTA</p>
+      <h1>{{ statement.customer.name }}</h1>
+      <span>
+        RUT {{ statement.customer.rut|default:"Sin RUT" }}
+        · Generado {{ statement.created_at|date:"d/m/Y H:i" }}
+      </span>
+    </div>
+
+    <div class="if-statement-preview-status">
+      {% if statement.status == "PREVIEW" %}
+        Vista previa
+      {% elif statement.status == "SENDING" %}
+        Enviando
+      {% elif statement.status == "SENT" %}
+        Enviado
+      {% elif statement.status == "FAILED" %}
+        Error de envío
+      {% elif statement.status == "INVALIDATED" %}
+        Vista previa expirada
+      {% else %}
+        {{ statement.get_status_display }}
+      {% endif %}
+    </div>
+  </header>
+
+  {% if statement.status == "INVALIDATED" %}
+    <div class="if-statement-warning">
+      Esta vista previa ya no puede utilizarse para un envío.
+      Vuelve al cliente y genera una nueva.
+    </div>
+  {% endif %}
+
+  <section class="if-statement-preview-addressing">
+    <div>
+      <span>De</span>
+      <strong>{{ statement.sender_email }}</strong>
+    </div>
+
+    <div>
+      <span>Para</span>
+      <strong>
+        {% for email in statement.to_emails %}
+          {{ email }}{% if not forloop.last %}, {% endif %}
+        {% endfor %}
+      </strong>
+    </div>
+
+    {% if statement.cc_emails %}
+      <div>
+        <span>CC</span>
+        <strong>
+          {% for email in statement.cc_emails %}
+            {{ email }}{% if not forloop.last %}, {% endif %}
+          {% endfor %}
+        </strong>
+      </div>
+    {% endif %}
+
+    <div>
+      <span>Asunto</span>
+      <strong>{{ statement.subject }}</strong>
+    </div>
+
+    {% if statement.message_body %}
+      <div class="is-wide">
+        <span>Mensaje adicional</span>
+        <p>{{ statement.message_body|linebreaksbr }}</p>
+      </div>
+    {% endif %}
+  </section>
+
+  <section class="if-statement-preview-summary">
+    <div>
+      <span>Vencido</span>
+      <strong>{{ statement.overdue_total|clp }}</strong>
+    </div>
+
+    <div>
+      <span>Vence hoy</span>
+      <strong>{{ statement.due_today_total|clp }}</strong>
+    </div>
+
+    <div>
+      <span>Por vencer</span>
+      <strong>{{ statement.upcoming_total|clp }}</strong>
+    </div>
+
+    <div class="is-total">
+      <span>Total</span>
+      <strong>{{ statement.grand_total|clp }}</strong>
+    </div>
+  </section>
+
+  <section class="if-statement-preview-document">
+    <header>
+      <div>
+        <h2>Documentos incluidos</h2>
+        <p>
+          {{ statement.document_count }}
+          documento{{ statement.document_count|pluralize }}
+          en esta vista previa.
+        </p>
+      </div>
+
+      <div class="if-statement-preview-downloads">
+        <a
+          href="{% url 'portfolio:customer_statement_pdf' statement.public_id %}"
+          class="if-secondary-cta"
+          target="_blank"
+          rel="noopener"
+        >
+          Descargar PDF
+        </a>
+
+        <a
+          href="{% url 'portfolio:customer_statement_xlsx' statement.public_id %}"
+          class="if-secondary-cta"
+          target="_blank"
+          rel="noopener"
+        >
+          Descargar Excel
+        </a>
+      </div>
+    </header>
+
+    <div class="if-statement-preview-table-wrap">
+      <table class="if-statement-table">
+        <thead>
+          <tr>
+            <th>Estado</th>
+            <th>Documento</th>
+            <th>Tipo</th>
+            <th>Emisión</th>
+            <th>Vencimiento</th>
+            <th>Días en mora</th>
+            <th>Monto original</th>
+            <th>Saldo</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for document in snapshot.documents %}
+            <tr>
+              <td>{{ document.category_label }}</td>
+              <td><strong>{{ document.document_number }}</strong></td>
+              <td>{{ document.document_type }}</td>
+              <td>{{ document.issue_date }}</td>
+              <td>{{ document.due_date }}</td>
+
+              <td>
+                {% if document.category == "OVERDUE" %}
+                  <strong>{{ document.days_from_due }}</strong>
+                {% else %}
+                  <span class="if-muted">—</span>
+                {% endif %}
+              </td>
+
+              <td class="is-money">
+                {{ document.original_amount_display }}
+              </td>
+
+              <td class="is-money">
+                <strong>
+                  {{ document.balance_amount_display }}
+                </strong>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+  </section>
+
+  <footer class="if-statement-preview-actions">
+
+    <div>
+      <strong>PDF + Excel preparados</strong>
+      <span>
+        El envío utiliza Microsoft Graph y se realizará desde tu cuenta corporativa.
+      </span>
+    </div>
+
+    {% if statement.status == "SENT" %}
+      <div class="if-statement-preview-status">
+        Enviado
+      </div>
+
+    {% elif statement.status == "FAILED" %}
+      <div>
+        <strong>El envío no pudo completarse</strong>
+        <span>
+          Vuelve al cliente y genera una nueva vista previa.
+        </span>
+      </div>
+
+    {% elif can_send %}
+      <form
+        method="post"
+        action="{% url 'portfolio:customer_statement_send' statement.public_id %}"
+        data-statement-send-form
+      >
+        {% csrf_token %}
+
+        <button
+          type="submit"
+          class="if-button-contrast"
+          data-statement-send-button
+        >
+          Enviar Estado de Cuenta
+        </button>
+      </form>
+
+    {% else %}
+      <button
+        type="button"
+        class="if-button-contrast"
+        disabled
+        title="El envío real sólo está disponible con una sesión corporativa segura."
+      >
+        Enviar Estado de Cuenta
+      </button>
+    {% endif %}
+
+  </footer>
+
+</div>
+
+
+
+{% if statement.status == "PREVIEW" %}
+
+<div
+  class="if-statement-leave-dialog"
+  data-statement-leave-dialog
+  hidden
+>
+  <div
+    class="if-statement-leave-dialog-backdrop"
+    data-statement-leave-cancel
+  ></div>
+
+  <div
+    class="if-statement-leave-dialog-card"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="statement-leave-title"
+  >
+
+    <div class="if-statement-leave-dialog-icon">
+      !
+    </div>
+
+    <div class="if-statement-leave-dialog-copy">
+      <h2 id="statement-leave-title">
+        Este Estado de Cuenta aún no ha sido enviado
+      </h2>
+
+      <p>
+        Estás a punto de abandonar la vista previa.
+        Si continúas, no se enviará ningún correo.
+      </p>
+
+      <p>
+        La vista previa quedará pendiente sólo mientras
+        continúe vigente.
+      </p>
+    </div>
+
+    <div class="if-statement-leave-dialog-actions">
+
+      <button
+        type="button"
+        class="if-secondary-cta"
+        data-statement-leave-cancel
+      >
+        Seguir revisando
+      </button>
+
+      <button
+        type="button"
+        class="if-button-contrast"
+        data-statement-leave-confirm
+      >
+        Salir sin enviar
+      </button>
+
+    </div>
+
+  </div>
+</div>
+
+<script
+  src="{% static 'js/customer-statement-preview.js' %}"
+  defer
+></script>
+
+{% endif %}
+
+{% endblock %}

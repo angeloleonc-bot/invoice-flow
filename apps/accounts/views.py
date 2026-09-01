@@ -33,6 +33,9 @@ from apps.accounts.contracts import (
     IdentityProviderError,
     IdentityValidationError,
 )
+from apps.accounts.services.delegated_token_cache import (
+    DelegatedTokenCacheService,
+)
 from apps.accounts.services.identity_service import IdentityService
 
 
@@ -266,7 +269,14 @@ def entra_callback_view(
     auth_response = request.GET.dict()
 
     try:
-        adapter = AzureIdentityAdapter()
+        delegated_token_cache = (
+            DelegatedTokenCacheService
+            .create_empty_cache()
+        )
+
+        adapter = AzureIdentityAdapter(
+            token_cache=delegated_token_cache,
+        )
 
         identity = adapter.complete_auth_code_flow(
             auth_code_flow=auth_code_flow or {},
@@ -287,6 +297,11 @@ def entra_callback_view(
         )
 
         request.session.cycle_key()
+
+        DelegatedTokenCacheService.save_to_session(
+            session=request.session,
+            token_cache=delegated_token_cache,
+        )
 
         request.session[
             "identity_provider"

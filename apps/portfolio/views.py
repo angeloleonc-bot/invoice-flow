@@ -1,4 +1,4 @@
-﻿from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model
 from django.db.models import Count, Q, Sum
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404, render
@@ -18,6 +18,7 @@ from apps.management.services.actions import (
     create_collection_action_batch,
 )
 
+from apps.portfolio.models import CustomerStatement
 from apps.management.services.promises import (
     create_payment_promise_batch,
 )
@@ -989,6 +990,78 @@ def customer_detail(request, customer_id):
         )
 
     timeline = []
+
+    sent_customer_statements = (
+        CustomerStatement.objects
+        .filter(
+            customer=customer,
+            status=CustomerStatement.Status.SENT,
+        )
+        .select_related(
+            "created_by",
+        )
+        .order_by(
+            "-sent_at",
+            "-created_at",
+        )
+    )
+
+    for statement in sent_customer_statements:
+
+        recipient_text = ", ".join(
+            statement.to_emails or []
+        )
+
+        cc_text = ", ".join(
+            statement.cc_emails or []
+        )
+
+        description_parts = [
+            f"Para: {recipient_text}",
+            (
+                f"{statement.document_count} documento"
+                f"{'s' if statement.document_count != 1 else ''}"
+            ),
+            "PDF + Excel",
+        ]
+
+        if cc_text:
+            description_parts.insert(
+                1,
+                f"CC: {cc_text}",
+            )
+
+        if statement.created_by:
+            sender_name = (
+                statement.created_by.get_full_name()
+                or statement.created_by.email
+                or statement.created_by.username
+            )
+
+            description_parts.append(
+                f"Enviado por: {sender_name}"
+            )
+
+        timeline.append(
+            {
+                "type": "customer_statement",
+                "label": "Estado de cuenta",
+                "date": (
+                    statement.sent_at
+                    or statement.updated_at
+                ),
+                "title": "Estado de cuenta enviado",
+                "description": " · ".join(
+                    description_parts
+                ),
+                "document": None,
+                "amount": statement.grand_total,
+                "status": "Enviado",
+                "reason": None,
+                "attachments": [],
+                "hide_date": False,
+            }
+        )
 
     processed_action_batches = set()
 

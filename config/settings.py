@@ -246,6 +246,11 @@ ENTRA_SCOPES = tuple(
     if scope
 )
 
+ENTRA_TOKEN_CACHE_ENCRYPTION_KEY = os.getenv(
+    "ENTRA_TOKEN_CACHE_ENCRYPTION_KEY",
+    "",
+).strip()
+
 ENTRA_GROUP_ROLE_MAPPING = {
     group_id.strip().lower(): role_code
     for group_id, role_code in {

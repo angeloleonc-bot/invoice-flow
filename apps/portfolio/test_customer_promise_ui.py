@@ -167,4 +167,3 @@ class CustomerPromiseUIIntegrationTests(SimpleTestCase):
             "checkbox.checked = checked;",
             text,
         )
-

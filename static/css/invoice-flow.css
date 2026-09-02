@@ -16867,3 +16867,105 @@ body.if-statement-leave-dialog-open {
   }
 }
 
+
+/* ============================================================
+   ETAPA 3.4.7 - PROMISE MODAL VIEWPORT FIX
+   Solo la lista de documentos debe hacer scroll.
+   Header, resumen, formulario y footer permanecen visibles.
+   ============================================================ */
+
+.if-promise-workflow-modal {
+  padding: 12px;
+}
+
+.if-promise-workflow-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(920px, calc(100vw - 24px));
+  height: min(860px, calc(100dvh - 24px));
+  max-height: calc(100dvh - 24px);
+  margin: 0 auto;
+  overflow: hidden;
+}
+
+.if-promise-workflow-header {
+  flex: 0 0 auto;
+}
+
+.if-promise-workflow-form {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.if-promise-workflow-summary,
+.if-promise-workflow-tools,
+.if-promise-workflow-details,
+.if-promise-workflow-footer {
+  flex: 0 0 auto;
+}
+
+.if-promise-document-groups {
+  flex: 1 1 auto;
+  min-height: 120px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.if-promise-workflow-footer {
+  position: relative;
+  z-index: 2;
+  background: #fff;
+}
+
+
+/* Pantallas con poco alto: compactar zonas fijas */
+
+@media (max-height: 850px) {
+  .if-promise-workflow-header {
+    padding-top: .8rem;
+    padding-bottom: .8rem;
+  }
+
+  .if-promise-workflow-summary {
+    padding-top: .65rem;
+    padding-bottom: .65rem;
+  }
+
+  .if-promise-workflow-tools {
+    padding-top: .6rem;
+    padding-bottom: .6rem;
+  }
+
+  .if-promise-workflow-details {
+    padding-top: .65rem;
+    padding-bottom: .55rem;
+  }
+
+  .if-promise-workflow-fields textarea {
+    min-height: 54px;
+    max-height: 70px;
+  }
+
+  .if-promise-upload .if-upload-picker {
+    min-height: 66px;
+  }
+
+  .if-promise-workflow-footer {
+    padding-top: .6rem;
+    padding-bottom: .6rem;
+  }
+}
+
+
+/* Compatibilidad si el navegador no interpreta dvh */
+
+@supports not (height: 100dvh) {
+  .if-promise-workflow-panel {
+    height: min(860px, calc(100vh - 24px));
+    max-height: calc(100vh - 24px);
+  }
+}
+

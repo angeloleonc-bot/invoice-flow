@@ -123,13 +123,32 @@ def evaluate_related_promises(document, performed_by=None):
 
     for link in promise_links:
         promise = link.promise
+        promise_relations = list(
+            PromiseDocument.objects
+            .select_related("document")
+            .filter(promise=promise)
+        )
+
+        if not promise_relations:
+            continue
+
+        # Una promesa que todavía contiene documentos externos
+        # no vinculados a Document no puede evaluarse como cumplida
+        # mediante la lógica financiera histórica.
+        #
+        # Esta protección evita marcar la promesa completa como
+        # FULFILLED considerando solamente los documentos que ya
+        # existen dentro de cartera.
+        if any(
+            relation.document_id is None
+            for relation in promise_relations
+        ):
+            continue
+
         related_documents = [
             relation.document
-            for relation in PromiseDocument.objects.select_related("document").filter(promise=promise)
+            for relation in promise_relations
         ]
-
-        if not related_documents:
-            continue
 
         all_paid = True
 

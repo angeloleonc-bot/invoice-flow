@@ -126,31 +126,155 @@ class PromiseDocument(models.Model):
         on_delete=models.CASCADE,
         related_name="promise_documents",
     )
+
     document = models.ForeignKey(
         "portfolio.Document",
         on_delete=models.CASCADE,
         related_name="promise_documents",
+        null=True,
+        blank=True,
     )
+
+    # Identidad persistente del documento externo mientras todavía
+    # no existe dentro del dominio operacional Document.
+    source = models.CharField(
+        max_length=50,
+        blank=True,
+    )
+    source_customer_external_id = models.CharField(
+        max_length=100,
+        blank=True,
+    )
+    source_trans_id = models.CharField(
+        max_length=100,
+        blank=True,
+    )
+    source_doc_entry = models.CharField(
+        max_length=100,
+        blank=True,
+    )
+    source_document_number = models.CharField(
+        max_length=100,
+        blank=True,
+    )
+
+    # Snapshot histórico de lo observado al crear la promesa.
+    # Estos valores no representan el saldo financiero vigente.
+    source_due_date = models.DateField(
+        null=True,
+        blank=True,
+    )
+    source_original_amount = models.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    source_balance_amount = models.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["-created_at"]
         verbose_name = "Documento asociado a promesa"
         verbose_name_plural = "Documentos asociados a promesas"
+
         constraints = [
             models.UniqueConstraint(
                 fields=["promise", "document"],
                 name="unique_promise_document",
             ),
         ]
+
         indexes = [
             models.Index(fields=["promise"]),
             models.Index(fields=["document"]),
+            models.Index(
+                fields=["source", "source_trans_id"],
+                name="promise_source_trans_idx",
+            ),
+            models.Index(
+                fields=[
+                    "source",
+                    "source_customer_external_id",
+                    "source_trans_id",
+                ],
+                name="promise_ext_identity_idx",
+            ),
         ]
 
+    def clean(self):
+        super().clean()
+
+        if self.document_id is not None:
+            return
+
+        required_external_identity = {
+            "source": self.source,
+            "source_customer_external_id": (
+                self.source_customer_external_id
+            ),
+            "source_trans_id": self.source_trans_id,
+            "source_doc_entry": self.source_doc_entry,
+            "source_document_number": (
+                self.source_document_number
+            ),
+        }
+
+        missing_fields = [
+            field_name
+            for field_name, value in required_external_identity.items()
+            if not str(value or "").strip()
+        ]
+
+        if missing_fields:
+            raise ValidationError(
+                "Una relación de promesa sin Document debe "
+                "conservar identidad ERP externa completa."
+            )
+
+        duplicated = (
+            PromiseDocument.objects
+            .filter(
+                promise=self.promise,
+                document__isnull=True,
+                source=self.source,
+                source_customer_external_id=(
+                    self.source_customer_external_id
+                ),
+                source_trans_id=self.source_trans_id,
+                source_doc_entry=self.source_doc_entry,
+            )
+        )
+
+        if self.pk:
+            duplicated = duplicated.exclude(pk=self.pk)
+
+        if duplicated.exists():
+            raise ValidationError(
+                "Este documento externo ya está asociado "
+                "a la misma promesa."
+            )
+
     def __str__(self):
-        return f"{self.promise} → {self.document}"
-    
+        if self.document_id is not None:
+            target = str(self.document)
+        elif self.source_document_number:
+            target = (
+                f"{self.source} "
+                f"{self.source_document_number}"
+            )
+        else:
+            target = "Documento externo"
+
+        return f"{self.promise} → {target}"
+
+
 class OperationalAttachment(models.Model):
     content_type = models.ForeignKey(
         ContentType,

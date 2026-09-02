@@ -15891,3 +15891,979 @@ body.if-statement-leave-dialog-open {
   overflow: hidden;
 }
 
+
+/* ============================================================
+   ETAPA 3.4 - CUSTOMER 360 ACTION SYSTEM
+
+   Carbón  = Enviar Estado de Cuenta.
+   Azul    = Gestión operacional.
+   Violeta = Compromiso de pago.
+   Verde   = estado positivo / éxito.
+   ============================================================ */
+
+.if-modal-open {
+  overflow: hidden;
+}
+
+
+/* ------------------------------------------------------------
+   Barra de acciones Estado de Cuenta
+   ------------------------------------------------------------ */
+
+.if-customer-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 1rem 1.25rem 0;
+  padding: .78rem .9rem;
+  background: #fafbfc;
+  border: 1px solid #e3e8ed;
+  border-radius: 14px;
+}
+
+.if-customer-action-status {
+  min-width: 0;
+}
+
+.if-customer-action-status span {
+  color: #68737d;
+  font-size: .8rem;
+  font-weight: 650;
+}
+
+.if-customer-action-buttons {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+}
+
+
+/* Base común */
+
+.if-customer-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 .95rem;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-size: .78rem;
+  font-weight: 750;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color .16s ease,
+    border-color .16s ease,
+    color .16s ease,
+    box-shadow .16s ease,
+    transform .16s ease;
+}
+
+
+/* Gestión = azul operacional */
+
+.if-customer-action-btn.is-management {
+  color: #1d4ed8;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.if-customer-action-btn.is-management:hover:not(:disabled) {
+  color: #1e40af;
+  background: #dbeafe;
+  border-color: #93c5fd;
+  transform: translateY(-1px);
+}
+
+
+/* Compromiso = violeta */
+
+.if-customer-action-btn.is-promise {
+  color: #ffffff;
+  background: #6656c8;
+  border-color: #6656c8;
+  box-shadow: 0 5px 14px rgba(102, 86, 200, .16);
+}
+
+.if-customer-action-btn.is-promise:hover:not(:disabled) {
+  color: #ffffff;
+  background: #5848b8;
+  border-color: #5848b8;
+  box-shadow: 0 7px 18px rgba(102, 86, 200, .22);
+  transform: translateY(-1px);
+}
+
+
+/* Disabled */
+
+.if-customer-action-btn:disabled {
+  color: #9aa4ad;
+  background: #f3f5f6;
+  border-color: #e1e6e9;
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+
+
+/* ------------------------------------------------------------
+   Modal gestión - diferenciación azul sin cambiar lógica
+   ------------------------------------------------------------ */
+
+[data-action-modal] .if-modal-panel {
+  border-top: 3px solid #3b82f6;
+}
+
+[data-action-modal] .if-modal-header {
+  background: #fbfdff;
+}
+
+[data-action-modal] [data-upload-submit] {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+[data-action-modal] [data-upload-submit]:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+
+/* ------------------------------------------------------------
+   Workflow Compromiso
+   ------------------------------------------------------------ */
+
+.if-promise-workflow-panel {
+  width: min(920px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  margin: 16px auto;
+  border-top: 3px solid #6656c8;
+}
+
+.if-promise-workflow-header {
+  padding: 1rem 1.25rem;
+  background: #fdfcff;
+}
+
+.if-workflow-kicker {
+  display: block;
+  margin-bottom: .2rem;
+  color: #6656c8;
+  font-size: .66rem;
+  font-weight: 800;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.if-promise-workflow-form {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+
+/* Resumen */
+
+.if-promise-workflow-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .75rem;
+  padding: .85rem 1.25rem;
+  background: #fafbfc;
+  border-bottom: 1px solid #e5e9ed;
+}
+
+.if-promise-workflow-summary > div {
+  min-width: 0;
+  padding: .65rem .75rem;
+  background: #fff;
+  border: 1px solid #e4e8ec;
+  border-radius: 11px;
+}
+
+.if-promise-workflow-summary span,
+.if-promise-workflow-summary strong {
+  display: block;
+}
+
+.if-promise-workflow-summary span {
+  color: #75808a;
+  font-size: .65rem;
+  font-weight: 750;
+  letter-spacing: .045em;
+  text-transform: uppercase;
+}
+
+.if-promise-workflow-summary strong {
+  margin-top: .18rem;
+  color: #26313a;
+  font-size: .93rem;
+  font-weight: 800;
+}
+
+.if-promise-workflow-summary .is-total {
+  border-color: #ddd8f5;
+  background: #fbfaff;
+}
+
+.if-promise-workflow-summary .is-total strong {
+  color: #5848b8;
+}
+
+
+/* Herramientas */
+
+.if-promise-workflow-tools {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .8rem 1.25rem;
+  border-bottom: 1px solid #e7ebee;
+}
+
+.if-promise-search {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+}
+
+.if-promise-search span {
+  display: block;
+  margin-bottom: .3rem;
+  color: #6c7780;
+  font-size: .68rem;
+  font-weight: 750;
+}
+
+.if-promise-search input {
+  width: 100%;
+  min-height: 36px;
+  padding: 0 .75rem;
+  color: #26313a;
+  background: #fff;
+  border: 1px solid #d8dfe4;
+  border-radius: 9px;
+  outline: none;
+  font-size: .78rem;
+}
+
+.if-promise-search input:focus {
+  border-color: #aa9fe5;
+  box-shadow: 0 0 0 3px rgba(102, 86, 200, .10);
+}
+
+.if-promise-selection-tools {
+  display: flex;
+  gap: .4rem;
+}
+
+.if-promise-selection-tools button,
+.if-workflow-cancel {
+  min-height: 34px;
+  padding: 0 .72rem;
+  color: #5f6a73;
+  background: #fff;
+  border: 1px solid #dce2e6;
+  border-radius: 9px;
+  font-size: .72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.if-promise-selection-tools button:hover,
+.if-workflow-cancel:hover {
+  color: #303942;
+  background: #f5f7f8;
+  border-color: #cdd5db;
+}
+
+
+/* Lista */
+
+.if-promise-document-groups {
+  min-height: 180px;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: .2rem 1.25rem .7rem;
+  overscroll-behavior: contain;
+}
+
+.if-promise-document-group {
+  margin-top: .85rem;
+}
+
+.if-promise-document-group > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 30px;
+  padding: 0 .2rem;
+  color: #58636c;
+  font-size: .72rem;
+  font-weight: 750;
+}
+
+.if-promise-document-group > header > div {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+}
+
+.if-promise-document-group > header > span {
+  display: inline-flex;
+  min-width: 23px;
+  height: 23px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 .35rem;
+  color: #68747d;
+  background: #f2f4f6;
+  border-radius: 999px;
+  font-size: .66rem;
+}
+
+.if-promise-group-accent {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+}
+
+.if-promise-document-group.is-overdue
+  .if-promise-group-accent {
+  background: #d97706;
+}
+
+.if-promise-document-group.is-today
+  .if-promise-group-accent {
+  background: #dc8b24;
+}
+
+.if-promise-document-group.is-upcoming
+  .if-promise-group-accent {
+  background: #4f7fa8;
+}
+
+.if-promise-document-list {
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #e4e8eb;
+  border-radius: 12px;
+}
+
+.if-promise-document-option {
+  display: grid;
+  grid-template-columns:
+    22px
+    minmax(190px, 1fr)
+    92px
+    minmax(115px, auto);
+  gap: .8rem;
+  align-items: center;
+  min-height: 58px;
+  margin: 0;
+  padding: .65rem .8rem;
+  cursor: pointer;
+  transition:
+    background-color .14s ease,
+    box-shadow .14s ease;
+}
+
+.if-promise-document-option + .if-promise-document-option {
+  border-top: 1px solid #edf0f2;
+}
+
+.if-promise-document-option:hover {
+  background: #fafbfc;
+}
+
+.if-promise-document-option:has(
+  [data-promise-select]:checked
+) {
+  background: #fbfaff;
+  box-shadow: inset 3px 0 0 #6656c8;
+}
+
+.if-promise-document-option > input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #6656c8;
+}
+
+.if-promise-document-main,
+.if-promise-document-title {
+  min-width: 0;
+}
+
+.if-promise-document-title {
+  display: flex;
+  align-items: baseline;
+  gap: .45rem;
+}
+
+.if-promise-document-title strong {
+  color: #26313a;
+  font-size: .85rem;
+  font-weight: 800;
+}
+
+.if-promise-document-title small {
+  color: #7a858e;
+  font-size: .66rem;
+  font-weight: 700;
+}
+
+.if-promise-document-due {
+  display: block;
+  margin-top: .16rem;
+  color: #7a858e;
+  font-size: .7rem;
+}
+
+.if-promise-document-state {
+  display: inline-flex;
+  justify-self: start;
+  min-height: 22px;
+  align-items: center;
+  padding: .1rem .48rem;
+  border-radius: 999px;
+  font-size: .65rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.if-promise-document-state.is-overdue {
+  color: #9a5c14;
+  background: #fff6e8;
+  border: 1px solid #f1ddb8;
+}
+
+.if-promise-document-state.is-today {
+  color: #976220;
+  background: #fff8ec;
+  border: 1px solid #eedab7;
+}
+
+.if-promise-document-state.is-upcoming {
+  color: #356789;
+  background: #edf6fc;
+  border: 1px solid #d0e5f2;
+}
+
+.if-promise-document-amount {
+  color: #26313a;
+  font-size: .84rem;
+  font-weight: 800;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.if-promise-empty,
+.if-promise-no-results {
+  margin: 1rem 0 .25rem;
+  padding: 1rem;
+  color: #77828a;
+  background: #fafbfc;
+  border: 1px dashed #dbe1e5;
+  border-radius: 11px;
+  font-size: .78rem;
+  text-align: center;
+}
+
+
+/* Datos compromiso */
+
+.if-promise-workflow-details {
+  flex: 0 0 auto;
+  padding: .85rem 1.25rem .75rem;
+  background: #fbfcfd;
+  border-top: 1px solid #e5e9ed;
+}
+
+.if-promise-workflow-fields {
+  display: grid;
+  grid-template-columns: minmax(180px, .42fr) minmax(260px, 1fr);
+  gap: .8rem;
+}
+
+.if-promise-workflow-fields label {
+  margin: 0;
+}
+
+.if-promise-workflow-fields label > span {
+  display: block;
+  margin-bottom: .28rem;
+  color: #66717a;
+  font-size: .68rem;
+  font-weight: 750;
+}
+
+.if-promise-workflow-fields input,
+.if-promise-workflow-fields textarea {
+  width: 100%;
+  border-color: #d8dfe4;
+  border-radius: 9px;
+}
+
+.if-promise-workflow-fields textarea {
+  min-height: 66px;
+  max-height: 100px;
+  resize: vertical;
+}
+
+.if-promise-upload {
+  margin-top: .75rem;
+}
+
+
+/* Footer */
+
+.if-promise-workflow-footer {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .75rem 1.25rem;
+  background: #fff;
+  border-top: 1px solid #e4e8eb;
+}
+
+.if-promise-workflow-footer > span {
+  color: #77828a;
+  font-size: .7rem;
+}
+
+.if-promise-workflow-footer > div {
+  display: flex;
+  gap: .5rem;
+}
+
+.if-promise-workflow-footer
+  .if-customer-action-btn {
+  min-height: 36px;
+}
+
+
+/* ------------------------------------------------------------
+   Responsive
+   ------------------------------------------------------------ */
+
+@media (max-width: 900px) {
+  .if-customer-action-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .if-customer-action-buttons {
+    width: 100%;
+  }
+
+  .if-customer-action-buttons
+    .if-customer-action-btn {
+    flex: 1 1 0;
+  }
+
+  .if-promise-workflow-panel {
+    width: calc(100vw - 20px);
+    max-height: calc(100vh - 20px);
+    margin: 10px auto;
+  }
+
+  .if-promise-document-option {
+    grid-template-columns:
+      22px
+      minmax(0, 1fr)
+      auto;
+  }
+
+  .if-promise-document-state {
+    grid-column: 2;
+  }
+
+  .if-promise-document-amount {
+    grid-column: 3;
+    grid-row: 1 / 3;
+  }
+}
+
+@media (max-width: 650px) {
+  .if-customer-action-bar {
+    margin-left: .9rem;
+    margin-right: .9rem;
+  }
+
+  .if-customer-action-buttons {
+    flex-direction: column;
+  }
+
+  .if-promise-workflow-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .if-promise-workflow-tools {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .if-promise-selection-tools {
+    width: 100%;
+  }
+
+  .if-promise-selection-tools button {
+    flex: 1 1 0;
+  }
+
+  .if-promise-document-option {
+    grid-template-columns: 22px minmax(0, 1fr);
+  }
+
+  .if-promise-document-state,
+  .if-promise-document-amount {
+    grid-column: 2;
+    grid-row: auto;
+    justify-self: start;
+    text-align: left;
+  }
+
+  .if-promise-workflow-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .if-promise-workflow-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .if-promise-workflow-footer > div {
+    width: 100%;
+  }
+
+  .if-promise-workflow-footer button {
+    flex: 1 1 0;
+  }
+}
+
+
+/* ============================================================
+   ETAPA 3.4.2 - CUSTOMER ACTION BAR VISUAL REFINEMENT
+   ============================================================ */
+
+/*
+   La barra deja de ser una tarjeta dentro de Estado de Cuenta.
+   Pasa a funcionar como toolbar operacional ligera.
+*/
+
+.if-ar-account .if-customer-action-bar {
+  margin: .8rem 1.25rem 0;
+  padding: .4rem 0 .7rem;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #e8ecef;
+  border-radius: 0;
+}
+
+
+/* Texto contextual */
+
+.if-ar-account .if-customer-action-status span {
+  color: #78838c;
+  font-size: .76rem;
+  font-weight: 600;
+}
+
+
+/* Botones algo más pequeños y sobrios */
+
+.if-ar-account .if-customer-action-btn {
+  min-height: 34px;
+  padding: 0 .88rem;
+  border-radius: 9px;
+  font-size: .74rem;
+  font-weight: 700;
+  box-shadow: none;
+}
+
+
+/* ------------------------------------------------------------
+   Gestión
+   Azul operacional.
+   ------------------------------------------------------------ */
+
+.if-ar-account
+.if-customer-action-btn.is-management {
+  color: #ffffff;
+  background: #3976a8;
+  border-color: #3976a8;
+}
+
+.if-ar-account
+.if-customer-action-btn.is-management:hover:not(:disabled) {
+  color: #ffffff;
+  background: #2f668f;
+  border-color: #2f668f;
+  box-shadow: 0 4px 10px rgba(47, 102, 143, .14);
+  transform: translateY(-1px);
+}
+
+
+/*
+   Disabled sigue pareciendo claramente un botón,
+   pero sin competir visualmente.
+*/
+
+.if-ar-account
+.if-customer-action-btn.is-management:disabled {
+  color: #84929d;
+  background: #f2f5f7;
+  border-color: #dce3e8;
+  opacity: 1;
+}
+
+
+/* ------------------------------------------------------------
+   Compromiso
+   Violeta secundario en vez de CTA dominante.
+   ------------------------------------------------------------ */
+
+.if-ar-account
+.if-customer-action-btn.is-promise {
+  color: #6656a8;
+  background: #f7f5fc;
+  border-color: #d9d3ed;
+  box-shadow: none;
+}
+
+.if-ar-account
+.if-customer-action-btn.is-promise:hover:not(:disabled) {
+  color: #574895;
+  background: #efecf9;
+  border-color: #c9c0e5;
+  box-shadow: 0 4px 10px rgba(102, 86, 168, .10);
+  transform: translateY(-1px);
+}
+
+
+/* Dentro del modal sí mantenemos compromiso como acción fuerte */
+
+.if-promise-workflow-footer
+.if-customer-action-btn.is-promise {
+  color: #ffffff;
+  background: #6656c8;
+  border-color: #6656c8;
+  box-shadow: 0 4px 12px rgba(102, 86, 200, .14);
+}
+
+.if-promise-workflow-footer
+.if-customer-action-btn.is-promise:hover:not(:disabled) {
+  color: #ffffff;
+  background: #5848b8;
+  border-color: #5848b8;
+}
+
+
+/* ------------------------------------------------------------
+   Selección de documentos
+   Evitar otro uso de verde como estado interactivo.
+   ------------------------------------------------------------ */
+
+.if-ar-account
+.if-ledger-row:has(
+  [data-account-doc-checkbox]:checked
+) {
+  background: #f7fafc;
+  box-shadow: inset 3px 0 0 #4f7fa8;
+}
+
+.if-ar-account
+.if-ledger-select input {
+  accent-color: #3976a8;
+}
+
+
+/* ------------------------------------------------------------
+   Responsive
+   ------------------------------------------------------------ */
+
+@media (max-width: 900px) {
+  .if-ar-account .if-customer-action-bar {
+    padding-bottom: .8rem;
+  }
+}
+
+@media (max-width: 650px) {
+  .if-ar-account .if-customer-action-bar {
+    margin-left: 1rem;
+    margin-right: 1rem;
+  }
+
+  .if-ar-account .if-customer-action-buttons {
+    flex-direction: row;
+  }
+
+  .if-ar-account
+  .if-customer-action-buttons
+  .if-customer-action-btn {
+    flex: 1 1 0;
+  }
+}
+
+
+/* ============================================================
+   ETAPA 3.4.3 - SELECT ALL AND ACTION COLOR RESTORE
+   ============================================================ */
+
+
+/* ------------------------------------------------------------
+   Zona izquierda toolbar
+   ------------------------------------------------------------ */
+
+.if-ar-account .if-customer-action-status {
+  display: flex;
+  align-items: center;
+  gap: .9rem;
+  min-width: 0;
+}
+
+
+/* Seleccionar todo */
+
+.if-account-select-all {
+  display: inline-flex;
+  align-items: center;
+  gap: .42rem;
+  margin: 0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.if-account-select-all input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: #3976a8;
+  cursor: pointer;
+}
+
+.if-account-select-all span {
+  color: #4f5d68 !important;
+  font-size: .74rem !important;
+  font-weight: 700 !important;
+}
+
+
+/* Separador visual muy discreto */
+
+.if-account-selection-count {
+  position: relative;
+  padding-left: .9rem;
+}
+
+.if-account-selection-count::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 1px;
+  height: 18px;
+  background: #dde3e7;
+  transform: translateY(-50%);
+}
+
+
+/* ------------------------------------------------------------
+   Recuperar colores originales Etapa 3.4
+   ------------------------------------------------------------ */
+
+/* Gestión: azul claro */
+
+.if-ar-account
+.if-customer-action-btn.is-management {
+  color: #1d4ed8;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  box-shadow: none;
+}
+
+.if-ar-account
+.if-customer-action-btn.is-management:hover:not(:disabled) {
+  color: #1e40af;
+  background: #dbeafe;
+  border-color: #93c5fd;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, .10);
+  transform: translateY(-1px);
+}
+
+
+/* Disabled */
+
+.if-ar-account
+.if-customer-action-btn.is-management:disabled {
+  color: #9aa4ad;
+  background: #f3f5f6;
+  border-color: #e1e6e9;
+  box-shadow: none;
+}
+
+
+/* Compromiso: violeta sólido original */
+
+.if-ar-account
+.if-customer-action-btn.is-promise {
+  color: #ffffff;
+  background: #6656c8;
+  border-color: #6656c8;
+  box-shadow: 0 5px 14px rgba(102, 86, 200, .16);
+}
+
+.if-ar-account
+.if-customer-action-btn.is-promise:hover:not(:disabled) {
+  color: #ffffff;
+  background: #5848b8;
+  border-color: #5848b8;
+  box-shadow: 0 7px 18px rgba(102, 86, 200, .20);
+  transform: translateY(-1px);
+}
+
+
+/* Mantener selección documental azul */
+
+.if-ar-account
+.if-ledger-row:has(
+  [data-account-doc-checkbox]:checked
+) {
+  background: #f7fafc;
+  box-shadow: inset 3px 0 0 #4f7fa8;
+}
+
+.if-ar-account
+.if-ledger-select input {
+  accent-color: #3976a8;
+}
+
+
+/* Responsive */
+
+@media (max-width: 760px) {
+  .if-ar-account .if-customer-action-status {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: .35rem;
+  }
+
+  .if-account-selection-count {
+    padding-left: 0;
+  }
+
+  .if-account-selection-count::before {
+    display: none;
+  }
+}
+

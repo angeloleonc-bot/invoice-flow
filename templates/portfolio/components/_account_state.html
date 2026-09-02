@@ -16,15 +16,39 @@
 </nav>
         </div>
 
-        <div class="if-account-selection-bar" data-selection-bar hidden>
-  <span data-selection-count>0 documentos seleccionados</span>
+        <div class="if-customer-action-bar" data-selection-bar>
+  <div class="if-customer-action-status">
+    <label class="if-account-select-all">
+      <input
+        type="checkbox"
+        data-account-select-all
+      >
+      <span>Seleccionar todo</span>
+    </label>
 
-  <div>
-    <button type="button" class="if-secondary-cta" data-open-action-modal>
+    <span
+      class="if-account-selection-count"
+      data-selection-count
+    >
+      Ningún documento seleccionado.
+    </span>
+  </div>
+
+  <div class="if-customer-action-buttons">
+    <button
+      type="button"
+      class="if-customer-action-btn is-management"
+      data-open-action-modal
+      disabled
+    >
       Registrar gestión
     </button>
 
-    <button type="button" class="if-secondary-cta" data-open-promise-modal>
+    <button
+      type="button"
+      class="if-customer-action-btn is-promise"
+      data-open-promise-modal
+    >
       Registrar compromiso
     </button>
   </div>

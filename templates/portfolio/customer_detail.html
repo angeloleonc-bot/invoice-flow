@@ -141,120 +141,383 @@
   </section>
 </div>
 
-<div class="if-modal" data-promise-modal hidden>
+<div class="if-modal if-promise-workflow-modal" data-promise-modal hidden>
   <div class="if-modal-backdrop" data-close-modal></div>
 
-  <section class="if-modal-panel">
-    <header class="if-modal-header">
+  <section class="if-modal-panel if-promise-workflow-panel">
+    <header class="if-modal-header if-promise-workflow-header">
       <div>
+        <span class="if-workflow-kicker">Compromiso de pago</span>
         <h2>Registrar compromiso</h2>
-        <p data-promise-modal-summary>Documentos seleccionados</p>
-        <p class="if-modal-total" data-promise-modal-total></p>
+        <p>
+          Selecciona facturas vencidas o por vencer y define la fecha acordada.
+        </p>
       </div>
-      <button type="button" data-close-modal>×</button>
+
+      <button
+        type="button"
+        data-close-modal
+        aria-label="Cerrar"
+      >
+        ×
+      </button>
     </header>
 
-<form
-  method="post"
-  enctype="multipart/form-data"
-  class="if-modal-body"
-  data-operational-upload-form
->
+    <form
+      method="post"
+      enctype="multipart/form-data"
+      class="if-promise-workflow-form"
+      data-operational-upload-form
+    >
       {% csrf_token %}
       <input type="hidden" name="form_type" value="promise">
-      <div data-promise-hidden-documents></div>
 
-      <label class="form-label">Fecha compromiso</label>
-      {{ promise_form.promise_date }}
+      <div class="if-promise-workflow-summary">
+        <div>
+          <span>Seleccionados</span>
+          <strong data-promise-modal-summary>0 documentos</strong>
+        </div>
 
-      <label class="form-label mt-2">Notas</label>
-      {{ promise_form.notes }}
-
-      <div
-  class="if-upload-field mt-3"
-  data-operational-attachments
->
-  <label class="form-label">
-    Adjuntos
-  </label>
-
-  <div class="if-upload-picker">
-    <input
-      type="file"
-      id="id_customer_promise_attachments"
-      name="attachments"
-      multiple
-      data-operational-attachment-input
-      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.webp,.tif,.tiff,.zip,.msg,.eml"
-    >
-
-    <div class="if-upload-picker-content">
-      <div class="if-upload-picker-icon">
-        <i class="bi bi-cloud-arrow-up"></i>
+        <div class="is-total">
+          <span>Total comprometido</span>
+          <strong data-promise-modal-total>$ 0</strong>
+        </div>
       </div>
 
-      <div class="if-upload-picker-copy">
-        <strong>Seleccionar archivos</strong>
+      <div class="if-promise-workflow-tools">
+        <label class="if-promise-search">
+          <span>Buscar documento</span>
+          <input
+            type="search"
+            placeholder="Número o tipo de documento"
+            autocomplete="off"
+            data-promise-search
+          >
+        </label>
 
-        <span>
-          Puedes elegir varios y quitarlos antes de guardar.
-          Máximo 30 MB por archivo.
+        <div class="if-promise-selection-tools">
+          <button
+            type="button"
+            data-promise-select-all
+          >
+            Seleccionar todos
+          </button>
+
+          <button
+            type="button"
+            data-promise-clear
+          >
+            Limpiar
+          </button>
+        </div>
+      </div>
+
+      <div class="if-promise-document-groups" data-promise-document-groups>
+
+        {% if promise_overdue_documents %}
+          <section
+            class="if-promise-document-group is-overdue"
+            data-promise-group
+          >
+            <header>
+              <div>
+                <span class="if-promise-group-accent"></span>
+                <strong>Vencidos</strong>
+              </div>
+
+              <span>
+                {{ promise_overdue_documents|length }}
+              </span>
+            </header>
+
+            <div class="if-promise-document-list">
+              {% for item in promise_overdue_documents %}
+                <label
+                  class="if-promise-document-option"
+                  data-promise-option
+                  data-search-text="{{ item.document_number }} {{ item.document_type }}"
+                >
+                  <input
+                    type="checkbox"
+                    name="selection_keys"
+                    value="{{ item.selection_key }}"
+                    data-promise-select
+                    data-document-id="{{ item.document_id|default:'' }}"
+                    data-document-number="{{ item.document_number }}"
+                    data-balance-raw="{{ item.balance_amount }}"
+                  >
+
+                  <span class="if-promise-document-main">
+                    <span class="if-promise-document-title">
+                      <strong>{{ item.document_number }}</strong>
+                      <small>{{ item.document_type }}</small>
+                    </span>
+
+                    <span class="if-promise-document-due">
+                      Vence {{ item.due_date|date:"d/m/Y" }}
+                    </span>
+                  </span>
+
+                  <span class="if-promise-document-state is-overdue">
+                    Vencido
+                  </span>
+
+                  <strong class="if-promise-document-amount">
+                    {{ item.balance_amount|clp }}
+                  </strong>
+                </label>
+              {% endfor %}
+            </div>
+          </section>
+        {% endif %}
+
+
+        {% if promise_due_today_documents %}
+          <section
+            class="if-promise-document-group is-today"
+            data-promise-group
+          >
+            <header>
+              <div>
+                <span class="if-promise-group-accent"></span>
+                <strong>Vence hoy</strong>
+              </div>
+
+              <span>
+                {{ promise_due_today_documents|length }}
+              </span>
+            </header>
+
+            <div class="if-promise-document-list">
+              {% for item in promise_due_today_documents %}
+                <label
+                  class="if-promise-document-option"
+                  data-promise-option
+                  data-search-text="{{ item.document_number }} {{ item.document_type }}"
+                >
+                  <input
+                    type="checkbox"
+                    name="selection_keys"
+                    value="{{ item.selection_key }}"
+                    data-promise-select
+                    data-document-id="{{ item.document_id|default:'' }}"
+                    data-document-number="{{ item.document_number }}"
+                    data-balance-raw="{{ item.balance_amount }}"
+                  >
+
+                  <span class="if-promise-document-main">
+                    <span class="if-promise-document-title">
+                      <strong>{{ item.document_number }}</strong>
+                      <small>{{ item.document_type }}</small>
+                    </span>
+
+                    <span class="if-promise-document-due">
+                      Vence {{ item.due_date|date:"d/m/Y" }}
+                    </span>
+                  </span>
+
+                  <span class="if-promise-document-state is-today">
+                    Hoy
+                  </span>
+
+                  <strong class="if-promise-document-amount">
+                    {{ item.balance_amount|clp }}
+                  </strong>
+                </label>
+              {% endfor %}
+            </div>
+          </section>
+        {% endif %}
+
+
+        {% if promise_upcoming_documents %}
+          <section
+            class="if-promise-document-group is-upcoming"
+            data-promise-group
+          >
+            <header>
+              <div>
+                <span class="if-promise-group-accent"></span>
+                <strong>Por vencer</strong>
+              </div>
+
+              <span>
+                {{ promise_upcoming_documents|length }}
+              </span>
+            </header>
+
+            <div class="if-promise-document-list">
+              {% for item in promise_upcoming_documents %}
+                <label
+                  class="if-promise-document-option"
+                  data-promise-option
+                  data-search-text="{{ item.document_number }} {{ item.document_type }}"
+                >
+                  <input
+                    type="checkbox"
+                    name="selection_keys"
+                    value="{{ item.selection_key }}"
+                    data-promise-select
+                    data-document-id=""
+                    data-document-number="{{ item.document_number }}"
+                    data-balance-raw="{{ item.balance_amount }}"
+                  >
+
+                  <span class="if-promise-document-main">
+                    <span class="if-promise-document-title">
+                      <strong>{{ item.document_number }}</strong>
+                      <small>{{ item.document_type }}</small>
+                    </span>
+
+                    <span class="if-promise-document-due">
+                      Vence {{ item.due_date|date:"d/m/Y" }}
+                    </span>
+                  </span>
+
+                  <span class="if-promise-document-state is-upcoming">
+                    Por vencer
+                  </span>
+
+                  <strong class="if-promise-document-amount">
+                    {{ item.balance_amount|clp }}
+                  </strong>
+                </label>
+              {% endfor %}
+            </div>
+          </section>
+        {% endif %}
+
+
+        {% if not promise_selection_documents %}
+          <div class="if-promise-empty">
+            No hay documentos con saldo disponibles para registrar un compromiso.
+          </div>
+        {% endif %}
+
+        <div
+          class="if-promise-no-results"
+          data-promise-no-results
+          hidden
+        >
+          No encontramos documentos que coincidan con la búsqueda.
+        </div>
+      </div>
+
+      <div class="if-promise-workflow-details">
+        <div class="if-promise-workflow-fields">
+          <label>
+            <span>Fecha compromiso</span>
+            {{ promise_form.promise_date }}
+          </label>
+
+          <label>
+            <span>Notas</span>
+            {{ promise_form.notes }}
+          </label>
+        </div>
+
+        <div
+          class="if-upload-field if-promise-upload"
+          data-operational-attachments
+        >
+          <label class="form-label">
+            Adjuntos
+          </label>
+
+          <div class="if-upload-picker">
+            <input
+              type="file"
+              id="id_customer_promise_attachments"
+              name="attachments"
+              multiple
+              data-operational-attachment-input
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.webp,.tif,.tiff,.zip,.msg,.eml"
+            >
+
+            <div class="if-upload-picker-content">
+              <div class="if-upload-picker-icon">
+                <i class="bi bi-cloud-arrow-up"></i>
+              </div>
+
+              <div class="if-upload-picker-copy">
+                <strong>Seleccionar archivos</strong>
+                <span>
+                  Puedes elegir varios y quitarlos antes de guardar.
+                  Máximo 30 MB por archivo.
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <p
+            class="if-upload-empty"
+            data-operational-attachment-empty
+          >
+            No hay archivos seleccionados.
+          </p>
+
+          <div
+            class="if-upload-list"
+            data-operational-attachment-list
+          ></div>
+
+          <div
+            class="if-upload-error"
+            data-operational-attachment-error
+            hidden
+          ></div>
+        </div>
+
+        <div
+          class="if-upload-progress"
+          data-upload-progress
+          hidden
+        >
+          <div class="if-upload-progress-track">
+            <div
+              class="if-upload-progress-bar"
+              data-upload-progress-bar
+              role="progressbar"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-valuenow="0"
+            ></div>
+          </div>
+
+          <span
+            class="if-upload-progress-label"
+            data-upload-progress-label
+          >
+            Preparando carga…
+          </span>
+        </div>
+      </div>
+
+      <footer class="if-promise-workflow-footer">
+        <span data-promise-footer-help>
+          Selecciona al menos un documento para continuar.
         </span>
-      </div>
-    </div>
-  </div>
 
-  <p
-    class="if-upload-empty"
-    data-operational-attachment-empty
-  >
-    No hay archivos seleccionados.
-  </p>
+        <div>
+          <button
+            type="button"
+            class="if-workflow-cancel"
+            data-close-modal
+          >
+            Cancelar
+          </button>
 
-  <div
-    class="if-upload-list"
-    data-operational-attachment-list
-  ></div>
-
-  <div
-    class="if-upload-error"
-    data-operational-attachment-error
-    hidden
-  ></div>
-</div>
-
-<div
-  class="if-upload-progress"
-  data-upload-progress
-  hidden
->
-  <div class="if-upload-progress-track">
-    <div
-      class="if-upload-progress-bar"
-      data-upload-progress-bar
-      role="progressbar"
-      aria-valuemin="0"
-      aria-valuemax="100"
-      aria-valuenow="0"
-    ></div>
-  </div>
-
-  <span
-    class="if-upload-progress-label"
-    data-upload-progress-label
-  >
-    Preparando carga…
-  </span>
-</div>
-
-
-<button
-  type="submit"
-  class="if-button-primary w-100 mt-3"
-  data-upload-submit
->
-  Registrar compromiso
-</button>
+          <button
+            type="submit"
+            class="if-customer-action-btn is-promise"
+            data-upload-submit
+            data-promise-submit
+            disabled
+          >
+            Registrar compromiso
+          </button>
+        </div>
+      </footer>
     </form>
   </section>
 </div>
@@ -304,110 +567,456 @@ document.addEventListener("DOMContentLoaded", function () {
   const bar = document.querySelector("[data-selection-bar]");
   const countLabel = document.querySelector("[data-selection-count]");
 
+  const selectAllCheckbox = document.querySelector(
+    "[data-account-select-all]"
+  );
+
   const actionModal = document.querySelector("[data-action-modal]");
   const promiseModal = document.querySelector("[data-promise-modal]");
 
-  function getSelectedDocs() {
-    return Array.from(document.querySelectorAll("[data-account-doc-checkbox]:checked"));
+  const actionButton = document.querySelector(
+    "[data-open-action-modal]"
+  );
+
+  const promiseButton = document.querySelector(
+    "[data-open-promise-modal]"
+  );
+
+  function getSelectedAccountDocs() {
+    return Array.from(
+      document.querySelectorAll(
+        "[data-account-doc-checkbox]:checked"
+      )
+    );
   }
 
   function parseAmount(raw) {
     if (!raw) return 0;
-    return Number(String(raw).replace(",", ".")) || 0;
+
+    return Number(
+      String(raw).replace(",", ".")
+    ) || 0;
   }
 
   function formatCLP(amount) {
-    return new Intl.NumberFormat("es-CL", {
-      style: "currency",
-      currency: "CLP",
-      maximumFractionDigits: 0
-    }).format(amount);
+    return new Intl.NumberFormat(
+      "es-CL",
+      {
+        style: "currency",
+        currency: "CLP",
+        maximumFractionDigits: 0
+      }
+    ).format(amount);
   }
 
   function updateSelectionBar() {
     if (!bar || !countLabel) return;
 
-    const count = getSelectedDocs().length;
+    const allDocuments = Array.from(
+      document.querySelectorAll(
+        "[data-account-doc-checkbox]"
+      )
+    );
+
+    const selected = getSelectedAccountDocs();
+    const count = selected.length;
+    const total = allDocuments.length;
+
+    if (actionButton) {
+      actionButton.disabled = count === 0;
+    }
+
+    if (selectAllCheckbox) {
+      selectAllCheckbox.disabled = total === 0;
+
+      selectAllCheckbox.checked = (
+        total > 0
+        && count === total
+      );
+
+      selectAllCheckbox.indeterminate = (
+        count > 0
+        && count < total
+      );
+    }
 
     if (count === 0) {
-      bar.hidden = true;
-      countLabel.textContent = "0 documentos seleccionados";
+      countLabel.textContent =
+        "Ningún documento seleccionado.";
       return;
     }
 
-    bar.hidden = false;
     countLabel.textContent = count === 1
       ? "1 documento seleccionado"
       : `${count} documentos seleccionados`;
   }
 
-  function fillModal(modal, hiddenSelector, summarySelector) {
-    const selected = getSelectedDocs();
-    const hiddenBox = modal.querySelector(hiddenSelector);
-    const summary = modal.querySelector(summarySelector);
-    const total = modal.querySelector("[data-promise-modal-total]");
+  function fillActionModal() {
+    if (!actionModal) return;
 
-    hiddenBox.innerHTML = "";
+    const selected = getSelectedAccountDocs();
 
-    selected.forEach(function (checkbox) {
-      const input = document.createElement("input");
-      input.type = "hidden";
-      input.name = modal === actionModal ? "document_id" : "document_ids";
-      input.value = checkbox.value;
-      hiddenBox.appendChild(input);
-    });
+    const hiddenBox = actionModal.querySelector(
+      "[data-action-hidden-documents]"
+    );
+
+    const summary = actionModal.querySelector(
+      "[data-action-modal-summary]"
+    );
+
+    if (hiddenBox) {
+      hiddenBox.innerHTML = "";
+
+      selected.forEach(function (checkbox) {
+        const input = document.createElement("input");
+
+        input.type = "hidden";
+        input.name = "document_id";
+        input.value = checkbox.value;
+
+        hiddenBox.appendChild(input);
+      });
+    }
 
     if (summary) {
       summary.textContent = selected.length === 1
         ? "1 documento seleccionado"
         : `${selected.length} documentos seleccionados`;
     }
+  }
 
-    if (total && modal === promiseModal) {
-      const amount = selected.reduce(function (sum, checkbox) {
-        return sum + parseAmount(checkbox.dataset.documentBalanceRaw);
-      }, 0);
+  function getPromiseCheckboxes() {
+    if (!promiseModal) return [];
 
-      total.textContent = "Total comprometido: " + formatCLP(amount);
+    return Array.from(
+      promiseModal.querySelectorAll("[data-promise-select]")
+    );
+  }
+
+  function getSelectedPromiseDocs() {
+    return getPromiseCheckboxes().filter(
+      function (checkbox) {
+        return checkbox.checked;
+      }
+    );
+  }
+
+  function updatePromiseSummary() {
+    if (!promiseModal) return;
+
+    const selected = getSelectedPromiseDocs();
+
+    const summary = promiseModal.querySelector(
+      "[data-promise-modal-summary]"
+    );
+
+    const total = promiseModal.querySelector(
+      "[data-promise-modal-total]"
+    );
+
+    const submit = promiseModal.querySelector(
+      "[data-promise-submit]"
+    );
+
+    const help = promiseModal.querySelector(
+      "[data-promise-footer-help]"
+    );
+
+    const amount = selected.reduce(
+      function (sum, checkbox) {
+        return sum + parseAmount(
+          checkbox.dataset.balanceRaw
+        );
+      },
+      0
+    );
+
+    if (summary) {
+      summary.textContent = selected.length === 1
+        ? "1 documento"
+        : `${selected.length} documentos`;
+    }
+
+    if (total) {
+      total.textContent = formatCLP(amount);
+    }
+
+    if (submit) {
+      submit.disabled = selected.length === 0;
+    }
+
+    if (help) {
+      help.textContent = selected.length
+        ? "La selección será validada nuevamente al registrar."
+        : "Selecciona al menos un documento para continuar.";
+    }
+  }
+
+  function preselectPromiseFromAccount() {
+    if (!promiseModal) return;
+
+    const selectedIds = new Set(
+      getSelectedAccountDocs().map(
+        function (checkbox) {
+          return String(checkbox.value);
+        }
+      )
+    );
+
+    if (!selectedIds.size) {
+      return;
+    }
+
+    getPromiseCheckboxes().forEach(
+      function (checkbox) {
+        const documentId = String(
+          checkbox.dataset.documentId || ""
+        );
+
+        if (
+          documentId
+          && selectedIds.has(documentId)
+        ) {
+          checkbox.checked = true;
+        }
+      }
+    );
+  }
+
+  function filterPromiseDocuments() {
+    if (!promiseModal) return;
+
+    const search = promiseModal.querySelector(
+      "[data-promise-search]"
+    );
+
+    const noResults = promiseModal.querySelector(
+      "[data-promise-no-results]"
+    );
+
+    const term = String(
+      search ? search.value : ""
+    )
+      .trim()
+      .toLocaleLowerCase("es");
+
+    let visibleCount = 0;
+
+    promiseModal.querySelectorAll(
+      "[data-promise-option]"
+    ).forEach(function (option) {
+      const haystack = String(
+        option.dataset.searchText || ""
+      ).toLocaleLowerCase("es");
+
+      const visible = (
+        !term || haystack.includes(term)
+      );
+
+      option.hidden = !visible;
+
+      if (visible) {
+        visibleCount += 1;
+      }
+    });
+
+    promiseModal.querySelectorAll(
+      "[data-promise-group]"
+    ).forEach(function (group) {
+      const hasVisible = Array.from(
+        group.querySelectorAll(
+          "[data-promise-option]"
+        )
+      ).some(function (option) {
+        return !option.hidden;
+      });
+
+      group.hidden = !hasVisible;
+    });
+
+    if (noResults) {
+      noResults.hidden = visibleCount !== 0;
     }
   }
 
   function openModal(modal) {
-    if (!modal || !getSelectedDocs().length) return;
+    if (!modal) return;
+
     modal.hidden = false;
+    document.body.classList.add("if-modal-open");
   }
 
   function closeModals() {
-    document.querySelectorAll(".if-modal").forEach(function (modal) {
-      modal.hidden = true;
-    });
+    document.querySelectorAll(".if-modal").forEach(
+      function (modal) {
+        modal.hidden = true;
+      }
+    );
+
+    document.body.classList.remove("if-modal-open");
   }
 
-  document.querySelectorAll("[data-account-doc-checkbox]").forEach(function (checkbox) {
-    checkbox.addEventListener("change", updateSelectionBar);
+  document.querySelectorAll(
+    "[data-account-doc-checkbox]"
+  ).forEach(function (checkbox) {
+    checkbox.addEventListener(
+      "change",
+      updateSelectionBar
+    );
   });
 
-  const actionButton = document.querySelector("[data-open-action-modal]");
+  if (selectAllCheckbox) {
+    selectAllCheckbox.addEventListener(
+      "change",
+      function () {
+        const checked = selectAllCheckbox.checked;
+
+        document.querySelectorAll(
+          "[data-account-doc-checkbox]"
+        ).forEach(function (checkbox) {
+          checkbox.checked = checked;
+        });
+
+        updateSelectionBar();
+      }
+    );
+  }
+
   if (actionButton) {
-    actionButton.addEventListener("click", function () {
-      fillModal(actionModal, "[data-action-hidden-documents]", "[data-action-modal-summary]");
-      openModal(actionModal);
-    });
+    actionButton.addEventListener(
+      "click",
+      function () {
+        if (!getSelectedAccountDocs().length) {
+          return;
+        }
+
+        fillActionModal();
+        openModal(actionModal);
+      }
+    );
   }
 
-  const promiseButton = document.querySelector("[data-open-promise-modal]");
   if (promiseButton) {
-    promiseButton.addEventListener("click", function () {
-      fillModal(promiseModal, "[data-promise-hidden-documents]", "[data-promise-modal-summary]");
-      openModal(promiseModal);
-    });
+    promiseButton.addEventListener(
+      "click",
+      function () {
+        preselectPromiseFromAccount();
+        updatePromiseSummary();
+        filterPromiseDocuments();
+        openModal(promiseModal);
+
+        const search = promiseModal
+          ? promiseModal.querySelector(
+              "[data-promise-search]"
+            )
+          : null;
+
+        if (search) {
+          window.setTimeout(
+            function () {
+              search.focus();
+            },
+            50
+          );
+        }
+      }
+    );
   }
 
-  document.querySelectorAll("[data-close-modal]").forEach(function (button) {
-    button.addEventListener("click", closeModals);
+  if (promiseModal) {
+    getPromiseCheckboxes().forEach(
+      function (checkbox) {
+        checkbox.addEventListener(
+          "change",
+          updatePromiseSummary
+        );
+      }
+    );
+
+    const search = promiseModal.querySelector(
+      "[data-promise-search]"
+    );
+
+    if (search) {
+      search.addEventListener(
+        "input",
+        filterPromiseDocuments
+      );
+    }
+
+    const selectAll = promiseModal.querySelector(
+      "[data-promise-select-all]"
+    );
+
+    if (selectAll) {
+      selectAll.addEventListener(
+        "click",
+        function () {
+          promiseModal.querySelectorAll(
+            "[data-promise-option]"
+          ).forEach(function (option) {
+            if (option.hidden) return;
+
+            const checkbox = option.querySelector(
+              "[data-promise-select]"
+            );
+
+            if (checkbox) {
+              checkbox.checked = true;
+            }
+          });
+
+          updatePromiseSummary();
+        }
+      );
+    }
+
+    const clear = promiseModal.querySelector(
+      "[data-promise-clear]"
+    );
+
+    if (clear) {
+      clear.addEventListener(
+        "click",
+        function () {
+          getPromiseCheckboxes().forEach(
+            function (checkbox) {
+              checkbox.checked = false;
+            }
+          );
+
+          updatePromiseSummary();
+        }
+      );
+    }
+  }
+
+  document.querySelectorAll(
+    "[data-close-modal]"
+  ).forEach(function (button) {
+    button.addEventListener(
+      "click",
+      closeModals
+    );
   });
+
+  document.addEventListener(
+    "keydown",
+    function (event) {
+      if (
+        event.key === "Escape"
+        && (
+          (actionModal && !actionModal.hidden)
+          || (promiseModal && !promiseModal.hidden)
+        )
+      ) {
+        closeModals();
+      }
+    }
+  );
 
   updateSelectionBar();
+  updatePromiseSummary();
 });
 </script>
 

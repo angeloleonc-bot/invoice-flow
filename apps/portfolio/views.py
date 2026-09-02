@@ -19,8 +19,15 @@ from apps.management.services.actions import (
 )
 
 from apps.portfolio.models import CustomerStatement
+from apps.portfolio.services.customer_statements import (
+    CATEGORY_DUE_TODAY,
+    CATEGORY_OVERDUE,
+    CATEGORY_UPCOMING,
+    CustomerStatementService,
+)
 from apps.management.services.promises import (
     create_payment_promise_batch,
+    create_payment_promise_from_selection,
 )
 
 from django.contrib import messages
@@ -730,16 +737,7 @@ def customer_detail(request, customer_id):
                     )
 
         elif form_type == "promise":
-            document_ids = request.POST.getlist("document_ids")
-
-            if not document_ids:
-                messages.error(request, "Debe seleccionar al menos un documento.")
-                return redirect("portfolio:customer_detail", customer_id=customer.id)
-
-            selected_documents = Document.objects.filter(
-                customer=customer,
-                id__in=document_ids,
-            )
+            selected_keys = request.POST.getlist("selection_keys")
 
             promise_form = WorkspacePaymentPromiseForm(
                 request.POST,
@@ -748,10 +746,18 @@ def customer_detail(request, customer_id):
 
             if promise_form.is_valid():
                 try:
-                    result = create_payment_promise_batch(
+                    selected_documents = (
+                        CustomerStatementService
+                        .resolve_selected_documents(
+                            customer=customer,
+                            selected_keys=selected_keys,
+                        )
+                    )
+
+                    result = create_payment_promise_from_selection(
                         form=promise_form,
                         customer=customer,
-                        documents=selected_documents,
+                        selected_documents=selected_documents,
                         created_by=(
                             request.user
                             if request.user.is_authenticated
@@ -791,6 +797,30 @@ def customer_detail(request, customer_id):
                         "portfolio:customer_detail",
                         customer_id=customer.id,
                     )
+
+    promise_selection_documents = (
+        CustomerStatementService.available_documents(
+            customer=customer,
+        )
+    )
+
+    promise_overdue_documents = [
+        item
+        for item in promise_selection_documents
+        if item.category == CATEGORY_OVERDUE
+    ]
+
+    promise_due_today_documents = [
+        item
+        for item in promise_selection_documents
+        if item.category == CATEGORY_DUE_TODAY
+    ]
+
+    promise_upcoming_documents = [
+        item
+        for item in promise_selection_documents
+        if item.category == CATEGORY_UPCOMING
+    ]
 
     account_view = request.GET.get("view", "pending")
 
@@ -1353,6 +1383,10 @@ def customer_detail(request, customer_id):
             "account_documents_count": account_documents_count,
             "account_view": account_view,
             "open_documents": open_documents,
+            "promise_selection_documents": promise_selection_documents,
+            "promise_overdue_documents": promise_overdue_documents,
+            "promise_due_today_documents": promise_due_today_documents,
+            "promise_upcoming_documents": promise_upcoming_documents,
             "latest_documents": latest_documents,
             "latest_payments": latest_payments,
             "latest_credit_notes": latest_credit_notes,

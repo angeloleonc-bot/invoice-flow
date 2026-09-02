@@ -32,6 +32,28 @@ from urllib.parse import urlencode
 from django.core.paginator import Paginator
 from django.utils.dateparse import parse_date
 
+def _promise_relation_document_number(relation):
+    """
+    Devuelve el número de documento visible de una PromiseDocument.
+
+    - Relaciones históricas/operacionales:
+      usa Document.document_number.
+
+    - Relaciones anticipadas:
+      usa el snapshot source_document_number.
+
+    Nunca exige que relation.document exista.
+    """
+    if relation.document_id is not None and relation.document is not None:
+        return str(
+            relation.document.document_number or ""
+        ).strip()
+
+    return str(
+        relation.source_document_number or ""
+    ).strip()
+
+
 def documents_list(request):
     search_query = request.GET.get("q", "").strip()
     requested_status = request.GET.get("status", "").strip()
@@ -1164,8 +1186,12 @@ def customer_detail(request, customer_id):
 
     for promise in promises:
         promise_docs = [
-            relation.document.document_number
+            document_number
             for relation in promise.promise_documents.all()
+            if (
+                document_number
+                := _promise_relation_document_number(relation)
+            )
         ]
 
         docs_text = ", ".join(promise_docs)

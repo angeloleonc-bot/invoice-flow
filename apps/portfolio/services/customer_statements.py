@@ -164,14 +164,29 @@ class CustomerStatementService:
         )
 
     @classmethod
-    def build_snapshot(
+    def resolve_selected_documents(
         cls,
         *,
         customer: Customer,
         selected_keys: Iterable[str],
         as_of_date: date | None = None,
-    ) -> dict:
+    ) -> list[StatementDocument]:
+        """
+        Resuelve una selección enviada por el cliente contra la
+        representación vigente de documentos disponibles.
 
+        La selection_key nunca se considera una identidad confiable
+        por sí sola. Siempre se vuelve a resolver dentro del alcance
+        del Customer recibido.
+
+        Garantías:
+        - elimina claves vacías y duplicadas conservando el orden;
+        - exige al menos un documento;
+        - impide seleccionar documentos de otro cliente;
+        - impide seleccionar documentos que dejaron de estar vigentes;
+        - permite mezclar Document y Fact_Vta_Sin_Vencer;
+        - no crea ni modifica Document.
+        """
         as_of_date = (
             as_of_date
             or timezone.localdate()
@@ -208,14 +223,35 @@ class CustomerStatementService:
 
         if invalid:
             raise ValidationError(
-                "La selección contiene documentos que ya "
-                "no son válidos para este Estado de Cuenta."
+                "La selección contiene uno o más documentos "
+                "que no existen, no pertenecen al cliente o "
+                "ya no están disponibles."
             )
 
-        documents = [
+        return [
             by_key[key]
             for key in normalized_keys
         ]
+
+    @classmethod
+    def build_snapshot(
+        cls,
+        *,
+        customer: Customer,
+        selected_keys: Iterable[str],
+        as_of_date: date | None = None,
+    ) -> dict:
+
+        as_of_date = (
+            as_of_date
+            or timezone.localdate()
+        )
+
+        documents = cls.resolve_selected_documents(
+            customer=customer,
+            selected_keys=selected_keys,
+            as_of_date=as_of_date,
+        )
 
         totals = {
             CATEGORY_OVERDUE: Decimal("0"),

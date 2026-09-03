@@ -187,6 +187,7 @@ class PromiseDocument(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["promise", "document"],
+                condition=models.Q(document__isnull=False),
                 name="unique_promise_document",
             ),
         ]

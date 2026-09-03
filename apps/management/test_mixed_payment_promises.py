@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import timedelta
 from decimal import Decimal
 
@@ -429,6 +430,54 @@ class MixedPaymentPromiseServiceTests(TestCase):
 
         self.assertEqual(
             PaymentPromise.objects.count(),
+            0,
+        )
+
+    def test_multiple_upcoming_documents_can_share_one_promise(self):
+        second_upcoming = replace(
+            self.upcoming_item,
+            selection_key=(
+                "upcoming:TRANS-UPCOMING-002:"
+                "DOCENTRY-UPCOMING-002:UPCOMING-002"
+            ),
+            trans_id="TRANS-UPCOMING-002",
+            doc_entry="DOCENTRY-UPCOMING-002",
+            document_number="UPCOMING-002",
+            original_amount=Decimal("125000.00"),
+            balance_amount=Decimal("125000.00"),
+        )
+
+        result = create_payment_promise_from_selection(
+            form=self.make_form(),
+            customer=self.customer,
+            selected_documents=[
+                self.upcoming_item,
+                second_upcoming,
+            ],
+        )
+
+        promise = result["promise"]
+
+        relations = PromiseDocument.objects.filter(
+            promise=promise,
+            document__isnull=True,
+        )
+
+        self.assertEqual(relations.count(), 2)
+        self.assertEqual(
+            promise.promised_amount,
+            Decimal("375000.00"),
+        )
+        self.assertEqual(
+            len(result["external_relations"]),
+            2,
+        )
+        self.assertEqual(
+            len(result["real_relations"]),
+            0,
+        )
+        self.assertEqual(
+            len(result["actions"]),
             0,
         )
 

@@ -32,6 +32,9 @@ from apps.portfolio.models import (
     CustomerStatement,
     DocumentAssignment,
 )
+from apps.portfolio.services.statement_repository import (
+    UpcomingStatementRepository,
+)
 from apps.portfolio.services.customer_statements import (
     CATEGORY_DUE_TODAY,
     CATEGORY_OVERDUE,
@@ -78,11 +81,25 @@ def _can_send_statement(user, customer: Customer) -> bool:
     }:
         return True
 
-    return DocumentAssignment.objects.filter(
-        document__customer=customer,
-        assigned_to=user,
-        is_active=True,
-    ).exists()
+    has_operational_assignment = (
+        DocumentAssignment.objects.filter(
+            document__customer=customer,
+            assigned_to=user,
+            is_active=True,
+        ).exists()
+    )
+
+    if has_operational_assignment:
+        return True
+
+    return (
+        UpcomingStatementRepository
+        .is_assigned_to_collector(
+            customer=customer,
+            collector_email=user.email,
+            as_of_date=timezone.localdate(),
+        )
+    )
 
 
 def _get_statement_for_user(

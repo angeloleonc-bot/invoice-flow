@@ -57,6 +57,55 @@ class UpcomingStatementRepository:
     SOURCE_TABLE = "dbo.Fact_Vta_Sin_Vencer"
 
     @classmethod
+    def is_assigned_to_collector(
+        cls,
+        *,
+        customer: Customer,
+        collector_email: str,
+        as_of_date: date,
+    ) -> bool:
+        """
+        Indica si la fuente de documentos por vencer
+        asigna actualmente el cliente al cobrador indicado.
+
+        Es una consulta estrictamente READ ONLY.
+        """
+
+        normalized_email = str(
+            collector_email or ""
+        ).strip()
+
+        if not normalized_email:
+            return False
+
+        sql = f"""
+        SELECT TOP 1
+            1
+        FROM {cls.SOURCE_TABLE}
+        WHERE
+            Id = %s
+            AND Saldo_Doc > 0
+            AND Vencimiento_Documento >= %s
+            AND Cobrador_Email IS NOT NULL
+            AND LOWER(
+                LTRIM(RTRIM(Cobrador_Email))
+            ) = LOWER(%s)
+        """
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                sql,
+                [
+                    str(customer.external_id),
+                    as_of_date,
+                    normalized_email,
+                ],
+            )
+
+            return cursor.fetchone() is not None
+
+
+    @classmethod
     def for_customer(
         cls,
         *,

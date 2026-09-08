@@ -109,7 +109,15 @@ def upload_attachment_to_s3(*, target, uploaded_file):
             ExtraArgs={
                 "ContentType": metadata["mime_type"],
                 "Metadata": {
-                    "original-filename": metadata["original_filename"],
+                    # Los metadatos personalizados de S3 viajan como
+                    # cabeceras HTTP. El nombre visible puede contener
+                    # Unicode (tildes, ñ, etc.), por lo que se codifica
+                    # únicamente para S3. El nombre original se conserva
+                    # intacto en OperationalAttachment.original_filename.
+                    "original-filename": quote(
+                        metadata["original_filename"],
+                        safe="",
+                    ),
                     "target-model": target._meta.label_lower,
                     "target-id": str(target.pk),
                 },

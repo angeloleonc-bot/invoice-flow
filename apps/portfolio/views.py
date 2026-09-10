@@ -7,6 +7,7 @@ from decimal import Decimal
 from datetime import datetime, time
 from .models import Customer, CustomerContact, Document, DocumentAssignment, PaymentRecord
 from apps.management.models import CollectionAction, PaymentPromise
+from apps.management.services.operational_portfolio import OperationalPortfolioService
 from .services.workload import WorkloadRecommendationService, WorkloadService
 from apps.portfolio.models import (
     CreditNoteApplication,
@@ -38,6 +39,131 @@ from urllib.parse import urlencode
 
 from django.core.paginator import Paginator
 from django.utils.dateparse import parse_date
+
+
+
+def _build_customer_last_management(
+    *,
+    actions,
+    sent_customer_statements,
+):
+    """
+    Devuelve el último hito comercial visible del cliente.
+
+    Fuentes válidas:
+    - CollectionAction;
+    - CustomerStatement efectivamente enviado.
+
+    CustomerStatement no se transforma en CollectionAction: continúa
+    siendo un evento de cliente independiente y no se asocia
+    artificialmente a un documento.
+    """
+
+    last_management = None
+
+    latest_action = max(
+        actions,
+        key=lambda action: (
+            action.action_date
+            or action.created_at
+        ),
+        default=None,
+    )
+
+    if latest_action:
+        action_user = latest_action.performed_by
+
+        if action_user:
+            action_user_label = (
+                action_user.get_full_name()
+                or action_user.email
+                or action_user.username
+            )
+        else:
+            action_user_label = "Sistema"
+
+        last_management = {
+            "type": "collection_action",
+            "date": (
+                latest_action.action_date
+                or latest_action.created_at
+            ),
+            "title": (
+                latest_action.title
+                or "Gestión registrada"
+            ),
+            "description": (
+                latest_action.description
+                or ""
+            ),
+            "user_label": action_user_label,
+        }
+
+    latest_statement = next(
+        iter(sent_customer_statements),
+        None,
+    )
+
+    if latest_statement:
+        statement_date = (
+            latest_statement.sent_at
+            or latest_statement.updated_at
+        )
+
+        current_date = (
+            last_management["date"]
+            if last_management
+            else None
+        )
+
+        if (
+            statement_date
+            and (
+                current_date is None
+                or statement_date > current_date
+            )
+        ):
+            recipient_text = ", ".join(
+                latest_statement.to_emails or []
+            )
+
+            statement_user = latest_statement.created_by
+
+            if statement_user:
+                statement_user_label = (
+                    statement_user.get_full_name()
+                    or statement_user.email
+                    or statement_user.username
+                )
+            else:
+                statement_user_label = "Sistema"
+
+            description_parts = []
+
+            if recipient_text:
+                description_parts.append(
+                    f"Para: {recipient_text}"
+                )
+
+            description_parts.append(
+                (
+                    f"{latest_statement.document_count} "
+                    f"documento"
+                    f"{'s' if latest_statement.document_count != 1 else ''}"
+                )
+            )
+
+            last_management = {
+                "type": "customer_statement",
+                "date": statement_date,
+                "title": "Estado de cuenta enviado",
+                "description": " · ".join(
+                    description_parts
+                ),
+                "user_label": statement_user_label,
+            }
+
+    return last_management
 
 def _promise_relation_document_number(relation):
     """
@@ -475,6 +601,132 @@ def customers_list(request):
     )
 
     customers = page_obj.object_list
+
+
+    # -----------------------------------------------------------------
+    # Ultima gestion visible por cliente.
+    #
+    # Considera exclusivamente:
+    # - CollectionAction comerciales definidas centralmente en
+    #   OperationalPortfolioService;
+    # - CustomerStatement efectivamente enviados.
+    #
+    # Los eventos tecnicos de OperationalAlert quedan excluidos.
+    #
+    # Se calcula solo para los clientes de la pagina actual para evitar
+    # enriquecer innecesariamente los 300+ clientes del listado.
+    # -----------------------------------------------------------------
+
+    page_customer_ids = [
+        customer.id
+        for customer in customers
+    ]
+
+    action_type_labels = dict(
+        CollectionAction.ActionType.choices
+    )
+
+    latest_actions_by_customer = {}
+
+    if page_customer_ids:
+        latest_actions = (
+            OperationalPortfolioService
+            .collection_actions()
+            .filter(
+                customer_id__in=page_customer_ids,
+            )
+            .values(
+                "customer_id",
+                "action_date",
+                "action_type",
+                "created_at",
+            )
+            .order_by(
+                "customer_id",
+                "-action_date",
+                "-created_at",
+            )
+        )
+
+        for action in latest_actions:
+            customer_id = action["customer_id"]
+
+            if customer_id not in latest_actions_by_customer:
+                latest_actions_by_customer[customer_id] = action
+
+    latest_statements_by_customer = {}
+
+    if page_customer_ids:
+        latest_statements = (
+            CustomerStatement.objects
+            .filter(
+                customer_id__in=page_customer_ids,
+                status=CustomerStatement.Status.SENT,
+                sent_at__isnull=False,
+            )
+            .values(
+                "customer_id",
+                "sent_at",
+                "created_at",
+            )
+            .order_by(
+                "customer_id",
+                "-sent_at",
+                "-created_at",
+            )
+        )
+
+        for statement in latest_statements:
+            customer_id = statement["customer_id"]
+
+            if customer_id not in latest_statements_by_customer:
+                latest_statements_by_customer[customer_id] = statement
+
+    for customer in customers:
+
+        latest_action = latest_actions_by_customer.get(
+            customer.id
+        )
+
+        latest_statement = latest_statements_by_customer.get(
+            customer.id
+        )
+
+        action_date = (
+            latest_action["action_date"]
+            if latest_action
+            else None
+        )
+
+        statement_date = (
+            latest_statement["sent_at"]
+            if latest_statement
+            else None
+        )
+
+        customer.latest_management_date = None
+        customer.latest_management_title = "Sin gestion"
+        customer.latest_management_type = ""
+
+        if statement_date and (
+            not action_date
+            or statement_date > action_date
+        ):
+            customer.latest_management_date = statement_date
+            customer.latest_management_title = "Estado de cuenta"
+            customer.latest_management_type = "customer_statement"
+
+        elif action_date:
+            customer.latest_management_date = action_date
+            customer.latest_management_title = (
+                action_type_labels.get(
+                    latest_action["action_type"],
+                    latest_action["action_type"],
+                )
+                or "Gestion registrada"
+            )
+            customer.latest_management_type = "collection_action"
+
 
     pagination_params = request.GET.copy()
     pagination_params.pop("page", None)
@@ -1058,6 +1310,11 @@ def customer_detail(request, customer_id):
         )
     )
 
+    last_management = _build_customer_last_management(
+        actions=actions,
+        sent_customer_statements=sent_customer_statements,
+    )
+
     for statement in sent_customer_statements:
 
         recipient_text = ", ".join(
@@ -1403,6 +1660,7 @@ def customer_detail(request, customer_id):
             "active_promises": promise_kpis["active_promises"] or 0,
             "expired_promises": promise_kpis["expired_promises"] or 0,
             "last_action": last_action,
+            "last_management": last_management,
             "payments": payments,
             "total_paid": total_paid,
             "credit_notes": credit_notes,

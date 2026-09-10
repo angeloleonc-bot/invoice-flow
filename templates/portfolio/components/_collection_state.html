@@ -13,12 +13,12 @@
 
       <span>Última gestión</span>
 
-      {% if last_action %}
+      {% if last_management %}
 
-        <h3>{{ last_action.title|default:"Gestión registrada" }}</h3>
+        <h3>{{ last_management.title }}</h3>
 
-        {% if last_action.description %}
-          <p>{{ last_action.description }}</p>
+        {% if last_management.description %}
+          <p>{{ last_management.description }}</p>
         {% else %}
           <p>La gestión no tiene una descripción adicional.</p>
         {% endif %}
@@ -26,12 +26,16 @@
         <div class="if-call-meta">
           <small>
             <i class="bi bi-calendar-event"></i>
-            {{ last_action.created_at|human_datetime }}
+            {{ last_management.date|human_datetime }}
           </small>
 
           <small>
-            <i class="bi bi-person"></i>
-            {{ last_action.performed_by.get_full_name|default:last_action.performed_by.username }}
+            {% if last_management.type == "customer_statement" %}
+              <i class="bi bi-envelope-check"></i>
+            {% else %}
+              <i class="bi bi-person"></i>
+            {% endif %}
+            {{ last_management.user_label }}
           </small>
         </div>
 

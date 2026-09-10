@@ -5,6 +5,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from apps.management.models import CollectionAction, PaymentPromise, PriorityRule
+from apps.management.services.operational_portfolio import OperationalPortfolioService
 
 
 class WorklistPriorityService:
@@ -170,7 +171,8 @@ class WorklistPriorityService:
             return set()
 
         return set(
-            CollectionAction.objects.filter(
+            OperationalPortfolioService.collection_actions()
+            .filter(
                 document_id__in=document_ids,
                 action_date__gte=self.recent_management_limit,
             )
@@ -290,12 +292,17 @@ class WorklistPriorityService:
         return self._document_has_tag(document, "Cliente crítico")
 
     def _has_no_management_7_days(self, document):
+        if not OperationalPortfolioService.is_operational_document(
+            document
+        ):
+            return False
+
         limit_date = timezone.now() - timedelta(days=7)
 
-        return not CollectionAction.objects.filter(
+        return not OperationalPortfolioService.has_collection_management_since(
             document=document,
-            action_date__gte=limit_date,
-        ).exists()
+            since=limit_date,
+        )
 
     def _has_upcoming_due_date(self, document):
         if not getattr(document, "due_date", None):

@@ -1,4 +1,4 @@
-from datetime import timedelta,datetime, time
+﻿from datetime import timedelta,datetime, time
 from django.db.models import (
     Case,
     Count,
@@ -26,6 +26,7 @@ from apps.portfolio.models import (
     PaymentRecord,
     CreditNoteApplication,
     ManualReconciliationApplication,
+    CustomerStatement,
 )
 from .forms import CollectionActionForm, PaymentPromiseForm
 from .models import CollectionAction, PaymentPromise, PromiseDocument
@@ -315,6 +316,18 @@ def my_work(request):
         "-created_at",
     )
 
+    sent_customer_statements = (
+        CustomerStatement.objects
+        .filter(
+            customer_id=OuterRef("pk"),
+            status=CustomerStatement.Status.SENT,
+        )
+        .order_by(
+            "-sent_at",
+            "-created_at",
+        )
+    )
+
     relevant_promises = (
         PaymentPromise.objects
         .filter(
@@ -444,6 +457,9 @@ def my_work(request):
             last_action_type=Subquery(
                 scoped_actions.values("action_type")[:1]
             ),
+            last_statement_date=Subquery(
+                sent_customer_statements.values("sent_at")[:1]
+            ),
             promise_date=Subquery(
                 relevant_promises.values("promise_date")[:1]
             ),
@@ -500,8 +516,14 @@ def my_work(request):
         )
 
     elif selected_filter == "without_management":
+        # "Sin gestión" significa que el cliente nunca ha tenido una
+        # gestión comercial real ni un Estado de Cuenta enviado.
+        #
+        # La señal de seguimiento a 7 días se mantiene separada en
+        # customer.needs_followup / WorkspacePortfolioService.
         customers = customers.filter(
             last_action_date__isnull=True,
+            last_statement_date__isnull=True,
         )
 
     elif selected_filter == "with_credit":
@@ -648,6 +670,16 @@ def my_work(request):
         .get_review_reasons_by_customer(customer_ids)
     )
 
+    followup_customer_ids = (
+        workspace_service
+        .get_followup_customer_ids(customer_ids)
+    )
+
+    priority_by_customer = (
+        workspace_service
+        .get_priority_by_customer(customer_ids)
+    )
+
     financial_summary = (
         workspace_service
         .get_page_financial_summary(customer_ids)
@@ -780,6 +812,48 @@ def my_work(request):
             customer.id,
         )
 
+        customer.needs_followup = (
+            customer.id in followup_customer_ids
+        )
+
+        priority_info = priority_by_customer.get(
+            customer.id,
+        )
+
+        customer.is_priority = (
+            priority_info is not None
+        )
+
+        customer.priority_score = (
+            priority_info["priority_score"]
+            if priority_info
+            else 0
+        )
+
+        customer.priority_document_count = (
+            priority_info[
+                "priority_document_count"
+            ]
+            if priority_info
+            else 0
+        )
+
+        customer.main_priority_reason = (
+            priority_info[
+                "main_priority_reason"
+            ]
+            if priority_info
+            else ""
+        )
+
+        customer.priority_reasons = (
+            priority_info[
+                "priority_reasons"
+            ]
+            if priority_info
+            else []
+        )
+
         customer.requires_review = review_reason is not None
         customer.review_reason_key = (
             review_reason["key"]
@@ -812,6 +886,46 @@ def my_work(request):
             else ""
         )
 
+        customer.latest_customer_hito_type = ""
+        customer.latest_customer_hito_label = ""
+        customer.latest_customer_hito_title = ""
+        customer.latest_customer_hito_date = None
+
+        action_date = customer.last_action_date
+        statement_date = customer.last_statement_date
+
+        if statement_date and (
+            not action_date
+            or statement_date > action_date
+        ):
+            customer.latest_customer_hito_type = (
+                "customer_statement"
+            )
+            customer.latest_customer_hito_label = (
+                "Estado de cuenta"
+            )
+            customer.latest_customer_hito_title = (
+                "Estado de cuenta enviado"
+            )
+            customer.latest_customer_hito_date = (
+                statement_date
+            )
+
+        elif action_date:
+            customer.latest_customer_hito_type = (
+                "collection_action"
+            )
+            customer.latest_customer_hito_label = (
+                "Última gestión"
+            )
+            customer.latest_customer_hito_title = (
+                customer.last_action_type_label
+                or "Gestión registrada"
+            )
+            customer.latest_customer_hito_date = (
+                action_date
+            )
+
         customer.promise_status_label = (
             promise_status_labels.get(
                 customer.promise_status,
@@ -837,9 +951,9 @@ def my_work(request):
             customer.operational_status = "promise_active"
             customer.operational_label = "Promesa vigente"
 
-        elif not customer.last_action_date:
+        elif customer.needs_followup:
             customer.operational_status = "without_management"
-            customer.operational_label = "Sin gestión"
+            customer.operational_label = "Sin gestión 7 días"
 
         elif customer.has_active_alert:
             customer.operational_status = "attention"
@@ -935,6 +1049,7 @@ def my_work(request):
     }
 
     review_summary = workspace_service.get_review_summary()
+    followup_summary = workspace_service.get_followup_summary()
 
     context = {
         "customers": customers,
@@ -966,7 +1081,9 @@ def my_work(request):
         "kpi_attention_customers": kpis["attention_customers"] or 0,
         "kpi_expired_promises": kpis["expired_promises"] or 0,
         "kpi_review_customers": review_summary["total"],
+        "kpi_followup_customers": followup_summary["total"],
         "review_summary": review_summary,
+        "followup_summary": followup_summary,
     }
 
     return render(

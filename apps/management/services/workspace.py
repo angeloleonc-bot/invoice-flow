@@ -22,13 +22,18 @@ from apps.management.models import (
     OperationalAlert,
     PaymentPromise,
 )
+from apps.management.services.operational_portfolio import OperationalPortfolioService
+from apps.management.services.prioritization import WorklistPriorityService
 from apps.portfolio.models import (
+    CustomerStatement,
     Document,
     DocumentAssignment,
 )
 
 
 class WorkspacePortfolioService:
+    PRIORITY_MIN_SCORE = 100
+
     """
     Servicios específicos del Workspace Operacional.
 
@@ -68,6 +73,9 @@ class WorkspacePortfolioService:
         self.selected_collector_user = selected_collector_user
         self.today = timezone.localdate()
         self.now = timezone.now()
+        self.followup_limit = (
+            self.now - timedelta(days=7)
+        )
 
         self.zero_decimal = Value(
             Decimal("0.00"),
@@ -107,8 +115,14 @@ class WorkspacePortfolioService:
         return queryset
 
     def visible_open_documents(self):
+        operational_document_ids = (
+            OperationalPortfolioService
+            .operational_documents()
+            .values_list("id", flat=True)
+        )
+
         return self.visible_documents().filter(
-            balance_amount__gt=0,
+            id__in=operational_document_ids,
         )
 
     def visible_portfolio_documents(self):
@@ -134,8 +148,12 @@ class WorkspacePortfolioService:
         )
 
     def scoped_actions(self):
-        queryset = CollectionAction.objects.filter(
-            document__assignments__is_active=True,
+        queryset = (
+            OperationalPortfolioService
+            .collection_actions()
+            .filter(
+                document__assignments__is_active=True,
+            )
         )
 
         if self.selected_scope == "my":
@@ -151,6 +169,125 @@ class WorkspacePortfolioService:
             )
 
         return queryset
+
+    def get_recently_managed_customer_ids(
+        self,
+        customer_ids=None,
+    ):
+        """
+        Clientes con actividad real de cobranza dentro
+        de los últimos 7 días.
+
+        Cuenta como gestión reciente:
+
+        - CollectionAction comercial real.
+        - Estado de cuenta efectivamente enviado.
+
+        Se excluyen eventos técnicos de alertas.
+        """
+
+        requested_ids = None
+
+        if customer_ids is not None:
+            requested_ids = set(customer_ids)
+
+            if not requested_ids:
+                return set()
+
+        actions = (
+            self.scoped_actions()
+            .filter(
+                action_date__gte=self.followup_limit,
+            )
+            .exclude(customer_id__isnull=True)
+        )
+
+        if requested_ids is not None:
+            actions = actions.filter(
+                customer_id__in=requested_ids,
+            )
+
+        managed_by_action = set(
+            actions
+            .values_list(
+                "customer_id",
+                flat=True,
+            )
+            .distinct()
+        )
+
+        statements = (
+            CustomerStatement.objects
+            .filter(
+                status=CustomerStatement.Status.SENT,
+                sent_at__gte=self.followup_limit,
+            )
+            .exclude(customer_id__isnull=True)
+        )
+
+        if requested_ids is not None:
+            statements = statements.filter(
+                customer_id__in=requested_ids,
+            )
+
+        managed_by_statement = set(
+            statements
+            .values_list(
+                "customer_id",
+                flat=True,
+            )
+            .distinct()
+        )
+
+        return (
+            managed_by_action
+            | managed_by_statement
+        )
+
+    def get_followup_customer_ids(
+        self,
+        customer_ids=None,
+    ):
+        """
+        Clientes con cartera operacional abierta que requieren
+        seguimiento por ausencia de gestión comercial en 7 días.
+
+        Tener varios documentos no multiplica la señal.
+        """
+
+        open_customer_ids = set(
+            self.visible_open_documents()
+            .values_list(
+                "customer_id",
+                flat=True,
+            )
+            .distinct()
+        )
+
+        if customer_ids is not None:
+            requested_ids = set(customer_ids)
+            open_customer_ids &= requested_ids
+
+        if not open_customer_ids:
+            return set()
+
+        recently_managed_customer_ids = (
+            self.get_recently_managed_customer_ids(
+                open_customer_ids
+            )
+        )
+
+        return (
+            open_customer_ids
+            - recently_managed_customer_ids
+        )
+
+    def get_followup_summary(self):
+        customer_ids = self.get_followup_customer_ids()
+
+        return {
+            "total": len(customer_ids),
+        }
 
     def active_alerts(self):
         return OperationalAlert.objects.filter(
@@ -402,23 +539,16 @@ class WorkspacePortfolioService:
             .distinct()
         )
 
-        managed_customer_ids = set(
-            self.scoped_actions()
-            .filter(
-                customer_id__in=active_customer_ids,
+        followup_customer_ids = (
+            self.get_followup_customer_ids(
+                active_customer_ids
             )
-            .values_list("customer_id", flat=True)
-            .distinct()
-        )
-
-        customers_without_management = (
-            active_customer_ids - managed_customer_ids
         )
 
         attention_customer_ids = (
             expired_promise_customer_ids
             | active_alert_customer_ids
-            | customers_without_management
+            | followup_customer_ids
         )
 
         return {
@@ -597,6 +727,129 @@ class WorkspacePortfolioService:
             )
 
         return summary
+
+    def get_priority_by_customer(self, customer_ids):
+        """
+        Agrega prioridad documental a nivel cliente.
+
+        Principios:
+        - no excluye clientes;
+        - no suma scores entre documentos;
+        - el score del cliente corresponde al documento
+          abierto de mayor prioridad;
+        - sólo se considera prioritario cuando ese máximo
+          alcanza PRIORITY_MIN_SCORE;
+        - NO_MANAGEMENT_7_DAYS no participa aquí:
+          esa señal pertenece al seguimiento por cliente.
+        """
+
+        customer_ids = set(customer_ids)
+
+        if not customer_ids:
+            return {}
+
+        documents = list(
+            self.visible_open_documents()
+            .filter(
+                customer_id__in=customer_ids,
+            )
+            .select_related(
+                "customer",
+                "status",
+            )
+        )
+
+        if not documents:
+            return {}
+
+        priority_service = WorklistPriorityService()
+
+        evaluations = (
+            priority_service.evaluate_documents_bulk(
+                documents
+            )
+        )
+
+        result = {}
+
+        for document in documents:
+            evaluation = evaluations.get(
+                document.id,
+                {},
+            )
+
+            applied_rules = [
+                rule
+                for rule in evaluation.get(
+                    "applied_priority_rules",
+                    [],
+                )
+                if rule.get("code")
+                != (
+                    WorklistPriorityService
+                    .RULE_NO_MANAGEMENT_7_DAYS
+                )
+            ]
+
+            score = sum(
+                rule.get("score", 0) or 0
+                for rule in applied_rules
+            )
+
+            if score < self.PRIORITY_MIN_SCORE:
+                continue
+
+            customer_id = document.customer_id
+
+            current = result.get(customer_id)
+
+            main_rule = sorted(
+                applied_rules,
+                key=lambda item: (
+                    -(item.get("score", 0) or 0),
+                    item.get(
+                        "evaluation_order",
+                        9999,
+                    ),
+                    item.get("code", ""),
+                ),
+            )[0]
+
+            candidate = {
+                "is_priority": True,
+                "priority_score": score,
+                "priority_document_count": 1,
+                "main_priority_reason": (
+                    main_rule.get("name")
+                    or "Prioridad operacional"
+                ),
+                "priority_reasons": [
+                    rule.get("name")
+                    for rule in applied_rules
+                    if rule.get("name")
+                ],
+            }
+
+            if current is None:
+                result[customer_id] = candidate
+                continue
+
+            current["priority_document_count"] += 1
+
+            if score > current["priority_score"]:
+                current["priority_score"] = score
+                current["main_priority_reason"] = (
+                    candidate[
+                        "main_priority_reason"
+                    ]
+                )
+                current["priority_reasons"] = (
+                    candidate[
+                        "priority_reasons"
+                    ]
+                )
+
+        return result
 
     def get_collectors_by_customer(self, customer_ids):
         customer_ids = list(customer_ids)

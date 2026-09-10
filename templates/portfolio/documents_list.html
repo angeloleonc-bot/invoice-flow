@@ -17,7 +17,7 @@
 {% include "portfolio/_portfolio_nav.html" with active_tab="documents" %}
 
 <section class="if-card if-portfolio-filter-card">
-  <form method="get" class="if-portfolio-filters">
+  <form method="get" class="if-portfolio-filters if-cartera-document-filters">
     <input
       type="hidden"
       name="sort"
@@ -105,32 +105,6 @@
       >
     </div>
 
-    <div class="if-portfolio-filter-field">
-      <label for="page_size">Filas</label>
-      <select id="page_size" name="page_size">
-        <option
-          value="25"
-          {% if selected_page_size == "25" %}selected{% endif %}
-        >
-          25
-        </option>
-
-        <option
-          value="50"
-          {% if selected_page_size == "50" %}selected{% endif %}
-        >
-          50
-        </option>
-
-        <option
-          value="100"
-          {% if selected_page_size == "100" %}selected{% endif %}
-        >
-          100
-        </option>
-      </select>
-    </div>
-
     <div class="if-portfolio-filter-actions">
       <button type="submit" class="if-button-primary">
         <i class="bi bi-search"></i>
@@ -173,7 +147,7 @@
 
   {% if documents %}
     <div class="if-table-wrapper">
-      <table class="if-table if-table-modern if-listing-table">
+      <table class="if-table if-table-modern if-listing-table if-cartera-table if-cartera-documents-table">
         <thead>
           <tr>
             <th>
@@ -264,15 +238,24 @@
             </th>
 
             <th>Tags</th>
-            <th class="text-end">Acción</th>
           </tr>
         </thead>
 
         <tbody>
           {% for document in documents %}
-            <tr>
+            <tr
+              class="if-cartera-document-row"
+              data-document-url="{% url 'management:document_detail' document.id %}"
+              tabindex="0"
+              role="link"
+            >
               <td>
-                <strong>{{ document.document_number }}</strong>
+                <a
+                  href="{% url 'management:document_detail' document.id %}"
+                  class="if-cartera-document-link"
+                >
+                  {{ document.document_number }}
+                </a>
 
                 <div class="if-muted">
                   {{ document.get_document_type_display }}
@@ -280,7 +263,12 @@
               </td>
 
               <td>
-                <strong>{{ document.customer.name }}</strong>
+                <a
+                  href="{% url 'portfolio:customer_detail' document.customer.id %}"
+                  class="if-cartera-document-customer-link"
+                >
+                  {{ document.customer.name }}
+                </a>
 
                 <div class="if-muted">
                   {{ document.customer.rut }}
@@ -288,14 +276,51 @@
               </td>
 
               <td>
-                <span class="if-pill if-pill-status-success">
+                <span
+                  class="
+                    if-pill
+                    if-cartera-document-status
+                    {% if document.status.name == 'Pagada' %}
+                      is-paid
+                    {% elif document.status.name == 'Pendiente' %}
+                      is-pending
+                    {% elif document.status.name == 'Cerrada' %}
+                      is-closed
+                    {% elif document.status.name == 'Pago programado' %}
+                      is-scheduled
+                    {% else %}
+                      is-neutral
+                    {% endif %}
+                  "
+                >
                   {{ document.status.name }}
                 </span>
               </td>
 
               <td>
                 {% if document.sub_status %}
-                  <span class="if-badge if-badge-soft">
+                  <span
+                    class="
+                      if-badge
+                      if-badge-soft
+                      if-cartera-document-substatus
+                      {% if document.sub_status.name == 'Pago total informado' %}
+                        is-payment-total
+                      {% elif document.sub_status.name == 'Cubierto por NC' %}
+                        is-credit-note
+                      {% elif document.sub_status.name == 'Pago parcial informado' %}
+                        is-payment-partial
+                      {% elif document.sub_status.name == 'Cubierto por reconciliación manual' %}
+                        is-manual-reconciliation
+                      {% elif document.sub_status.name == 'Saldo a favor cliente' %}
+                        is-credit-balance
+                      {% elif document.sub_status.name == 'Promesa vigente' %}
+                        is-promise
+                      {% else %}
+                        is-neutral
+                      {% endif %}
+                    "
+                  >
                     {{ document.sub_status.name }}
                   </span>
                 {% else %}
@@ -305,7 +330,7 @@
                 {% endif %}
               </td>
 
-              <td class="text-end">
+              <td class="text-end if-cartera-document-balance">
                 <strong>
                   {{ document.balance_amount|clp }}
                 </strong>
@@ -317,13 +342,13 @@
                 {% endif %}
               </td>
 
-              <td>
+              <td class="if-cartera-document-due">
                 {{ document.due_date|date:"d/m/Y" }}
               </td>
 
               <td>
                 {% for tag in document.tags.all %}
-                  <span class="if-badge if-badge-soft">
+                  <span class="if-badge if-badge-soft if-cartera-document-tag">
                     {{ tag.name }}
                   </span>
                 {% empty %}
@@ -331,16 +356,6 @@
                     Sin tags
                   </span>
                 {% endfor %}
-              </td>
-
-              <td class="text-end">
-                <a
-                  href="{% url 'management:document_detail' document.id %}"
-                  class="if-action-link"
-                >
-                  <i class="bi bi-arrow-right"></i>
-                  Ver
-                </a>
               </td>
             </tr>
           {% endfor %}
@@ -420,4 +435,46 @@
     </div>
   {% endif %}
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  // CARTERA DOCUMENTOS ROW NAVIGATION
+
+  const interactiveSelector = [
+    "a",
+    "button",
+    "input",
+    "select",
+    "textarea",
+    "label",
+    "[role='button']"
+  ].join(",");
+
+  document.querySelectorAll(
+    ".if-cartera-documents-table .if-cartera-document-row[data-document-url]"
+  ).forEach(function (row) {
+
+    row.addEventListener("click", function (event) {
+      if (event.target.closest(interactiveSelector)) {
+        return;
+      }
+
+      window.location.href = row.dataset.documentUrl;
+    });
+
+    row.addEventListener("keydown", function (event) {
+      if (event.key !== "Enter" && event.key !== " ") {
+        return;
+      }
+
+      if (event.target.closest(interactiveSelector)) {
+        return;
+      }
+
+      event.preventDefault();
+      window.location.href = row.dataset.documentUrl;
+    });
+  });
+});
+</script>
 {% endblock %}

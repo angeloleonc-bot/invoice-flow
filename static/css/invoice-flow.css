@@ -9715,7 +9715,8 @@ a.if-action-link:hover {
 }
 
 .if-portfolio-table {
-  min-width: 1295px;
+  width: 100%;
+  min-width: 1020px;
   table-layout: fixed;
 }
 
@@ -9767,43 +9768,35 @@ a.if-action-link:hover {
    8 61-90
    9 91-120
    10 121+
-   11 Gestión / Promesa
-   12 Acciones
+   11 Último hito
    ============================================================ */
 
 .if-portfolio-customer-column {
-  width: 170px;
+  width: 190px;
 }
 
 .if-portfolio-balance-column {
-  width: 108px;
+  width: 100px;
 }
 
 /* 2. Saldo */
 .if-portfolio-table th:nth-child(2),
 .if-portfolio-table td:nth-child(2) {
-  width: 108px;
+  width: 100px;
 }
 
 /* 3 al 10 Aging */
 .if-portfolio-table th:nth-child(n+3):nth-child(-n+10),
 .if-portfolio-table td:nth-child(n+3):nth-child(-n+10) {
-  width: 91px;
+  width: 76px;
 }
 
 /* 11. Último hito */
 .if-portfolio-table th:nth-child(11),
 .if-portfolio-table td:nth-child(11) {
-    width: 120px;
-    padding-left: 14px;
-}
-
-/* 12 Acción */
-.if-portfolio-table th:nth-child(12),
-.if-portfolio-table td:nth-child(12) {
-    width: 64px;
-    padding-left: .32rem;
-    padding-right: .32rem;
+  width: 150px;
+  padding-left: .7rem;
+  padding-right: .7rem;
 }
 
 .if-portfolio-customer-cell {
@@ -10107,8 +10100,8 @@ a.if-action-link:hover {
 
 .if-portfolio-table th:nth-child(n+3):nth-child(-n+10),
 .if-portfolio-table td:nth-child(n+3):nth-child(-n+10) {
-  padding-left: .62rem;
-  padding-right: .62rem;
+  padding-left: .38rem;
+  padding-right: .38rem;
 }
 
 /* ============================================================
@@ -17467,3 +17460,2313 @@ body.if-statement-leave-dialog-open {
     white-space: normal;
   }
 }
+
+/* =========================================================
+   OPCION C - PRIORIDAD OPERACIONAL EN MY WORK
+   La prioridad destaca solo mediante badge.
+   ========================================================= */
+
+.if-portfolio-customer-row.is-priority {
+  background: inherit;
+}
+
+.if-portfolio-customer-row.is-priority .if-portfolio-customer-cell {
+  position: relative;
+  background: inherit;
+  box-shadow: none;
+}
+
+.if-portfolio-customer-row.is-priority .if-portfolio-customer-cell::before {
+  content: none !important;
+}
+
+.if-portfolio-customer-row.is-priority:hover {
+  background: inherit;
+}
+
+.if-portfolio-customer-row.is-priority:hover .if-portfolio-customer-cell {
+  background: inherit;
+  box-shadow: none;
+}
+
+.if-portfolio-priority-signal {
+  display: inline-flex !important;
+  width: fit-content;
+  align-items: center;
+  gap: .34rem;
+  margin-top: .16rem;
+  padding: .18rem .5rem;
+  border: 1px solid #e8c8cf;
+  border-radius: 999px;
+  background: #fbf1f3;
+  color: #9a4f5f !important;
+  font-size: .58rem !important;
+  font-weight: 700;
+  line-height: 1 !important;
+  letter-spacing: .012em;
+}
+
+.if-portfolio-priority-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  flex: 0 0 5px;
+  border-radius: 999px;
+  background: #b45d70;
+}
+
+.if-portfolio-followup-signal {
+  display: inline-flex !important;
+  width: fit-content;
+  align-items: center;
+  gap: .34rem;
+  margin-top: .16rem;
+  padding: .18rem .46rem;
+  border: 1px solid #ecdcbf;
+  border-radius: 999px;
+  background: #fff7ea;
+  color: #9a6a1f !important;
+  font-size: .58rem !important;
+  font-weight: 700;
+  line-height: 1 !important;
+  letter-spacing: .01em;
+}
+
+.if-portfolio-review-reason {
+  color: #7b7068 !important;
+}
+
+.if-portfolio-review-reason .badge,
+.if-portfolio-review-reason .if-portfolio-badge,
+.if-portfolio-review-reason small {
+  color: #7b7068 !important;
+}
+
+
+/* =========================================================
+   OPCION C - UX MY WORK / ACCESO DIRECTO CLIENTE 360
+   ========================================================= */
+
+.if-portfolio-customer-link {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  align-items: center;
+  gap: .28rem;
+  color: #263746;
+  text-decoration: none;
+}
+
+.if-portfolio-customer-link strong {
+  min-width: 0;
+  overflow: hidden;
+  color: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.if-portfolio-customer-link i {
+  flex: 0 0 auto;
+  color: #7f9aa8;
+  font-size: .62rem;
+  opacity: .72;
+  transition:
+    color .15s ease,
+    opacity .15s ease,
+    transform .15s ease;
+}
+
+.if-portfolio-customer-link:hover {
+  color: var(--if-primary-dark);
+  text-decoration: none;
+}
+
+.if-portfolio-customer-link:hover i {
+  color: var(--if-primary);
+  opacity: 1;
+  transform: translate(1px, -1px);
+}
+
+.if-portfolio-customer-row {
+  cursor: pointer;
+}
+
+/* =========================================================
+   MY WORK - GEOMETRIA ESTABLE / ETAPA 2.4.6
+
+   Regla:
+   ampliar una columna NO comprime las demás.
+   Si no cabe, la tabla usa scroll horizontal.
+   ========================================================= */
+
+.if-portfolio-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.if-portfolio-table {
+  width: max(100%, 1220px);
+  min-width: 1220px;
+  table-layout: fixed;
+}
+
+
+/* ---------------------------------------------------------
+   Geometría real mediante COLGROUP
+   --------------------------------------------------------- */
+
+.if-portfolio-table col.if-portfolio-col-customer {
+  width: 190px;
+}
+
+.if-portfolio-table col.if-portfolio-col-balance {
+  width: 108px;
+}
+
+.if-portfolio-table col.if-portfolio-col-finance {
+  width: 91px;
+}
+
+.if-portfolio-table col.if-portfolio-col-latest {
+  width: 184px;
+}
+
+
+/* ---------------------------------------------------------
+   Las celdas respetan exactamente esa geometría.
+   --------------------------------------------------------- */
+
+.if-portfolio-table th:nth-child(1),
+.if-portfolio-table td:nth-child(1) {
+  width: 190px !important;
+}
+
+.if-portfolio-table th:nth-child(2),
+.if-portfolio-table td:nth-child(2) {
+  width: 108px !important;
+}
+
+.if-portfolio-table th:nth-child(n+3):nth-child(-n+10),
+.if-portfolio-table td:nth-child(n+3):nth-child(-n+10) {
+  width: 91px !important;
+  padding-left: .62rem;
+  padding-right: .62rem;
+}
+
+.if-portfolio-table th:nth-child(11),
+.if-portfolio-table td:nth-child(11) {
+  width: 184px !important;
+  padding-left: 1rem !important;
+  padding-right: .75rem !important;
+  border-left: 0 !important;
+}
+
+
+/* ---------------------------------------------------------
+   Último hito
+   --------------------------------------------------------- */
+
+.if-portfolio-table td:nth-child(11) .if-portfolio-latest-event {
+  width: 100%;
+  gap: .18rem;
+  padding: .1rem 0;
+}
+
+.if-portfolio-table td:nth-child(11)
+.if-portfolio-latest-event-label {
+  margin: 0;
+  color: #697783;
+  font-size: .57rem;
+  font-weight: 760;
+  letter-spacing: .045em;
+  line-height: 1.15;
+}
+
+.if-portfolio-table td:nth-child(11)
+.if-portfolio-latest-event strong {
+  display: block;
+  max-width: 100%;
+  color: #283847;
+  font-size: .72rem;
+  font-weight: 760;
+  line-height: 1.25;
+  white-space: normal;
+}
+
+.if-portfolio-table td:nth-child(11)
+.if-portfolio-latest-event small {
+  display: block;
+  max-width: 100%;
+  margin: 0;
+  color: #71808b;
+  font-size: .61rem;
+  line-height: 1.2;
+  white-space: normal;
+}
+
+
+/* ---------------------------------------------------------
+   Pantallas pequeñas:
+   no comprimimos la tabla.
+   --------------------------------------------------------- */
+
+@media (max-width: 1220px) {
+  .if-portfolio-table {
+    width: 1220px;
+    min-width: 1220px;
+  }
+}
+
+/* === CARTERA REDESIGN 1.1 — BASE VISUAL START === */
+/*
+ * Base visual específica para:
+ * - Cartera > Clientes
+ * - Cartera > Documentos
+ *
+ * No reutiliza la geometría operacional de My Work.
+ * No modifica reglas globales de .if-table ni .if-portfolio-table.
+ */
+
+.if-cartera-table {
+  width: 100%;
+  margin: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.875rem;
+}
+
+.if-cartera-table thead th {
+  padding-top: 0.72rem;
+  padding-bottom: 0.72rem;
+  vertical-align: middle;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.035em;
+  color: #667085;
+  background: #f8fafb;
+  border-bottom: 1px solid #e8edf1;
+}
+
+.if-cartera-table tbody td {
+  padding-top: 0.82rem;
+  padding-bottom: 0.82rem;
+  vertical-align: middle;
+  border-bottom: 1px solid #edf1f3;
+}
+
+.if-cartera-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.if-cartera-table tbody tr {
+  background: #ffffff;
+  transition:
+    background-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.if-cartera-table tbody tr:hover {
+  background: #fafcfc;
+}
+
+.if-cartera-table strong {
+  font-weight: 650;
+  color: #202932;
+}
+
+.if-cartera-table .if-muted {
+  margin-top: 0.18rem;
+  font-size: 0.77rem;
+  line-height: 1.3;
+  color: #7b858f;
+}
+
+/*
+ * Clientes:
+ * tabla relativamente compacta.
+ * No imponemos una geometría artificialmente ancha.
+ */
+.if-cartera-customers-table {
+  min-width: 880px;
+}
+
+.if-cartera-customers-table th:nth-child(1),
+.if-cartera-customers-table td:nth-child(1) {
+  min-width: 220px;
+}
+
+.if-cartera-customers-table th:nth-child(2),
+.if-cartera-customers-table td:nth-child(2) {
+  min-width: 115px;
+}
+
+.if-cartera-customers-table th:nth-child(3),
+.if-cartera-customers-table td:nth-child(3) {
+  min-width: 210px;
+}
+
+.if-cartera-customers-table th:nth-child(4),
+.if-cartera-customers-table td:nth-child(4) {
+  min-width: 105px;
+}
+
+.if-cartera-customers-table th:nth-child(5),
+.if-cartera-customers-table td:nth-child(5) {
+  min-width: 145px;
+  white-space: nowrap;
+}
+
+.if-cartera-customers-table th:nth-child(6),
+.if-cartera-customers-table td:nth-child(6) {
+  min-width: 100px;
+  white-space: nowrap;
+}
+
+/*
+ * Documentos:
+ * aquí priorizamos legibilidad por sobre comprimir columnas.
+ * Si el viewport no alcanza, debe actuar el wrapper responsive existente.
+ */
+.if-cartera-documents-table {
+  min-width: 1180px;
+}
+
+.if-cartera-documents-table th:nth-child(1),
+.if-cartera-documents-table td:nth-child(1) {
+  min-width: 150px;
+}
+
+.if-cartera-documents-table th:nth-child(2),
+.if-cartera-documents-table td:nth-child(2) {
+  min-width: 225px;
+}
+
+.if-cartera-documents-table th:nth-child(3),
+.if-cartera-documents-table td:nth-child(3) {
+  min-width: 125px;
+}
+
+.if-cartera-documents-table th:nth-child(4),
+.if-cartera-documents-table td:nth-child(4) {
+  min-width: 145px;
+}
+
+.if-cartera-documents-table th:nth-child(5),
+.if-cartera-documents-table td:nth-child(5) {
+  min-width: 145px;
+  white-space: nowrap;
+}
+
+.if-cartera-documents-table th:nth-child(6),
+.if-cartera-documents-table td:nth-child(6) {
+  min-width: 125px;
+  white-space: nowrap;
+}
+
+.if-cartera-documents-table th:nth-child(7),
+.if-cartera-documents-table td:nth-child(7) {
+  min-width: 165px;
+}
+
+.if-cartera-documents-table th:nth-child(8),
+.if-cartera-documents-table td:nth-child(8) {
+  min-width: 90px;
+  white-space: nowrap;
+}
+
+/*
+ * El wrapper ya existente en Cartera controla overflow.
+ * Esta regla sólo garantiza scroll horizontal limpio cuando la tabla
+ * supera el viewport, sin modificar otras tablas del sistema.
+ */
+.if-table-wrapper:has(.if-cartera-table) {
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+}
+
+/*
+ * Separación financiera.
+ * Mantiene montos fáciles de leer y evita números pegados.
+ */
+.if-cartera-table td.text-end,
+.if-cartera-table th.text-end {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+/*
+ * Badges de Cartera:
+ * sólo afinamos escala y densidad.
+ * La semántica de colores se tratará en etapas posteriores.
+ */
+.if-cartera-table .if-badge,
+.if-cartera-table .if-pill-status {
+  max-width: 100%;
+  line-height: 1.2;
+}
+
+/*
+ * Acción actual se conserva en Etapa 1.1.
+ * Se baja ligeramente su peso visual para que no compita
+ * con la entidad principal.
+ */
+.if-cartera-table .if-action-link {
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/*
+ * Notebook / viewport intermedio:
+ * no comprimimos montos ni entidades descriptivas.
+ */
+@media (max-width: 1366px) {
+  .if-cartera-table thead th {
+    padding-left: 0.72rem;
+    padding-right: 0.72rem;
+  }
+
+  .if-cartera-table tbody td {
+    padding-left: 0.72rem;
+    padding-right: 0.72rem;
+  }
+}
+
+/*
+ * Pantallas pequeñas:
+ * se conserva densidad razonable y se asume scroll horizontal.
+ */
+@media (max-width: 768px) {
+  .if-cartera-table {
+    font-size: 0.82rem;
+  }
+
+  .if-cartera-table thead th {
+    padding-top: 0.62rem;
+    padding-bottom: 0.62rem;
+  }
+
+  .if-cartera-table tbody td {
+    padding-top: 0.72rem;
+    padding-bottom: 0.72rem;
+  }
+}
+
+/* === CARTERA REDESIGN 1.1 — BASE VISUAL END === */
+
+/* === CARTERA REDESIGN 2.1 — CLIENTES NAV START === */
+
+/*
+ * Cliente como entidad principal.
+ */
+.if-cartera-customers-table .if-cartera-entity-link {
+  display: inline;
+  color: #202932;
+  font-weight: 650;
+  text-decoration: none;
+  text-underline-offset: 0.16em;
+  transition: color 120ms ease;
+}
+
+.if-cartera-customers-table .if-cartera-entity-link:hover {
+  color: #169f95;
+  text-decoration: underline;
+}
+
+.if-cartera-customers-table .if-cartera-entity-link:focus-visible {
+  outline: 2px solid rgba(22, 159, 149, 0.28);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+/*
+ * Fila navegable.
+ * Sin barra lateral, fondo fuerte ni borde decorativo.
+ */
+.if-cartera-customers-table .if-cartera-clickable-row {
+  cursor: pointer;
+}
+
+.if-cartera-customers-table .if-cartera-clickable-row:hover {
+  background: #f8fbfb;
+}
+
+.if-cartera-customers-table .if-cartera-clickable-row:focus-visible {
+  outline: 2px solid rgba(22, 159, 149, 0.22);
+  outline-offset: -2px;
+}
+
+/*
+ * Geometría definitiva de Clientes:
+ * Acción desaparece -> 5 columnas.
+ */
+.if-cartera-customers-table {
+  min-width: 790px;
+}
+
+.if-cartera-customers-table th:nth-child(1),
+.if-cartera-customers-table td:nth-child(1) {
+  min-width: 235px;
+}
+
+.if-cartera-customers-table th:nth-child(2),
+.if-cartera-customers-table td:nth-child(2) {
+  min-width: 115px;
+}
+
+.if-cartera-customers-table th:nth-child(3),
+.if-cartera-customers-table td:nth-child(3) {
+  min-width: 220px;
+}
+
+.if-cartera-customers-table th:nth-child(4),
+.if-cartera-customers-table td:nth-child(4) {
+  min-width: 110px;
+}
+
+.if-cartera-customers-table th:nth-child(5),
+.if-cartera-customers-table td:nth-child(5) {
+  min-width: 150px;
+  white-space: nowrap;
+}
+
+/* === CARTERA REDESIGN 2.1 — CLIENTES NAV END === */
+
+
+/* === CARTERA CLIENTES DENSITY 2.1.2C START === */
+
+.if-cartera-customers-table {
+  font-size: 0.80rem;
+}
+
+.if-cartera-customers-table thead th {
+  padding-top: 0.58rem;
+  padding-bottom: 0.58rem;
+  font-size: 0.66rem;
+}
+
+.if-cartera-customers-table tbody td {
+  padding-top: 0.58rem;
+  padding-bottom: 0.58rem;
+}
+
+.if-cartera-customers-table .if-cartera-entity-link,
+.if-cartera-customers-table strong {
+  font-size: 0.80rem;
+}
+
+.if-cartera-customers-table .if-muted {
+  margin-top: 0.10rem;
+  font-size: 0.70rem;
+  line-height: 1.2;
+}
+
+.if-cartera-customers-table .if-badge {
+  font-size: 0.66rem;
+}
+
+/* === CARTERA CLIENTES DENSITY 2.1.2C END === */
+
+
+/* === CARTERA CLIENTES ACCENTS 2.1.3 START === */
+
+/*
+ * 1. Nombre cliente
+ * Neutro en reposo, teal corporativo más visible en hover.
+ */
+.if-cartera-customers-table .if-cartera-entity-link {
+  color: #24323d;
+  transition:
+    color 120ms ease,
+    text-decoration-color 120ms ease;
+}
+
+.if-cartera-customers-table .if-cartera-entity-link:hover {
+  color: #168f87;
+  text-decoration-color: rgba(22, 143, 135, 0.55);
+}
+
+/*
+ * 2. Badge Cluster
+ * Más identidad, manteniendo jerarquía secundaria.
+ */
+.if-cartera-customers-table td:nth-child(2) .if-badge {
+  border-color: #cfdedc;
+  background: #f1f7f6;
+  color: #536b69;
+  font-weight: 680;
+}
+
+/*
+ * 3. Saldo total
+ * Teal oscuro sobrio para introducir color en la dimensión financiera.
+ */
+.if-cartera-customers-table td:nth-child(5) strong {
+  color: #245f5b;
+}
+
+/* === CARTERA CLIENTES ACCENTS 2.1.3 END === */
+
+
+/* === CARTERA CLIENTES LAST MANAGEMENT 2.1.5 START === */
+
+/*
+ * Cluster:
+ * conserva el look actual de 2.1.4.
+ * Solo permite capitalizacion natural del dato.
+ */
+.if-cartera-customers-table td:nth-child(2) .if-badge {
+  border-color: #cfd5ee;
+  background: #eef1fb;
+  color: #5b6798;
+  font-weight: 500;
+  text-transform: none !important;
+  letter-spacing: normal;
+}
+
+/*
+ * Seis columnas:
+ * Cliente | Cluster | Contacto | Documentos | Ultima gestion | Saldo total
+ */
+.if-cartera-customers-table {
+  min-width: 940px;
+}
+
+.if-cartera-customers-table th:nth-child(5),
+.if-cartera-customers-table td:nth-child(5) {
+  min-width: 155px;
+}
+
+.if-cartera-customers-table th:nth-child(6),
+.if-cartera-customers-table td:nth-child(6) {
+  min-width: 145px;
+  white-space: nowrap;
+}
+
+/*
+ * Ultima gestion:
+ * fecha como dato principal;
+ * tipo de gestion como metadata secundaria.
+ */
+.if-cartera-customers-table .if-cartera-last-management strong {
+  color: #344451;
+  font-weight: 650;
+}
+
+.if-cartera-customers-table .if-cartera-last-management .if-muted {
+  margin-top: 0.08rem;
+}
+
+/*
+ * Saldo total:
+ * unico acento financiero de la tabla.
+ */
+.if-cartera-customers-table td:nth-child(6) strong {
+  color: #245f5b;
+}
+
+/* === CARTERA CLIENTES LAST MANAGEMENT 2.1.5 END === */
+
+
+/* === CARTERA CLUSTER COLORS 2.1.6 START === */
+
+/*
+ * Paleta suave por cluster.
+ * Clasificacion visual secundaria, sin competir con Saldo Total.
+ */
+.if-cartera-customers-table .if-cluster-badge {
+  font-weight: 500;
+  text-transform: none !important;
+  letter-spacing: normal;
+}
+
+/* Constructora */
+.if-cartera-customers-table td:nth-child(2) .if-cluster-badge.is-constructora {
+  border-color: #cbd9ef;
+  background: #edf3fb;
+  color: #496b96;
+}
+
+/* Ferreteria */
+.if-cartera-customers-table td:nth-child(2) .if-cluster-badge.is-ferreteria {
+  border-color: #ead8b8;
+  background: #fff6e8;
+  color: #8a672d;
+}
+
+/* Especialista */
+.if-cartera-customers-table td:nth-child(2) .if-cluster-badge.is-especialista {
+  border-color: #dcd1ee;
+  background: #f5f0fb;
+  color: #705b91;
+}
+
+/* Mayorista */
+.if-cartera-customers-table td:nth-child(2) .if-cluster-badge.is-mayorista {
+  border-color: #c9dfdc;
+  background: #eef7f5;
+  color: #46766f;
+}
+
+/* Retail */
+.if-cartera-customers-table td:nth-child(2) .if-cluster-badge.is-retail {
+  border-color: #ead0d8;
+  background: #faeff2;
+  color: #8d5868;
+}
+
+/* Empresa Sanitaria */
+.if-cartera-customers-table td:nth-child(2) .if-cluster-badge.is-empresa-sanitaria {
+  border-color: #c8e0e6;
+  background: #edf8fa;
+  color: #4a7881;
+}
+
+/* Instalador Sanitario */
+.if-cartera-customers-table td:nth-child(2) .if-cluster-badge.is-instalador-sanitario {
+  border-color: #cfe0d4;
+  background: #f0f7f2;
+  color: #58765f;
+}
+
+/* Institucional */
+.if-cartera-customers-table td:nth-child(2) .if-cluster-badge.is-institucional {
+  border-color: #d3dae3;
+  background: #f1f4f7;
+  color: #5c6877;
+}
+
+/* Venta Web */
+.if-cartera-customers-table td:nth-child(2) .if-cluster-badge.is-venta-web {
+  border-color: #d3d7ef;
+  background: #f0f2fb;
+  color: #59679a;
+}
+
+/* Otros / fallback */
+.if-cartera-customers-table td:nth-child(2) .if-cluster-badge.is-otros {
+  border-color: #dcdfe3;
+  background: #f5f6f7;
+  color: #6b737c;
+}
+
+/* === CARTERA CLUSTER COLORS 2.1.6 END === */
+
+
+/* === CARTERA CLIENTES LAST MANAGEMENT VISUAL 2.1.5.1 START === */
+
+/*
+ * Replica la jerarquia visual de Ultimo hito / Gestion:
+ *
+ * ULTIMA GESTION
+ * Tipo de gestion
+ * dd/mm/yyyy hh:mm
+ */
+.if-cartera-customers-table
+.if-cartera-last-management-event {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: .12rem;
+  padding: .08rem 0;
+}
+
+.if-cartera-customers-table
+.if-cartera-last-management-label {
+  display: block;
+  margin: 0;
+  color: #697783;
+  font-size: .57rem;
+  font-weight: 760;
+  line-height: 1.15;
+  letter-spacing: .045em;
+  text-transform: uppercase;
+}
+
+.if-cartera-customers-table
+.if-cartera-last-management-event strong {
+  display: block;
+  max-width: 100%;
+  color: #283847;
+  font-size: .72rem;
+  font-weight: 760;
+  line-height: 1.25;
+  white-space: normal;
+}
+
+.if-cartera-customers-table
+.if-cartera-last-management-event small {
+  display: block;
+  margin: 0;
+  color: #71808b;
+  font-size: .61rem;
+  font-weight: 400;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.if-cartera-customers-table
+.if-cartera-last-management-event.is-empty strong {
+  color: #8a949d;
+  font-weight: 500;
+}
+
+/* === CARTERA CLIENTES LAST MANAGEMENT VISUAL 2.1.5.1 END === */
+
+
+/* === CARTERA CLIENTES TYPOGRAPHY 2.1.7 START === */
+
+/*
+ * Reduce levemente la escala visual del cuerpo.
+ * Encabezados se mantienen sin cambios.
+ */
+
+.if-cartera-customers-table tbody {
+  font-size: 0.76rem;
+}
+
+.if-cartera-customers-table tbody
+.if-cartera-entity-link,
+.if-cartera-customers-table tbody strong {
+  font-size: 0.76rem;
+}
+
+.if-cartera-customers-table tbody .if-muted {
+  font-size: 0.66rem;
+}
+
+.if-cartera-customers-table tbody .if-badge {
+  font-size: 0.62rem;
+}
+
+/* Ultima gestion */
+.if-cartera-customers-table
+.if-cartera-last-management-label {
+  font-size: 0.55rem;
+}
+
+.if-cartera-customers-table
+.if-cartera-last-management-event strong {
+  font-size: 0.69rem;
+}
+
+.if-cartera-customers-table
+.if-cartera-last-management-event small {
+  font-size: 0.58rem;
+}
+
+/* === CARTERA CLIENTES TYPOGRAPHY 2.1.7 END === */
+
+
+/* === CARTERA CLIENTES TYPOGRAPHY ROW 2.1.8 START === */
+
+/*
+ * Microajuste final de densidad:
+ * - un punto menos en tipografia general;
+ * - email sensiblemente mas pequeno;
+ * - menor altura de fila.
+ */
+
+/* Tipografia general del cuerpo */
+.if-cartera-customers-table tbody {
+  font-size: 0.75rem;
+}
+
+.if-cartera-customers-table tbody
+.if-cartera-entity-link,
+.if-cartera-customers-table tbody strong {
+  font-size: 0.75rem;
+}
+
+.if-cartera-customers-table tbody .if-muted {
+  font-size: 0.65rem;
+}
+
+.if-cartera-customers-table tbody .if-badge {
+  font-size: 0.61rem;
+}
+
+
+/* Ultima gestion */
+.if-cartera-customers-table
+.if-cartera-last-management-label {
+  font-size: 0.54rem;
+}
+
+.if-cartera-customers-table
+.if-cartera-last-management-event strong {
+  font-size: 0.68rem;
+}
+
+.if-cartera-customers-table
+.if-cartera-last-management-event small {
+  font-size: 0.57rem;
+}
+
+
+/*
+ * Email:
+ * se baja mas que el resto para que no domine visualmente
+ * la columna Contacto.
+ *
+ * Aplica al primer nivel de texto de la tercera columna,
+ * sin alterar telefono / metadata secundaria.
+ */
+.if-cartera-customers-table tbody
+td:nth-child(3) {
+  font-size: 0.62rem;
+}
+
+
+/*
+ * Altura de fila:
+ * reduce padding vertical manteniendo aire suficiente.
+ */
+.if-cartera-customers-table tbody td {
+  padding-top: 0.46rem;
+  padding-bottom: 0.46rem;
+}
+
+
+/* === CARTERA CLIENTES TYPOGRAPHY ROW 2.1.8 END === */
+
+
+/* === CARTERA CLIENTES ROW HEIGHT 2.1.9 START === */
+
+/*
+ * Reduccion adicional de altura.
+ * Mantiene la tipografia actual.
+ */
+.if-cartera-customers-table tbody td {
+  padding-top: 0.36rem;
+  padding-bottom: 0.36rem;
+}
+
+/* === CARTERA CLIENTES ROW HEIGHT 2.1.9 END === */
+
+
+/* === CARTERA CLIENTES ROW HEIGHT FIX 2.1.10 START === */
+
+/*
+ * Override de la altura global:
+ *
+ * .if-table tbody tr {
+ *   height: 68px;
+ * }
+ *
+ * En Cartera > Clientes la altura debe depender
+ * del contenido + padding real.
+ */
+.if-table.if-cartera-customers-table tbody tr {
+  height: auto !important;
+}
+
+/*
+ * Densidad final de fila.
+ */
+.if-table.if-cartera-customers-table tbody td {
+  padding-top: 0.32rem;
+  padding-bottom: 0.32rem;
+}
+
+/* === CARTERA CLIENTES ROW HEIGHT FIX 2.1.10 END === */
+
+
+/* === CARTERA CLIENTES ROW AIR 2.1.11 START === */
+
+/*
+ * Punto medio entre la altura original y el ajuste demasiado compacto.
+ */
+.if-table.if-cartera-customers-table tbody tr {
+  height: auto !important;
+}
+
+.if-table.if-cartera-customers-table tbody td {
+  padding-top: 0.42rem;
+  padding-bottom: 0.42rem;
+}
+
+/* === CARTERA CLIENTES ROW AIR 2.1.11 END === */
+
+
+/* === CARTERA DOCUMENTOS PARITY 3.3 START === */
+
+/*
+ * Paridad visual con Cartera > Clientes.
+ * Header sin cambios; cuerpo compacto y respirable.
+ */
+
+.if-table.if-cartera-documents-table {
+  min-width: 1030px;
+}
+
+.if-table.if-cartera-documents-table tbody tr {
+  height: auto !important;
+}
+
+.if-table.if-cartera-documents-table tbody td {
+  padding-top: 0.42rem;
+  padding-bottom: 0.42rem;
+  font-size: 0.75rem;
+}
+
+
+/* ---------------------------------------------------------
+ * Tipografia
+ * --------------------------------------------------------- */
+
+.if-cartera-documents-table
+.if-cartera-document-link,
+.if-cartera-documents-table
+.if-cartera-document-customer-link,
+.if-cartera-documents-table tbody strong {
+  font-size: 0.75rem;
+}
+
+.if-cartera-documents-table tbody .if-muted {
+  margin-top: 0.10rem;
+  font-size: 0.65rem;
+  line-height: 1.2;
+}
+
+.if-cartera-documents-table tbody .if-badge,
+.if-cartera-documents-table tbody .if-pill {
+  font-size: 0.61rem;
+}
+
+
+/* ---------------------------------------------------------
+ * Geometria — 7 columnas
+ * --------------------------------------------------------- */
+
+.if-cartera-documents-table th:nth-child(1),
+.if-cartera-documents-table td:nth-child(1) {
+  min-width: 140px;
+}
+
+.if-cartera-documents-table th:nth-child(2),
+.if-cartera-documents-table td:nth-child(2) {
+  min-width: 230px;
+}
+
+.if-cartera-documents-table th:nth-child(3),
+.if-cartera-documents-table td:nth-child(3) {
+  min-width: 115px;
+}
+
+.if-cartera-documents-table th:nth-child(4),
+.if-cartera-documents-table td:nth-child(4) {
+  min-width: 180px;
+}
+
+.if-cartera-documents-table th:nth-child(5),
+.if-cartera-documents-table td:nth-child(5) {
+  min-width: 135px;
+  white-space: nowrap;
+}
+
+.if-cartera-documents-table th:nth-child(6),
+.if-cartera-documents-table td:nth-child(6) {
+  min-width: 115px;
+  white-space: nowrap;
+}
+
+.if-cartera-documents-table th:nth-child(7),
+.if-cartera-documents-table td:nth-child(7) {
+  min-width: 145px;
+}
+
+
+/* ---------------------------------------------------------
+ * Fila navegable
+ * --------------------------------------------------------- */
+
+.if-cartera-documents-table .if-cartera-document-row {
+  cursor: pointer;
+}
+
+.if-cartera-documents-table .if-cartera-document-row:hover {
+  background: #f8fbfb;
+}
+
+.if-cartera-documents-table .if-cartera-document-row:focus-visible {
+  outline: 2px solid rgba(22, 159, 149, 0.22);
+  outline-offset: -2px;
+}
+
+
+/* ---------------------------------------------------------
+ * Documento — entidad principal
+ * --------------------------------------------------------- */
+
+.if-cartera-documents-table
+.if-cartera-document-link {
+  color: #24323d;
+  font-weight: 650;
+  text-decoration: none;
+  text-underline-offset: .16em;
+  transition:
+    color 120ms ease,
+    text-decoration-color 120ms ease;
+}
+
+.if-cartera-documents-table
+.if-cartera-document-link:hover {
+  color: #168f87;
+  text-decoration: underline;
+  text-decoration-color: rgba(22, 143, 135, .55);
+}
+
+
+/* ---------------------------------------------------------
+ * Cliente — navegacion secundaria
+ * --------------------------------------------------------- */
+
+.if-cartera-documents-table
+.if-cartera-document-customer-link {
+  color: #344451;
+  font-weight: 600;
+  text-decoration: none;
+  text-underline-offset: .16em;
+}
+
+.if-cartera-documents-table
+.if-cartera-document-customer-link:hover {
+  color: #168f87;
+  text-decoration: underline;
+}
+
+
+/* ---------------------------------------------------------
+ * Saldo
+ * --------------------------------------------------------- */
+
+.if-cartera-documents-table
+.if-cartera-document-balance > strong {
+  color: #245f5b;
+  font-weight: 650;
+}
+
+
+/* ---------------------------------------------------------
+ * Estado
+ * --------------------------------------------------------- */
+
+.if-cartera-documents-table
+.if-cartera-document-status {
+  font-weight: 550;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.if-cartera-documents-table
+.if-cartera-document-status.is-paid {
+  color: #3e775e;
+  background: #edf7f1;
+  border-color: #cee4d7;
+}
+
+.if-cartera-documents-table
+.if-cartera-document-status.is-pending {
+  color: #8b682b;
+  background: #fff6e8;
+  border-color: #ead8b8;
+}
+
+.if-cartera-documents-table
+.if-cartera-document-status.is-closed {
+  color: #5f6d79;
+  background: #f1f4f6;
+  border-color: #d7dee3;
+}
+
+.if-cartera-documents-table
+.if-cartera-document-status.is-scheduled {
+  color: #496b96;
+  background: #edf3fb;
+  border-color: #cbd9ef;
+}
+
+.if-cartera-documents-table
+.if-cartera-document-status.is-neutral {
+  color: #69737c;
+  background: #f5f6f7;
+  border-color: #dde1e4;
+}
+
+
+/* ---------------------------------------------------------
+ * Subestado
+ * --------------------------------------------------------- */
+
+.if-cartera-documents-table
+.if-cartera-document-substatus {
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none !important;
+}
+
+.if-cartera-documents-table
+.if-cartera-document-substatus.is-payment-total {
+  color: #47765f;
+  background: #eef7f2;
+  border-color: #cfe2d6;
+}
+
+.if-cartera-documents-table
+.if-cartera-document-substatus.is-credit-note {
+  color: #45766f;
+  background: #eef7f5;
+  border-color: #c8dfdb;
+}
+
+.if-cartera-documents-table
+.if-cartera-document-substatus.is-payment-partial {
+  color: #8a672d;
+  background: #fff6e8;
+  border-color: #ead8b8;
+}
+
+.if-cartera-documents-table
+.if-cartera-document-substatus.is-manual-reconciliation {
+  color: #705b91;
+  background: #f5f0fb;
+  border-color: #dcd1ee;
+}
+
+.if-cartera-documents-table
+.if-cartera-document-substatus.is-credit-balance {
+  color: #47768a;
+  background: #eef7fa;
+  border-color: #cae0e7;
+}
+
+.if-cartera-documents-table
+.if-cartera-document-substatus.is-promise {
+  color: #59679a;
+  background: #f0f2fb;
+  border-color: #d3d7ef;
+}
+
+.if-cartera-documents-table
+.if-cartera-document-substatus.is-neutral {
+  color: #68727b;
+  background: #f5f6f7;
+  border-color: #dde1e4;
+}
+
+
+/* ---------------------------------------------------------
+ * Tags
+ * --------------------------------------------------------- */
+
+.if-cartera-documents-table
+.if-cartera-document-tag {
+  color: #657078;
+  background: #f4f6f7;
+  border-color: #dce1e4;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none !important;
+}
+
+/* === CARTERA DOCUMENTOS PARITY 3.3 END === */
+
+
+/* === PORTFOLIO FILTERS COMPACT 3.4 START === */
+
+/*
+ * Compactacion transversal de filtros:
+ * - Cartera > Clientes
+ * - Cartera > Documentos
+ * - Gestion > My Work
+ *
+ * No cambia grid funcional ni campos.
+ */
+
+
+/* Card menos alto */
+.if-portfolio-filter-card {
+  padding: 1rem 1.15rem !important;
+}
+
+
+/* Menor separacion entre elementos del formulario */
+.if-portfolio-filters {
+  gap: 0.75rem 1rem !important;
+  align-items: end;
+}
+
+
+/* Labels mas discretos */
+.if-portfolio-filter-field label {
+  margin-bottom: 0.32rem !important;
+  font-size: 0.70rem !important;
+  line-height: 1.1;
+}
+
+
+/* Inputs y selects mas bajos */
+.if-portfolio-filter-field input,
+.if-portfolio-filter-field select {
+  min-height: 38px !important;
+  height: 38px !important;
+  padding-top: 0.38rem !important;
+  padding-bottom: 0.38rem !important;
+  font-size: 0.82rem !important;
+}
+
+
+/* Campos date tambien compactos */
+.if-portfolio-filter-field input[type="date"] {
+  min-height: 38px !important;
+  height: 38px !important;
+}
+
+
+/* Acciones mas compactas */
+.if-portfolio-filter-actions {
+  gap: 0.55rem !important;
+  align-items: center !important;
+}
+
+
+/* Boton Filtrar */
+.if-portfolio-filter-actions .if-button-primary {
+  min-height: 38px !important;
+  height: 38px !important;
+  padding: 0 0.9rem !important;
+  font-size: 0.80rem !important;
+}
+
+
+/* Limpiar */
+.if-portfolio-filter-actions .if-button-secondary,
+.if-portfolio-filter-actions a {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.80rem !important;
+}
+
+
+/*
+ * Evita aire excesivo debajo del ultimo renglon
+ * cuando el grid salta a segunda linea.
+ */
+.if-portfolio-filter-card form {
+  margin-bottom: 0 !important;
+}
+
+
+/* === PORTFOLIO FILTERS COMPACT 3.4 END === */
+
+
+/* === CARTERA FILTERS ONE LINE 3.5 START === */
+
+/*
+ * Cartera > Clientes / Documentos
+ * Layout compacto en una sola linea.
+ */
+
+/* Card */
+.if-portfolio-filter-card:has(.if-cartera-client-filters),
+.if-portfolio-filter-card:has(.if-cartera-document-filters) {
+  padding: .72rem .95rem !important;
+}
+
+
+/* =========================================================
+ * DOCUMENTOS
+ * Buscar | Estado | Saldo | Desde | Hasta | Acciones
+ * ========================================================= */
+
+.if-cartera-document-filters {
+  display: grid !important;
+  grid-template-columns:
+    minmax(190px, 1.35fr)
+    minmax(110px, .72fr)
+    minmax(110px, .72fr)
+    minmax(125px, .85fr)
+    minmax(125px, .85fr)
+    auto;
+  gap: .55rem !important;
+  align-items: end !important;
+}
+
+
+/* =========================================================
+ * CLIENTES
+ * Buscar | Cluster | Documentos | Saldo | Acciones
+ * ========================================================= */
+
+.if-cartera-client-filters {
+  display: grid !important;
+  grid-template-columns:
+    minmax(220px, 1.5fr)
+    minmax(125px, .8fr)
+    minmax(125px, .8fr)
+    minmax(125px, .8fr)
+    auto;
+  gap: .55rem !important;
+  align-items: end !important;
+}
+
+
+/* Campos */
+.if-cartera-client-filters
+.if-portfolio-filter-field,
+.if-cartera-document-filters
+.if-portfolio-filter-field {
+  min-width: 0;
+}
+
+
+/* Labels */
+.if-cartera-client-filters
+.if-portfolio-filter-field label,
+.if-cartera-document-filters
+.if-portfolio-filter-field label {
+  margin-bottom: .20rem !important;
+  font-size: .64rem !important;
+  line-height: 1;
+}
+
+
+/* Inputs / selects */
+.if-cartera-client-filters
+.if-portfolio-filter-field input,
+.if-cartera-client-filters
+.if-portfolio-filter-field select,
+.if-cartera-document-filters
+.if-portfolio-filter-field input,
+.if-cartera-document-filters
+.if-portfolio-filter-field select {
+  width: 100%;
+  min-width: 0;
+  min-height: 32px !important;
+  height: 32px !important;
+  padding-top: .20rem !important;
+  padding-bottom: .20rem !important;
+  padding-left: .65rem !important;
+  padding-right: .65rem !important;
+  font-size: .74rem !important;
+}
+
+
+/* Acciones */
+.if-cartera-client-filters
+.if-portfolio-filter-actions,
+.if-cartera-document-filters
+.if-portfolio-filter-actions {
+  display: flex !important;
+  align-items: center !important;
+  align-self: end;
+  gap: .35rem !important;
+  margin: 0 !important;
+  white-space: nowrap;
+}
+
+
+/* Filtrar */
+.if-cartera-client-filters
+.if-portfolio-filter-actions .if-button-primary,
+.if-cartera-document-filters
+.if-portfolio-filter-actions .if-button-primary {
+  min-height: 32px !important;
+  height: 32px !important;
+  padding: 0 .72rem !important;
+  font-size: .73rem !important;
+}
+
+
+/* Limpiar */
+.if-cartera-client-filters
+.if-portfolio-filter-actions a,
+.if-cartera-document-filters
+.if-portfolio-filter-actions a {
+  min-height: 32px !important;
+  height: 32px !important;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 .18rem !important;
+  font-size: .73rem !important;
+}
+
+
+/* Desktop normal: una sola linea */
+@media (min-width: 1000px) {
+  .if-cartera-client-filters,
+  .if-cartera-document-filters {
+    grid-auto-flow: column;
+  }
+}
+
+
+/* Solo en pantallas realmente pequenas permitimos wrap */
+@media (max-width: 999px) {
+
+  .if-cartera-document-filters {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .if-cartera-client-filters {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .if-cartera-client-filters
+  .if-portfolio-filter-actions,
+  .if-cartera-document-filters
+  .if-portfolio-filter-actions {
+    justify-self: start;
+  }
+}
+
+/* === CARTERA FILTERS ONE LINE 3.5 END === */
+
+
+/* === CARTERA TYPOGRAPHY FINAL 3.6 START === */
+
+/*
+ * Escala final revisada para mejorar legibilidad
+ * en diferentes resoluciones.
+ */
+
+
+/* =========================================================
+ * CLIENTES
+ * ========================================================= */
+
+.if-cartera-customers-table tbody {
+  font-size: 0.78rem;
+}
+
+.if-cartera-customers-table tbody
+.if-cartera-entity-link,
+.if-cartera-customers-table tbody strong {
+  font-size: 0.78rem;
+}
+
+.if-cartera-customers-table tbody .if-muted {
+  font-size: 0.68rem;
+}
+
+.if-cartera-customers-table tbody .if-badge {
+  font-size: 0.64rem;
+}
+
+
+/* Contacto / email */
+.if-cartera-customers-table tbody
+td:nth-child(3) {
+  font-size: 0.68rem;
+}
+
+
+/* Ultima gestion */
+.if-cartera-customers-table
+.if-cartera-last-management-label {
+  font-size: 0.57rem;
+}
+
+.if-cartera-customers-table
+.if-cartera-last-management-event strong {
+  font-size: 0.71rem;
+}
+
+.if-cartera-customers-table
+.if-cartera-last-management-event small {
+  font-size: 0.60rem;
+}
+
+
+/* =========================================================
+ * DOCUMENTOS
+ * ========================================================= */
+
+.if-cartera-documents-table tbody {
+  font-size: 0.78rem;
+}
+
+.if-cartera-documents-table
+.if-cartera-document-link,
+.if-cartera-documents-table
+.if-cartera-document-customer-link,
+.if-cartera-documents-table tbody strong {
+  font-size: 0.78rem;
+}
+
+.if-cartera-documents-table tbody .if-muted {
+  font-size: 0.68rem;
+}
+
+.if-cartera-documents-table tbody .if-badge,
+.if-cartera-documents-table tbody .if-pill {
+  font-size: 0.64rem;
+}
+
+/* === CARTERA TYPOGRAPHY FINAL 3.6 END === */
+
+
+/* === GESTION FILTERS TYPOGRAPHY 3.7 START === */
+
+/* =========================================================
+ * GESTION — FILTROS EN UNA SOLA LINEA
+ *
+ * Buscar cliente | RUT | Cluster | Cobrador | Estado | acciones
+ * ========================================================= */
+
+/*
+ * Se limita a la tarjeta de filtros que antecede a la grilla
+ * operacional. No altera los filtros específicos de Cartera.
+ */
+.if-portfolio-filter-card .if-portfolio-filters {
+  grid-template-columns:
+    minmax(210px, 1.35fr)
+    minmax(125px, .75fr)
+    minmax(145px, .85fr)
+    minmax(155px, .95fr)
+    minmax(105px, .65fr)
+    auto !important;
+
+  gap: .55rem !important;
+  align-items: end !important;
+}
+
+.if-portfolio-filter-card {
+  padding: .72rem .95rem !important;
+}
+
+.if-portfolio-filter-card
+.if-portfolio-filter-field {
+  min-width: 0;
+}
+
+.if-portfolio-filter-card
+.if-portfolio-filter-field label {
+  margin-bottom: .20rem !important;
+  font-size: .64rem !important;
+  line-height: 1;
+}
+
+.if-portfolio-filter-card
+.if-portfolio-filter-field input,
+.if-portfolio-filter-card
+.if-portfolio-filter-field select {
+  width: 100%;
+  min-width: 0;
+  min-height: 32px !important;
+  height: 32px !important;
+  padding-top: .20rem !important;
+  padding-bottom: .20rem !important;
+  padding-left: .65rem !important;
+  padding-right: .65rem !important;
+  font-size: .74rem !important;
+}
+
+.if-portfolio-filter-card
+.if-portfolio-filter-actions {
+  display: flex !important;
+  align-items: center !important;
+  align-self: end;
+  gap: .35rem !important;
+  margin: 0 !important;
+  white-space: nowrap;
+}
+
+.if-portfolio-filter-card
+.if-portfolio-filter-actions .if-button-primary {
+  min-height: 32px !important;
+  height: 32px !important;
+  padding: 0 .72rem !important;
+  font-size: .73rem !important;
+}
+
+.if-portfolio-filter-card
+.if-portfolio-filter-actions a {
+  display: inline-flex;
+  min-height: 32px !important;
+  height: 32px !important;
+  align-items: center;
+  padding: 0 .18rem !important;
+  font-size: .73rem !important;
+}
+
+
+/* =========================================================
+ * GESTION POR CLIENTE — LEGIBILIDAD
+ *
+ * No cambia anchos ni padding de columnas financieras.
+ * ========================================================= */
+
+/* Nombre cliente */
+.if-portfolio-table
+.if-portfolio-customer-link strong {
+  font-size: .76rem;
+}
+
+/* RUT / texto secundario del cliente */
+.if-portfolio-table
+.if-portfolio-customer-cell .if-muted {
+  font-size: .64rem;
+}
+
+/* Cobrador */
+.if-portfolio-table
+.if-portfolio-customer-collector {
+  font-size: .62rem;
+}
+
+.if-portfolio-table
+.if-portfolio-customer-collector i {
+  font-size: .59rem;
+}
+
+/* Badges de prioridad / seguimiento */
+.if-portfolio-table
+.if-portfolio-priority-signal,
+.if-portfolio-table
+.if-portfolio-followup-signal {
+  font-size: .61rem !important;
+}
+
+/* Motivo operacional secundario */
+.if-portfolio-table
+.if-portfolio-review-reason {
+  font-size: .62rem !important;
+}
+
+
+/* Ultimo hito */
+.if-portfolio-table td:nth-child(11)
+.if-portfolio-latest-event-label {
+  font-size: .58rem;
+}
+
+.if-portfolio-table td:nth-child(11)
+.if-portfolio-latest-event strong {
+  font-size: .74rem;
+}
+
+.if-portfolio-table td:nth-child(11)
+.if-portfolio-latest-event small {
+  font-size: .63rem;
+}
+
+
+/*
+ * No tocamos los importes Aging.
+ * Su tamaño actual está equilibrado y el ancho ya está protegido
+ * por la geometría estable mediante COLGROUP.
+ */
+
+
+/* =========================================================
+ * RESPONSIVE
+ * ========================================================= */
+
+@media (max-width: 1150px) {
+  .if-portfolio-filter-card .if-portfolio-filters {
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .if-portfolio-filter-card
+  .if-portfolio-filter-actions {
+    justify-self: start;
+  }
+}
+
+/* === GESTION FILTERS TYPOGRAPHY 3.7 END === */
+
+
+/* === GESTION CLIENT TABLE REFINEMENT 3.8 V2 START === */
+
+/*
+ * Solo Gestion por cliente.
+ * Aging se conserva como eje principal.
+ */
+
+
+/* =========================================================
+ * 1. Redistribucion de ancho
+ * ========================================================= */
+
+.if-portfolio-table col.if-portfolio-col-customer {
+  width: 220px !important;
+}
+
+.if-portfolio-table th:nth-child(1),
+.if-portfolio-table td:nth-child(1) {
+  width: 220px !important;
+}
+
+.if-portfolio-table col.if-portfolio-col-latest {
+  width: 154px !important;
+}
+
+.if-portfolio-table th:nth-child(11),
+.if-portfolio-table td:nth-child(11) {
+  width: 154px !important;
+  padding-left: .72rem !important;
+  padding-right: .55rem !important;
+}
+
+
+/* =========================================================
+ * 2. Limpiar Cliente
+ * ========================================================= */
+
+.if-portfolio-table
+.if-portfolio-review-reason.is-redundant-financial-reason {
+  display: none !important;
+}
+
+
+/*
+ * Mantener señales operativas compactas.
+ */
+.if-portfolio-table
+.if-portfolio-priority-signal,
+.if-portfolio-table
+.if-portfolio-followup-signal {
+  display: inline-flex !important;
+  width: auto !important;
+  margin-top: .14rem !important;
+  margin-right: .18rem !important;
+  vertical-align: middle;
+}
+
+
+/* =========================================================
+ * 3. Ultimo hito mas angosto
+ * ========================================================= */
+
+.if-portfolio-table td:nth-child(11)
+.if-portfolio-latest-event {
+  width: 100%;
+  min-width: 0;
+  gap: .12rem;
+  padding: .06rem 0;
+}
+
+.if-portfolio-table td:nth-child(11)
+.if-portfolio-latest-event-label {
+  white-space: normal !important;
+}
+
+.if-portfolio-table td:nth-child(11)
+.if-portfolio-latest-event strong {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  white-space: normal !important;
+  overflow-wrap: break-word;
+  word-break: normal;
+  line-height: 1.18;
+}
+
+.if-portfolio-table td:nth-child(11)
+.if-portfolio-latest-event small {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  white-space: normal !important;
+  line-height: 1.15;
+}
+
+
+/* =========================================================
+ * 4. Hover de fila
+ * ========================================================= */
+
+.if-portfolio-table
+.if-portfolio-customer-row {
+  transition: background-color 120ms ease;
+}
+
+.if-portfolio-table
+.if-portfolio-customer-row:hover {
+  background: #f8fbfa !important;
+}
+
+.if-portfolio-table
+.if-portfolio-customer-row:hover td {
+  background-color: transparent;
+}
+
+/* conservar identidad del saldo pendiente */
+.if-portfolio-table
+.if-portfolio-customer-row:hover td:nth-child(2) {
+  background: #eef8f5;
+}
+
+/* sticky Cliente acompana el hover */
+.if-portfolio-table
+.if-portfolio-customer-row:hover
+.if-portfolio-customer-cell {
+  background: #f8fbfa !important;
+}
+
+
+/* =========================================================
+ * Aging
+ *
+ * Intencionalmente SIN cambios:
+ * - col.if-portfolio-col-finance
+ * - nth-child(3..10)
+ * - tipografia
+ * - contraste
+ * - padding
+ * ========================================================= */
+
+/* === GESTION CLIENT TABLE REFINEMENT 3.8 V2 END === */
+
+
+/* === GESTION CLIENT BADGES BALANCE 3.9 START === */
+
+/* =========================================================
+ * PRIORIDAD / SEGUIMIENTO
+ *
+ * Pasan de barras a pills operacionales compactos.
+ * ========================================================= */
+
+.if-portfolio-table
+.if-portfolio-priority-signal,
+.if-portfolio-table
+.if-portfolio-followup-signal {
+  display: inline-flex !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: max-content !important;
+
+  align-items: center;
+  justify-content: flex-start;
+
+  margin-top: .18rem !important;
+  margin-right: .20rem !important;
+  margin-bottom: 0 !important;
+
+  padding: .13rem .48rem !important;
+
+  border-radius: 999px !important;
+
+  font-size: .60rem !important;
+  font-weight: 600;
+  line-height: 1.05;
+
+  white-space: nowrap;
+}
+
+
+/*
+ * Iconos ligeramente mas discretos.
+ */
+.if-portfolio-table
+.if-portfolio-priority-signal i,
+.if-portfolio-table
+.if-portfolio-followup-signal i {
+  margin-right: .22rem;
+  font-size: .56rem !important;
+}
+
+
+/* =========================================================
+ * SALDO PENDIENTE
+ *
+ * Se refuerza como uno de los datos principales.
+ * Aging permanece intacto.
+ * ========================================================= */
+
+.if-portfolio-table tbody
+td:nth-child(2) > strong,
+.if-portfolio-table tbody
+td:nth-child(2) .if-portfolio-balance-main {
+  font-size: .84rem !important;
+  font-weight: 720 !important;
+  line-height: 1.12;
+  letter-spacing: -.01em;
+}
+
+
+/*
+ * Informacion secundaria del saldo sigue discreta.
+ */
+.if-portfolio-table tbody
+td:nth-child(2) .if-muted,
+.if-portfolio-table tbody
+td:nth-child(2) small {
+  font-size: .60rem;
+  line-height: 1.15;
+}
+
+
+/* === GESTION CLIENT BADGES BALANCE 3.9 END === */
+
+
+/* === GESTION SIGNAL GROUP CREDIT 3.9.2 START === */
+
+/* =========================================================
+ * PRIORIDAD + SEGUIMIENTO
+ *
+ * El padre .if-portfolio-customer es GRID.
+ * Este wrapper convierte las dos señales en UN solo item
+ * del grid y dentro de él usa FLEX.
+ * ========================================================= */
+
+.if-portfolio-table
+.if-portfolio-signal-group {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap;
+
+  align-items: center;
+  justify-content: flex-start;
+
+  width: 100%;
+  gap: .22rem;
+
+  margin-top: .14rem;
+}
+
+
+/*
+ * Dentro del wrapper ya no pueden ocupar una fila completa.
+ */
+.if-portfolio-table
+.if-portfolio-signal-group
+.if-portfolio-priority-signal,
+.if-portfolio-table
+.if-portfolio-signal-group
+.if-portfolio-followup-signal {
+  display: inline-flex !important;
+
+  flex: 0 0 auto !important;
+
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+
+  margin: 0 !important;
+
+  padding: .13rem .44rem !important;
+
+  align-items: center;
+
+  white-space: nowrap !important;
+
+  border-radius: 999px !important;
+
+  font-size: .60rem !important;
+  line-height: 1 !important;
+}
+
+
+/*
+ * Ajuste fino de los iconos.
+ */
+.if-portfolio-table
+.if-portfolio-signal-group
+.if-portfolio-priority-dot {
+  flex: 0 0 5px;
+}
+
+.if-portfolio-table
+.if-portfolio-signal-group
+.if-portfolio-followup-signal i {
+  flex: 0 0 auto;
+  margin-right: .16rem !important;
+}
+
+
+/* =========================================================
+ * SALDO A FAVOR
+ *
+ * Puede ocupar una linea cuando cabe:
+ *   Saldo a favor $318.646
+ *
+ * Y hacer wrap controlado cuando el monto es largo:
+ *   Saldo a favor
+ *   $4.486.904
+ * ========================================================= */
+
+.if-portfolio-table
+.if-portfolio-total
+.if-portfolio-total {
+  overflow: hidden;
+}
+
+.if-portfolio-table
+.if-portfolio-total
+.if-portfolio-total
+.if-portfolio-total {
+  min-width: 0;
+}
+
+
+.if-portfolio-table
+.if-portfolio-total
+.if-portfolio-credit-balance {
+  display: flex !important;
+
+  flex-direction: row;
+  flex-wrap: wrap;
+
+  justify-content: flex-end;
+  align-items: baseline;
+
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+
+  column-gap: .20rem;
+  row-gap: .02rem;
+
+  margin-top: .12rem;
+
+  color: #5f8f85;
+
+  font-size: .58rem !important;
+  line-height: 1.15;
+
+  white-space: normal !important;
+
+  overflow: hidden;
+}
+
+
+/*
+ * Evita cortar el monto por la mitad.
+ * Si no cabe completo, baja completo a la siguiente linea.
+ */
+.if-portfolio-table
+.if-portfolio-credit-balance
+.if-portfolio-credit-balance-amount {
+  flex: 0 0 auto;
+
+  color: inherit;
+
+  font-size: inherit;
+
+  white-space: nowrap !important;
+}
+
+
+/*
+ * Neutraliza especificamente el nowrap historico de:
+ * .if-portfolio-total small
+ */
+.if-portfolio-table
+.if-portfolio-total
+small.if-portfolio-credit-balance {
+  white-space: normal !important;
+}
+
+
+/* === GESTION SIGNAL GROUP CREDIT 3.9.2 END === */
+
+
+/* === GESTION BADGES AIR 4.0 START === */
+
+/* =========================================================
+ * Cliente — aire vertical
+ * ========================================================= */
+
+/*
+ * Un poco mas de respiracion entre cobrador y señales.
+ */
+.if-portfolio-table
+.if-portfolio-customer-collector {
+  margin-bottom: .16rem;
+}
+
+
+/*
+ * Wrapper de badges algo mas separado
+ * y con mayor espacio horizontal.
+ */
+.if-portfolio-table
+.if-portfolio-signal-group {
+  margin-top: .18rem !important;
+  gap: .26rem !important;
+}
+
+
+/* =========================================================
+ * Prioridad — rosa mas suave
+ * ========================================================= */
+
+.if-portfolio-table
+.if-portfolio-signal-group
+.if-portfolio-priority-signal {
+  background: #fcf5f6 !important;
+  border-color: #edd7dc !important;
+  color: #8f5f69 !important;
+
+  padding: .13rem .46rem !important;
+
+  font-size: .60rem !important;
+  font-weight: 600 !important;
+}
+
+.if-portfolio-table
+.if-portfolio-signal-group
+.if-portfolio-priority-dot {
+  background: #c47a89 !important;
+}
+
+
+/* =========================================================
+ * Seguimiento — ambar mas suave
+ * ========================================================= */
+
+.if-portfolio-table
+.if-portfolio-signal-group
+.if-portfolio-followup-signal {
+  background: #fffaf1 !important;
+  border-color: #eadfc9 !important;
+  color: #8a7041 !important;
+
+  padding: .13rem .46rem !important;
+
+  font-size: .60rem !important;
+  font-weight: 600 !important;
+}
+
+.if-portfolio-table
+.if-portfolio-signal-group
+.if-portfolio-followup-signal i {
+  color: #a17f46 !important;
+}
+
+
+/* =========================================================
+ * Saldo a favor — mas secundario y mejor separado
+ * ========================================================= */
+
+.if-portfolio-table
+.if-portfolio-credit-balance {
+  margin-top: .18rem !important;
+
+  color: #6d948c !important;
+
+  font-size: .58rem !important;
+  font-weight: 400 !important;
+
+  line-height: 1.16 !important;
+}
+
+.if-portfolio-table
+.if-portfolio-credit-balance-amount {
+  color: #5f877f !important;
+  font-weight: 500 !important;
+}
+
+
+/* === GESTION BADGES AIR 4.0 END === */
+

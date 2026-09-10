@@ -17,7 +17,7 @@
 {% include "portfolio/_portfolio_nav.html" with active_tab="customers" %}
 
 <section class="if-card if-portfolio-filter-card">
-  <form method="get" class="if-portfolio-filters">
+  <form method="get" class="if-portfolio-filters if-cartera-client-filters">
     <input
       type="hidden"
       name="sort"
@@ -122,38 +122,6 @@
       </select>
     </div>
 
-    <div class="if-portfolio-filter-field">
-      <label for="page_size">
-        Filas
-      </label>
-
-      <select
-        id="page_size"
-        name="page_size"
-      >
-        <option
-          value="25"
-          {% if selected_page_size == "25" %}selected{% endif %}
-        >
-          25
-        </option>
-
-        <option
-          value="50"
-          {% if selected_page_size == "50" %}selected{% endif %}
-        >
-          50
-        </option>
-
-        <option
-          value="100"
-          {% if selected_page_size == "100" %}selected{% endif %}
-        >
-          100
-        </option>
-      </select>
-    </div>
-
     <div class="if-portfolio-filter-actions">
       <button
         type="submit"
@@ -200,7 +168,7 @@
 
   {% if customers %}
     <div class="if-table-wrapper">
-      <table class="if-table if-table-modern if-listing-table">
+      <table class="if-table if-table-modern if-listing-table if-cartera-table if-cartera-customers-table">
         <thead>
           <tr>
             <th>
@@ -256,6 +224,10 @@
               </a>
             </th>
 
+            <th>
+              Ultima gestion
+            </th>
+
             <th class="text-end">
               <a
                 href="{{ sort_urls.balance }}"
@@ -273,19 +245,25 @@
               </a>
             </th>
 
-            <th class="text-end">
-              Acción
-            </th>
+
           </tr>
         </thead>
 
         <tbody>
           {% for customer in customers %}
-            <tr>
+            <tr
+              class="if-cartera-clickable-row"
+              data-customer-url="{% url 'portfolio:customer_detail' customer.id %}"
+              tabindex="0"
+              role="link"
+            >
               <td>
-                <strong>
+                <a
+                  href="{% url 'portfolio:customer_detail' customer.id %}"
+                  class="if-cartera-entity-link"
+                >
                   {{ customer.name }}
-                </strong>
+                </a>
 
                 <div class="if-muted">
                   {{ customer.rut }}
@@ -294,8 +272,35 @@
 
               <td>
                 {% if customer.cluster %}
-                  <span class="if-badge if-badge-soft">
-                    {{ customer.cluster }}
+                  <span
+                    class="
+                      if-badge
+                      if-badge-soft
+                      if-cluster-badge
+                      {% if customer.cluster == 'CONSTRUCTORA' %}
+                        is-constructora
+                      {% elif customer.cluster == 'FERRETERIA' %}
+                        is-ferreteria
+                      {% elif customer.cluster == 'ESPECIALISTA' %}
+                        is-especialista
+                      {% elif customer.cluster == 'MAYORISTA' %}
+                        is-mayorista
+                      {% elif customer.cluster == 'RETAIL' %}
+                        is-retail
+                      {% elif customer.cluster == 'EMPRESA SANITARIA' %}
+                        is-empresa-sanitaria
+                      {% elif customer.cluster == 'INSTALADOR SANITARIO' %}
+                        is-instalador-sanitario
+                      {% elif customer.cluster == 'INSTITUCIONAL' %}
+                        is-institucional
+                      {% elif customer.cluster == 'VENTA WEB' %}
+                        is-venta-web
+                      {% else %}
+                        is-otros
+                      {% endif %}
+                    "
+                  >
+                    {{ customer.cluster|title }}
                   </span>
                 {% else %}
                   <span class="if-muted">
@@ -320,21 +325,41 @@
                 </strong>
               </td>
 
+              <td class="if-cartera-last-management">
+                {% if customer.latest_management_date %}
+                  <div class="if-cartera-last-management-event">
+                    <span class="if-cartera-last-management-label">
+                      Última gestión
+                    </span>
+
+                    <strong>
+                      {{ customer.latest_management_title }}
+                    </strong>
+
+                    <small>
+                      {{ customer.latest_management_date|date:"d/m/Y H:i" }}
+                    </small>
+                  </div>
+                {% else %}
+                  <div class="if-cartera-last-management-event is-empty">
+                    <span class="if-cartera-last-management-label">
+                      Última gestión
+                    </span>
+
+                    <strong>
+                      Sin gestión
+                    </strong>
+                  </div>
+                {% endif %}
+              </td>
+
               <td class="text-end">
                 <strong>
                   {{ customer.total_balance|default:0|clp }}
                 </strong>
               </td>
 
-              <td class="text-end">
-                <a
-                  href="{% url 'portfolio:customer_detail' customer.id %}"
-                  class="if-action-link"
-                >
-                  <i class="bi bi-arrow-right"></i>
-                  Ver 360
-                </a>
-              </td>
+
             </tr>
           {% endfor %}
         </tbody>
@@ -415,4 +440,46 @@
     </div>
   {% endif %}
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  // CARTERA CLIENTES ROW NAVIGATION
+
+  const interactiveSelector = [
+    "a",
+    "button",
+    "input",
+    "select",
+    "textarea",
+    "label",
+    "[role='button']"
+  ].join(",");
+
+  document.querySelectorAll(
+    ".if-cartera-customers-table .if-cartera-clickable-row[data-customer-url]"
+  ).forEach(function (row) {
+
+    row.addEventListener("click", function (event) {
+      if (event.target.closest(interactiveSelector)) {
+        return;
+      }
+
+      window.location.href = row.dataset.customerUrl;
+    });
+
+    row.addEventListener("keydown", function (event) {
+      if (event.key !== "Enter" && event.key !== " ") {
+        return;
+      }
+
+      if (event.target.closest(interactiveSelector)) {
+        return;
+      }
+
+      event.preventDefault();
+      window.location.href = row.dataset.customerUrl;
+    });
+  });
+});
+</script>
 {% endblock %}

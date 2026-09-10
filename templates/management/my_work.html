@@ -214,6 +214,19 @@
   {% if customers %}
     <div class="if-portfolio-table-wrapper">
       <table class="if-table if-portfolio-table">
+        <colgroup>
+          <col class="if-portfolio-col-customer">
+          <col class="if-portfolio-col-balance">
+          <col class="if-portfolio-col-finance">
+          <col class="if-portfolio-col-finance">
+          <col class="if-portfolio-col-finance">
+          <col class="if-portfolio-col-finance">
+          <col class="if-portfolio-col-finance">
+          <col class="if-portfolio-col-finance">
+          <col class="if-portfolio-col-finance">
+          <col class="if-portfolio-col-finance">
+          <col class="if-portfolio-col-latest">
+        </colgroup>
         <thead>
   <tr>
     <th class="if-portfolio-customer-column">
@@ -410,22 +423,26 @@
       </a>
     </th>
 
-    <th class="if-portfolio-actions-header">
-      
-    </th>
   </tr>
 </thead>
 
         <tbody>
           {% for customer in customers %}
           <tr
-  class="if-portfolio-customer-row"
+  class="if-portfolio-customer-row{% if customer.is_priority %} is-priority{% endif %}"
   data-customer-url="{% url 'portfolio:customer_detail' customer.id %}"
-  title="Doble clic para abrir Cliente 360"
+  title="Clic para abrir Cliente 360"
 >
   <td class="if-portfolio-customer-cell">
 <div class="if-portfolio-customer">
-  <strong>{{ customer.name }}</strong>
+  <a
+    href="{% url 'portfolio:customer_detail' customer.id %}"
+    class="if-portfolio-customer-link"
+    title="Abrir Cliente 360"
+  >
+    <strong>{{ customer.name }}</strong>
+    <i class="bi bi-arrow-up-right"></i>
+  </a>
 
   <span class="if-portfolio-customer-rut">
     {{ customer.rut }}
@@ -436,8 +453,32 @@
     {{ customer.collector_display }}
   </small>
 
+  <div class="if-portfolio-signal-group">
+  {% if customer.is_priority %}
+    <small
+      class="if-portfolio-priority-signal"
+      title="{{ customer.main_priority_reason }} · {{ customer.priority_document_count }} documento{% if customer.priority_document_count != 1 %}s{% endif %} priorizado{% if customer.priority_document_count != 1 %}s{% endif %}"
+    >
+      <span class="if-portfolio-priority-dot"></span>
+      Prioridad
+    </small>
+  {% endif %}
+
+  {% if customer.needs_followup %}
+    <small
+      class="if-portfolio-followup-signal"
+      title="Cliente sin gestión comercial durante los últimos 7 días"
+    >
+      <i class="bi bi-clock-history"></i>
+      Seguimiento
+    </small>
+  {% endif %}
+  </div>
+
   {% if customer.requires_review %}
-    <small class="if-portfolio-review-reason">
+    <small
+      class="if-portfolio-review-reason{% if customer.review_reason_label == 'Saldo pendiente y saldo a favor' %} is-redundant-financial-reason{% endif %}"
+    >
       <i class="bi bi-exclamation-diamond"></i>
       {{ customer.review_reason_label }}
     </small>
@@ -449,8 +490,11 @@
     <strong>{{ customer.total_balance|clp }}</strong>
 
     {% if customer.total_overpayment > 0 %}
-      <small>
-        Saldo a favor {{ customer.total_overpayment|clp }}
+      <small class="if-portfolio-credit-balance">
+        <span>Saldo a favor</span>
+        <span class="if-portfolio-credit-balance-amount">
+          {{ customer.total_overpayment|clp }}
+        </span>
       </small>
     {% endif %}
   </td>
@@ -504,18 +548,18 @@
       </small>
     </div>
 
-  {% elif customer.last_action_date %}
+  {% elif customer.latest_customer_hito_date %}
     <div class="if-portfolio-latest-event">
       <span class="if-portfolio-latest-event-label">
-        Última gestión
+        {{ customer.latest_customer_hito_label }}
       </span>
 
       <strong>
-        {{ customer.last_action_type_label|default:"Gestión registrada" }}
+        {{ customer.latest_customer_hito_title }}
       </strong>
 
       <small>
-        {{ customer.last_action_date|human_datetime }}
+        {{ customer.latest_customer_hito_date|human_datetime }}
       </small>
     </div>
 
@@ -526,15 +570,6 @@
   {% endif %}
 </td>
 
-  <td class="if-portfolio-actions-cell">
-    <a
-      href="{% url 'portfolio:customer_detail' customer.id %}"
-      class="if-portfolio-action"
-    >
-      Ver
-      <i class="bi bi-arrow-right"></i>
-    </a>
-  </td>
 </tr>
           {% endfor %}
         </tbody>
@@ -674,7 +709,7 @@ document.addEventListener("DOMContentLoaded", function () {
   );
 
   rows.forEach(function (row) {
-    row.addEventListener("dblclick", function (event) {
+    row.addEventListener("click", function (event) {
       if (
         event.target.closest(
           "a, button, input, select, textarea, label"

@@ -30,10 +30,6 @@ from apps.accounts.services.delegated_graph import (
 from apps.portfolio.models import (
     Customer,
     CustomerStatement,
-    DocumentAssignment,
-)
-from apps.portfolio.services.statement_repository import (
-    UpcomingStatementRepository,
 )
 from apps.portfolio.services.customer_statements import (
     CATEGORY_DUE_TODAY,
@@ -72,34 +68,8 @@ def _can_send_statement(user, customer: Customer) -> bool:
         user
     )
 
-    if role not in STATEMENT_ALLOWED_ROLES:
-        return False
+    return role in STATEMENT_ALLOWED_ROLES
 
-    if role in {
-        "ADMINISTRADOR",
-        "SUPERVISOR",
-    }:
-        return True
-
-    has_operational_assignment = (
-        DocumentAssignment.objects.filter(
-            document__customer=customer,
-            assigned_to=user,
-            is_active=True,
-        ).exists()
-    )
-
-    if has_operational_assignment:
-        return True
-
-    return (
-        UpcomingStatementRepository
-        .is_assigned_to_collector(
-            customer=customer,
-            collector_email=user.email,
-            as_of_date=timezone.localdate(),
-        )
-    )
 
 
 def _get_statement_for_user(

@@ -191,31 +191,34 @@ def customer_statement_form(
 
     suggested_emails = []
 
-    for contact in contacts:
-        email = str(
-            contact.email or ""
-        ).strip().lower()
-
-        if email and email not in suggested_emails:
-            suggested_emails.append(email)
-
-    customer_email = str(
-        customer.email or ""
-    ).strip().lower()
-
-    if (
-        customer_email
-        and customer_email
-        not in suggested_emails
-    ):
-        suggested_emails.append(
-            customer_email
+    def add_suggested_emails(raw_value):
+        normalized = (
+            str(raw_value or "")
+            .replace(";", ",")
+            .replace("\r", ",")
+            .replace("\n", ",")
         )
 
-    default_to = (
-        suggested_emails[0]
-        if suggested_emails
-        else ""
+        for raw_email in normalized.split(","):
+            email = raw_email.strip().lower()
+
+            if (
+                email
+                and email not in suggested_emails
+            ):
+                suggested_emails.append(email)
+
+    for contact in contacts:
+        add_suggested_emails(
+            contact.email
+        )
+
+    add_suggested_emails(
+        customer.email
+    )
+
+    default_to = ", ".join(
+        suggested_emails
     )
 
     today = timezone.localdate()
@@ -234,6 +237,7 @@ def customer_statement_form(
                 suggested_emails
             ),
             "default_to": default_to,
+            "default_cc": "cobranzas@mosaico.cl",
             "sender_email": (
                 request.user.email
             ),
@@ -243,14 +247,16 @@ def customer_statement_form(
                 f"{today.strftime('%d/%m/%Y')}"
             ),
             "default_message_body": (
-                "Estimados,\n\n"
-                "Junto con saludar, adjuntamos el estado de cuenta "
-                "actualizado, con el detalle de los documentos "
-                "pendientes a la fecha.\n\n"
-                "Agradecemos revisar la información y, ante cualquier "
-                "consulta o diferencia, responder a este correo para "
-                "poder revisarla.\n\n"
-                "Saludos cordiales."
+                "Estimado Cliente.\n\n"
+                "Junto con saludar, se adjunta estado de cuenta "
+                "actualizado para vuestra revisión y confirmación de "
+                "pago de los documentos vencidos.\n\n"
+                "Agradecemos informar posible fecha de pago, y ante "
+                "cualquier diferencia o consulta le solicitamos "
+                "hacernos llegar sus comentarios por esta misma "
+                "via.\n\n"
+                "Saludos cordiales.\n\n"
+                "Mosaico S.A."
             ),
         },
     )

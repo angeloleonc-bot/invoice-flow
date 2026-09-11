@@ -1,3 +1,125 @@
+
+<style>
+  /*
+   * Estado de Cuenta:
+   * destinatarios compactos sin alterar la estructura DOM.
+   */
+
+  .if-statement-field:has(#id_statement_to) {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    grid-template-areas:
+      "label suggested spacer"
+      "input input input"
+      "help help help";
+    column-gap: .55rem;
+    row-gap: .2rem;
+    align-items: center;
+  }
+
+  .if-statement-field:has(#id_statement_to) > label {
+    grid-area: label;
+    margin: 0;
+  }
+
+  .if-statement-field:has(#id_statement_to) > #id_statement_to {
+    grid-area: input;
+    width: 100%;
+  }
+
+  .if-statement-field:has(#id_statement_to) > small {
+    grid-area: help;
+    margin: 0;
+  }
+
+  .if-statement-suggested-details {
+    grid-area: suggested;
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+  }
+
+  .if-statement-suggested-details > summary {
+    margin: 0;
+    padding: 0;
+    font-size: .76rem;
+    font-weight: 600;
+    line-height: 1.25;
+    color: #667085;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .if-statement-suggested-details[open] {
+    grid-column: 1 / -1;
+    width: 100%;
+    margin-top: .15rem;
+  }
+
+  .if-statement-suggested-details[open] > summary {
+    margin-bottom: .35rem;
+  }
+
+  .if-statement-suggested-details
+  .if-statement-recipient-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .3rem;
+  }
+
+  .if-statement-cc-details {
+    width: calc(100% - 3rem);
+    margin: .55rem 1.5rem .8rem;
+    padding: .5rem .75rem;
+    border: 1px solid rgba(98, 105, 118, .10);
+    border-radius: .6rem;
+    background: rgba(248, 250, 252, .55);
+    box-sizing: border-box;
+  }
+
+  .if-statement-cc-details > summary {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    min-height: 1.35rem;
+    margin: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .if-statement-cc-details > summary strong {
+    font-size: .82rem;
+  }
+
+  .if-statement-cc-details > summary span {
+    font-size: .78rem;
+  }
+
+  .if-statement-cc-details .if-statement-cc-field {
+    margin-top: .55rem;
+    margin-bottom: 0;
+  }
+
+  @media (max-width: 768px) {
+    .if-statement-field:has(#id_statement_to) {
+      grid-template-columns: 1fr;
+      grid-template-areas:
+        "label"
+        "input"
+        "help"
+        "suggested";
+    }
+
+    .if-statement-suggested-details {
+      margin-top: .15rem;
+    }
+
+    .if-statement-suggested-details[open] {
+      grid-column: auto;
+    }
+  }
+</style>
+
 {% load money %}
 
 <form
@@ -41,53 +163,51 @@
     </small>
 
     {% if suggested_emails %}
-      <div class="if-statement-recipient-suggestions">
-        {% for email in suggested_emails %}
-          <button
-            type="button"
-            data-statement-recipient="{{ email }}"
-          >
-            {{ email }}
-          </button>
-        {% endfor %}
-      </div>
-    {% endif %}
+  <details class="if-statement-optional-field if-statement-suggested-details">
+    <summary class="if-statement-optional-toggle">
+      {{ suggested_emails|length }}
+      correo{% if suggested_emails|length != 1 %}s{% endif %}
+      detectado{% if suggested_emails|length != 1 %}s{% endif %}
+      · Ver sugeridos
+    </summary>
+
+    <div class="if-statement-recipient-suggestions">
+      {% for email in suggested_emails %}
+        <button
+          type="button"
+          class="if-statement-recipient-chip"
+          data-statement-suggested-email="{{ email }}"
+        >
+          {{ email }}
+        </button>
+      {% endfor %}
+    </div>
+  </details>
+{% endif %}
   </div>
 
-  <div class="if-statement-optional-field">
-    <button
-      type="button"
-      class="if-statement-optional-toggle"
-      data-statement-cc-toggle
-      aria-expanded="false"
-    >
-      + Agregar CC
-    </button>
+  <details class="if-statement-optional-field if-statement-cc-details">
+    <summary class="if-statement-optional-toggle">
+      <strong>CC</strong>
+      <span>{{ default_cc }}</span>
+      <span>· Editar</span>
+    </summary>
 
-    <div
-      class="if-statement-field if-statement-cc-field"
-      data-statement-cc-field
-      hidden
-    >
+    <div class="if-statement-field if-statement-cc-field">
       <label for="id_statement_cc">
         CC
-        <span>Opcional</span>
       </label>
 
       <input
         id="id_statement_cc"
         name="cc_emails"
         type="text"
+        value="{{ default_cc }}"
         autocomplete="off"
         placeholder="correo@cliente.cl"
       >
-
-      <small>
-        Puedes ingresar varios correos separados
-        por coma o punto y coma.
-      </small>
     </div>
-  </div>
+  </details>
 
   <div class="if-statement-field">
     <label for="id_statement_subject">

@@ -1068,6 +1068,36 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (!form) return;
 
+    function normalizeStatementEmailInput(input) {
+      if (!input || !input.value) {
+        return;
+      }
+
+      const emails = input.value
+        .split(/[;,\s]+/)
+        .map(function (value) {
+          return value.trim().toLowerCase();
+        })
+        .filter(Boolean);
+
+      input.value = Array.from(
+        new Set(emails)
+      ).join(", ");
+    }
+
+    form.querySelectorAll(
+      'input[name="to_emails"], input[name="cc_emails"]'
+    ).forEach(function (input) {
+
+      input.addEventListener(
+        "blur",
+        function () {
+          normalizeStatementEmailInput(input);
+        }
+      );
+
+    });
+
     const checkboxes = Array.from(
       form.querySelectorAll(
         "[data-statement-checkbox]"
@@ -1976,5 +2006,201 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
 });
+
+  /* STATEMENT_EMAIL_GLOBAL_VALIDATION */
+
+  function normalizeStatementRecipientValue(value) {
+    return Array.from(
+      new Set(
+        String(value || "")
+          .split(/[;,\s]+/)
+          .map(function (item) {
+            return item.trim().toLowerCase();
+          })
+          .filter(Boolean)
+      )
+    ).join(", ");
+  }
+
+  function validateStatementRecipientInput(input) {
+    if (!input) {
+      return true;
+    }
+
+    const rawValue = String(input.value || "").trim();
+
+    let error = input.parentElement.querySelector(
+      ".if-statement-email-error"
+    );
+
+    if (!error) {
+      error = document.createElement("div");
+      error.className =
+        "if-statement-email-error text-danger small mt-1";
+
+      input.insertAdjacentElement(
+        "afterend",
+        error
+      );
+    }
+
+    if (!rawValue) {
+      input.classList.remove("is-invalid");
+      input.setCustomValidity("");
+      error.textContent = "";
+      error.hidden = true;
+      return true;
+    }
+
+    const parts = rawValue
+      .split(/[;,\s]+/)
+      .map(function (item) {
+        return item.trim();
+      })
+      .filter(Boolean);
+
+    const basicEmailPattern =
+      /^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$/;
+
+    const invalid = parts.some(
+      function (email) {
+        const atCount =
+          (email.match(/@/g) || []).length;
+
+        return (
+          atCount !== 1 ||
+          !basicEmailPattern.test(email)
+        );
+      }
+    );
+
+    if (invalid) {
+      input.classList.add("is-invalid");
+
+      input.setCustomValidity(
+        "Correo inválido"
+      );
+
+      error.textContent =
+        "Hay una dirección de correo inválida. " +
+        "Separe los correos con coma, punto y coma o espacio.";
+
+      error.hidden = false;
+
+      return false;
+    }
+
+    input.classList.remove("is-invalid");
+    input.setCustomValidity("");
+    error.textContent = "";
+    error.hidden = true;
+
+    return true;
+  }
+
+  function isStatementRecipientInput(element) {
+    return (
+      element &&
+      element.matches &&
+      element.matches(
+        'input[name="to_emails"], input[name="cc_emails"]'
+      )
+    );
+  }
+
+  document.addEventListener(
+    "focusout",
+    function (event) {
+      const input = event.target;
+
+      if (!isStatementRecipientInput(input)) {
+        return;
+      }
+
+      input.value =
+        normalizeStatementRecipientValue(
+          input.value
+        );
+
+      validateStatementRecipientInput(
+        input
+      );
+    },
+    true
+  );
+
+  document.addEventListener(
+    "input",
+    function (event) {
+      const input = event.target;
+
+      if (!isStatementRecipientInput(input)) {
+        return;
+      }
+
+      if (
+        input.classList.contains("is-invalid")
+      ) {
+        validateStatementRecipientInput(
+          input
+        );
+      }
+    },
+    true
+  );
+
+  document.addEventListener(
+    "submit",
+    function (event) {
+      const form = event.target;
+
+      if (
+        !form ||
+        !form.matches ||
+        !form.matches("[data-statement-form]")
+      ) {
+        return;
+      }
+
+      const inputs = form.querySelectorAll(
+        'input[name="to_emails"], input[name="cc_emails"]'
+      );
+
+      let valid = true;
+      let firstInvalid = null;
+
+      inputs.forEach(
+        function (input) {
+          input.value =
+            normalizeStatementRecipientValue(
+              input.value
+            );
+
+          if (
+            !validateStatementRecipientInput(
+              input
+            )
+          ) {
+            valid = false;
+
+            if (!firstInvalid) {
+              firstInvalid = input;
+            }
+          }
+        }
+      );
+
+      if (!valid) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+
+        if (firstInvalid) {
+          firstInvalid.focus();
+        }
+      }
+    },
+    true
+  );
+
 </script>
 {% endblock %}

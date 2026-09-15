@@ -122,6 +122,49 @@
       </select>
     </div>
 
+    <div class="if-portfolio-filter-field">
+      <label for="document_condition">
+        Condición documental
+      </label>
+
+      <select
+        id="document_condition"
+        name="document_condition"
+      >
+        <option value="">
+          Todas
+        </option>
+
+        <option
+          value="refactored"
+          {% if selected_document_condition == "refactored" %}selected{% endif %}
+        >
+          Refacturación
+        </option>
+
+        <option
+          value="claimed"
+          {% if selected_document_condition == "claimed" %}selected{% endif %}
+        >
+          Reclamada
+        </option>
+
+        <option
+          value="both"
+          {% if selected_document_condition == "both" %}selected{% endif %}
+        >
+          Ambas
+        </option>
+
+        <option
+          value="none"
+          {% if selected_document_condition == "none" %}selected{% endif %}
+        >
+          Sin condición
+        </option>
+      </select>
+    </div>
+
     <div class="if-portfolio-filter-actions">
       <button
         type="submit"
@@ -323,6 +366,31 @@
                 <strong>
                   {{ customer.documents_count }}
                 </strong>
+
+                {% if customer.refactored_documents_count or customer.claimed_documents_count %}
+                  <div class="if-customer-document-conditions">
+                    {% if customer.refactored_documents_count %}
+                      <span
+                        class="if-document-signal-badge is-refactored"
+                        title="{{ customer.refactored_documents_count }} documento(s) refacturado(s)"
+                      >
+                        Refacturación
+                        <b>{{ customer.refactored_documents_count }}</b>
+                      </span>
+                    {% endif %}
+
+                    {% if customer.claimed_documents_count %}
+                      <span
+                        class="if-document-signal-badge is-claimed"
+                        title="{{ customer.claimed_documents_count }} documento(s) reclamado(s)"
+                      >
+                        Reclamada
+                        <b>{{ customer.claimed_documents_count }}</b>
+                      </span>
+                    {% endif %}
+                  </div>
+                {% endif %}
+
               </td>
 
               <td class="if-cartera-last-management">

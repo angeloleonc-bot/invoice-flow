@@ -28,11 +28,47 @@
       Emitida {{ document.issue_date|date:"d/m/Y" }}
     </div>
 
+    {% if document.is_refactored and document.source_base_folio %}
+      <div class="if-ledger-subtitle">
+        Doc. Base N°
+        {% if document.refacturation_original %}
+          <a
+            href="{% url 'management:document_detail' document.refacturation_original.id %}"
+            class="if-link"
+          >
+            {{ document.source_base_folio }}
+          </a>
+        {% else %}
+          {{ document.source_base_folio }}
+        {% endif %}
+      </div>
+    {% endif %}
+
+    {% if document.refacturation_replacements %}
+      <div class="if-ledger-subtitle">
+        Refacturada mediante
+        {% for replacement in document.refacturation_replacements %}
+          <a
+            href="{% url 'management:document_detail' replacement.id %}"
+            class="if-link"
+          >
+            N° {{ replacement.document_number }}
+          </a>{% if not forloop.last %}, {% endif %}
+        {% endfor %}
+      </div>
+    {% endif %}
+
     <div class="if-ledger-badges">
       {% if document.balance_amount > 0 %}
         <span class="if-badge if-badge-warning">Pendiente</span>
       {% else %}
         <span class="if-badge if-badge-success">Pagado</span>
+      {% endif %}
+
+      {% if document.is_refactored %}
+        <span class="if-badge if-badge-info">
+          Refacturación
+        </span>
       {% endif %}
 
       {% if document.promise_documents.count %}

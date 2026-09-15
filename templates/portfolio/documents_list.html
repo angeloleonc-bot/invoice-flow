@@ -86,13 +86,40 @@
     </div>
 
     <div class="if-portfolio-filter-field">
-      <label for="due_from">Vencimiento desde</label>
-      <input
-        id="due_from"
-        type="date"
-        name="due_from"
-        value="{{ selected_due_from }}"
-      >
+      <label for="signal">Condición documental</label>
+      <select id="signal" name="signal">
+        <option value="">
+          Todas
+        </option>
+
+        <option
+          value="refactored"
+          {% if selected_signal == "refactored" %}selected{% endif %}
+        >
+          Refacturación
+        </option>
+
+        <option
+          value="claimed"
+          {% if selected_signal == "claimed" %}selected{% endif %}
+        >
+          Reclamada
+        </option>
+
+        <option
+          value="both"
+          {% if selected_signal == "both" %}selected{% endif %}
+        >
+          Ambas
+        </option>
+
+        <option
+          value="none"
+          {% if selected_signal == "none" %}selected{% endif %}
+        >
+          Sin condición
+        </option>
+      </select>
     </div>
 
     <div class="if-portfolio-filter-field">
@@ -237,7 +264,7 @@
               </a>
             </th>
 
-            <th>Tags</th>
+            <th>Condición documental</th>
           </tr>
         </thead>
 
@@ -346,16 +373,32 @@
                 {{ document.due_date|date:"d/m/Y" }}
               </td>
 
-              <td>
-                {% for tag in document.tags.all %}
-                  <span class="if-badge if-badge-soft if-cartera-document-tag">
-                    {{ tag.name }}
-                  </span>
-                {% empty %}
-                  <span class="if-muted">
-                    Sin tags
-                  </span>
-                {% endfor %}
+              <td class="if-document-condition-cell">
+                <div class="if-document-signals-group">
+                  {% if document.is_refactored %}
+                    <span
+                      class="if-document-signal-badge is-refactored"
+                      title="Documento marcado como refacturación en ERP"
+                    >
+                      Refacturación
+                    </span>
+                  {% endif %}
+
+                  {% if document.is_claimed %}
+                    <span
+                      class="if-document-signal-badge is-claimed"
+                      title="Documento marcado como reclamado en ERP"
+                    >
+                      Reclamada
+                    </span>
+                  {% endif %}
+
+                  {% if not document.is_refactored and not document.is_claimed %}
+                    <span class="if-muted">
+                      —
+                    </span>
+                  {% endif %}
+                </div>
               </td>
             </tr>
           {% endfor %}

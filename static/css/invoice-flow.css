@@ -13791,6 +13791,45 @@ a.if-action-link:hover {
   color: #8a958f;
 }
 
+.if-statement-table .if-statement-document-meta {
+  margin-top: 3px;
+  color: #7d8a84;
+  font-size: .64rem;
+  line-height: 1.25;
+  white-space: normal;
+}
+
+.if-statement-table .if-statement-document-meta span {
+  display: inline;
+}
+
+.if-statement-table
+.if-statement-document-meta span + span::before {
+  content: " · ";
+  color: #a0aaa5;
+}
+
+.if-statement-table .if-statement-document-badges {
+  margin-top: 4px;
+}
+
+.if-statement-table .if-statement-doc-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: .62rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: .02em;
+}
+
+.if-statement-table .if-statement-doc-badge.is-claimed {
+  border: 1px solid #f0d090;
+  background: #fff3db;
+  color: #9a6700;
+}
+
 .if-statement-table .is-money {
   text-align: right;
   white-space: nowrap;
@@ -19770,3 +19809,217 @@ small.if-portfolio-credit-balance {
 
 /* === GESTION BADGES AIR 4.0 END === */
 
+
+/* STATEMENT DOCUMENT FLAGS - REFACTURATION */
+
+.if-statement-table .if-statement-document-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.if-statement-table .if-statement-doc-badge.is-refactored {
+  border: 1px solid #8fc9d8;
+  background: #e8f6fa;
+  color: #075d78;
+  font-weight: 800;
+  letter-spacing: .035em;
+}
+
+.if-statement-table .if-statement-doc-badge.is-claimed {
+  border: 1px solid #f0d090;
+  background: #fff3db;
+  color: #9a6700;
+  font-weight: 800;
+  letter-spacing: .035em;
+}
+
+.if-statement-table .if-statement-refact-reference {
+  display: block;
+  margin-top: 3px;
+  color: #52616b;
+  font-size: .67rem;
+  line-height: 1.25;
+}
+
+.if-statement-table .if-statement-refact-reference strong {
+  color: #263238;
+  font-weight: 800;
+}
+
+
+/* === DOCUMENT ERP SIGNALS 4.0 START === */
+
+/*
+ * Cartera > Documentos
+ * Señales documentales provenientes del ERP.
+ */
+.if-document-condition-cell {
+  vertical-align: middle;
+}
+
+.if-document-signals-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .28rem;
+  min-width: 0;
+}
+
+.if-document-signal-badge,
+.if-management-document-signal {
+  display: inline-flex;
+  align-items: center;
+  min-height: 18px;
+  padding: .12rem .42rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: .61rem;
+  font-weight: 650;
+  line-height: 1.05;
+  white-space: nowrap;
+}
+
+.if-document-signal-badge.is-refactored,
+.if-management-document-signal.is-refactored {
+  border-color: #b9dce4;
+  background: #eef8fa;
+  color: #286a79;
+}
+
+.if-document-signal-badge.is-claimed,
+.if-management-document-signal.is-claimed {
+  border-color: #ead5ae;
+  background: #fff8eb;
+  color: #866427;
+}
+
+
+/*
+ * Gestion:
+ * 6 campos + acciones cuando no hay selector Cobrador.
+ */
+.if-management-filters:not(.has-collector) {
+  grid-template-columns:
+    minmax(180px, 1.25fr)
+    minmax(105px, .70fr)
+    minmax(125px, .78fr)
+    minmax(105px, .66fr)
+    minmax(105px, .66fr)
+    auto !important;
+}
+
+
+/*
+ * Gestion supervisor / toda la cartera:
+ * 7 campos + acciones.
+ */
+.if-management-filters.has-collector {
+  grid-template-columns:
+    minmax(165px, 1.18fr)
+    minmax(100px, .66fr)
+    minmax(115px, .74fr)
+    minmax(130px, .82fr)
+    minmax(98px, .62fr)
+    minmax(100px, .64fr)
+    auto !important;
+}
+
+
+/*
+ * Señales dentro de la columna Cliente.
+ * Mantiene la línea compacta existente.
+ */
+.if-portfolio-signal-group
+.if-management-document-signal {
+  margin: 0;
+}
+
+
+/*
+ * Mobile: mantiene comportamiento responsivo existente.
+ */
+@media (max-width: 999px) {
+  .if-management-filters,
+  .if-management-filters.has-collector,
+  .if-management-filters:not(.has-collector) {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+/* === DOCUMENT ERP SIGNALS 4.0 END === */
+
+
+/* === DOCUMENT CONDITION COLUMN FIX 4.1 START === */
+
+.if-cartera-documents-table th:last-child,
+.if-cartera-documents-table td:last-child {
+  min-width: 155px;
+  width: 155px;
+}
+
+.if-cartera-documents-table
+.if-document-signal-badge {
+  font-size: .62rem;
+  font-weight: 650;
+}
+
+/* === DOCUMENT CONDITION COLUMN FIX 4.1 END === */
+
+
+/* === CUSTOMER DOCUMENT CONDITIONS 4.2 START === */
+
+/*
+ * Cartera > Clientes
+ * Condiciones documentales bajo el conteo de documentos.
+ */
+.if-customer-document-conditions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .22rem;
+  margin-top: .22rem;
+}
+
+.if-customer-document-conditions
+.if-document-signal-badge {
+  min-height: 17px;
+  padding: .10rem .34rem;
+  font-size: .56rem;
+  font-weight: 600;
+}
+
+.if-customer-document-conditions
+.if-document-signal-badge b {
+  margin-left: .16rem;
+  font-size: inherit;
+  font-weight: 750;
+}
+
+
+/*
+ * Clientes:
+ * Buscar | Cluster | Documentos | Saldo |
+ * Condición documental | Acciones
+ */
+.if-cartera-client-filters {
+  grid-template-columns:
+    minmax(190px, 1.35fr)
+    minmax(115px, .72fr)
+    minmax(115px, .72fr)
+    minmax(115px, .72fr)
+    minmax(145px, .88fr)
+    auto !important;
+}
+
+@media (max-width: 999px) {
+  .if-cartera-client-filters {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+/* === CUSTOMER DOCUMENT CONDITIONS 4.2 END === */

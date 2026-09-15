@@ -29,6 +29,12 @@ class UpcomingStatementDocument:
     payment_terms: str
     source_snapshot_date: datetime | None
 
+    purchase_order: str = ""
+    work_reference: str = ""
+    is_claimed: bool = False
+    is_refactored: bool = False
+    refacturation_reference: str = ""
+
     @property
     def selection_key(self) -> str:
         return (
@@ -128,6 +134,11 @@ class UpcomingStatementRepository:
                 Total_Doc,
                 Saldo_Doc,
                 Condicion_Pago,
+                Reclamada,
+                Refacturacion,
+                Folio_Base,
+                OC,
+                Obra,
                 Fecha_Informe,
                 ROW_NUMBER() OVER (
                     PARTITION BY
@@ -156,6 +167,11 @@ class UpcomingStatementRepository:
             Total_Doc,
             Saldo_Doc,
             Condicion_Pago,
+            Reclamada,
+            Refacturacion,
+            Folio_Base,
+            OC,
+            Obra,
             Fecha_Informe
         FROM deduplicated
         WHERE rn = 1
@@ -233,6 +249,25 @@ class UpcomingStatementRepository:
                     source_snapshot_date=row[
                         "Fecha_Informe"
                     ],
+                    purchase_order=str(
+                        row["OC"] or ""
+                    ).strip(),
+                    work_reference=str(
+                        row["Obra"] or ""
+                    ).strip(),
+                    is_claimed=bool(
+                        str(
+                            row["Reclamada"] or ""
+                        ).strip()
+                    ),
+                    is_refactored=bool(
+                        str(
+                            row["Refacturacion"] or ""
+                        ).strip()
+                    ),
+                    refacturation_reference=str(
+                        row["Folio_Base"] or ""
+                    ).strip(),
                 )
             )
 

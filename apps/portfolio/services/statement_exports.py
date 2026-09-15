@@ -3,6 +3,7 @@ from __future__ import annotations
 from io import BytesIO
 from decimal import Decimal
 from pathlib import Path
+from xml.sax.saxutils import escape
 
 from django.conf import settings
 
@@ -11,7 +12,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_LEFT
+from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import (
     ParagraphStyle,
@@ -87,6 +88,80 @@ class CustomerStatementExportService:
             fontName="Helvetica",
             fontSize=7.2,
             leading=8.5,
+            alignment=TA_LEFT,
+        )
+
+        table_body_style = ParagraphStyle(
+            "StatementTableBody",
+            parent=normal_style,
+            fontName="Helvetica",
+            fontSize=7.2,
+            leading=8.5,
+            textColor=colors.HexColor("#222222"),
+            alignment=TA_LEFT,
+        )
+
+        table_body_bold_style = ParagraphStyle(
+            "StatementTableBodyBold",
+            parent=table_body_style,
+            fontName="Helvetica-Bold",
+        )
+
+        table_body_center_style = ParagraphStyle(
+            "StatementTableBodyCenter",
+            parent=table_body_style,
+            alignment=TA_CENTER,
+        )
+
+        table_body_right_style = ParagraphStyle(
+            "StatementTableBodyRight",
+            parent=table_body_style,
+            alignment=TA_RIGHT,
+        )
+
+        table_body_right_bold_style = ParagraphStyle(
+            "StatementTableBodyRightBold",
+            parent=table_body_right_style,
+            fontName="Helvetica-Bold",
+        )
+
+        document_meta_style = ParagraphStyle(
+            "StatementDocumentMeta",
+            parent=normal_style,
+            fontName="Helvetica",
+            fontSize=7.2,
+            leading=8.5,
+            textColor=colors.HexColor("#222222"),
+            spaceBefore=0,
+        )
+
+        refact_badge_style = ParagraphStyle(
+            "StatementRefactBadge",
+            parent=normal_style,
+            fontName="Helvetica-Bold",
+            fontSize=5.8,
+            leading=6.4,
+            textColor=colors.HexColor("#075D78"),
+            alignment=TA_LEFT,
+        )
+
+        refact_reference_style = ParagraphStyle(
+            "StatementRefactReference",
+            parent=normal_style,
+            fontName="Helvetica",
+            fontSize=6.2,
+            leading=7.3,
+            textColor=colors.HexColor("#52616B"),
+            spaceBefore=1,
+        )
+
+        claim_badge_style = ParagraphStyle(
+            "StatementClaimBadge",
+            parent=normal_style,
+            fontName="Helvetica-Bold",
+            fontSize=5.8,
+            leading=6.4,
+            textColor=colors.HexColor("#9A6700"),
             alignment=TA_LEFT,
         )
 
@@ -328,18 +403,113 @@ class CustomerStatementExportService:
 
             rows = [
                 [
-                    "Estado",
-                    "Tipo",
                     "Documento",
+                    "Referencia",
+                    "OC",
+                    "Obra",
                     "Emisión",
                     "Vencimiento",
-                    "Días en mora",
+                    "Mora",
                     "Monto original",
                     "Saldo",
                 ]
             ]
 
             for item in items:
+
+                document_number = escape(
+                    str(
+                        item.get(
+                            "document_number",
+                            "",
+                        )
+                        or ""
+                    )
+                )
+
+                document_cell = [
+                    Paragraph(
+                        document_number,
+                        table_body_bold_style,
+                    )
+                ]
+
+                reference_labels = []
+
+                if item.get("is_refactored"):
+                    refact_reference = str(
+                        item.get(
+                            "refacturation_reference"
+                        )
+                        or ""
+                    ).strip()
+
+                    if refact_reference:
+                        reference_labels.append(
+                            "Refacturaci&oacute;n de "
+                            "<b>"
+                            + escape(refact_reference)
+                            + "</b>"
+                        )
+                    else:
+                        reference_labels.append(
+                            "Refacturaci&oacute;n"
+                        )
+
+                if item.get("is_claimed"):
+                    reference_labels.append(
+                        "Reclamada"
+                    )
+
+                if reference_labels:
+                    situation_cell = Paragraph(
+                        " &middot; ".join(
+                            reference_labels
+                        ),
+                        table_body_style,
+                    )
+                else:
+                    situation_cell = ""
+
+                purchase_order = str(
+                    item.get(
+                        "purchase_order",
+                        "",
+                    )
+                    or ""
+                ).strip()
+
+                work_reference = str(
+                    item.get(
+                        "work_reference",
+                        "",
+                    )
+                    or ""
+                ).strip()
+
+                situation_cell = (
+                    situation_cell
+                    if situation_cell
+                    else ""
+                )
+
+                purchase_order_cell = (
+                    Paragraph(
+                        escape(purchase_order),
+                        table_body_style,
+                    )
+                    if purchase_order
+                    else ""
+                )
+
+                work_reference_cell = (
+                    Paragraph(
+                        escape(work_reference),
+                        table_body_style,
+                    )
+                    if work_reference
+                    else ""
+                )
 
                 if (
                     item.get("category")
@@ -356,45 +526,45 @@ class CustomerStatementExportService:
 
                 rows.append(
                     [
+                        document_cell,
+                        situation_cell,
+                        purchase_order_cell,
+                        work_reference_cell,
                         Paragraph(
-                            str(
-                                item.get(
-                                    "category_label",
-                                    "",
-                                )
+                            escape(
+                                str(item["issue_date"])
                             ),
-                            normal_style,
-                        ),
-                        Paragraph(
-                            str(
-                                item.get(
-                                    "document_type",
-                                    "",
-                                )
-                            ),
-                            normal_style,
+                            table_body_center_style,
                         ),
                         Paragraph(
-                            str(
-                                item.get(
-                                    "document_number",
-                                    "",
+                            escape(
+                                str(item["due_date"])
+                            ),
+                            table_body_center_style,
+                        ),
+                        Paragraph(
+                            escape(str(days)),
+                            table_body_center_style,
+                        ),
+                        Paragraph(
+                            escape(
+                                cls._money(
+                                    item[
+                                        "original_amount"
+                                    ]
                                 )
                             ),
-                            normal_style,
+                            table_body_right_style,
                         ),
-                        item["issue_date"],
-                        item["due_date"],
-                        str(days),
-                        cls._money(
-                            item[
-                                "original_amount"
-                            ]
-                        ),
-                        cls._money(
-                            item[
-                                "balance_amount"
-                            ]
+                        Paragraph(
+                            escape(
+                                cls._money(
+                                    item[
+                                        "balance_amount"
+                                    ]
+                                )
+                            ),
+                            table_body_right_bold_style,
                         ),
                     ]
                 )
@@ -403,14 +573,15 @@ class CustomerStatementExportService:
                 rows,
                 repeatRows=1,
                 colWidths=[
+                    25 * mm,
+                    48 * mm,
+                    21 * mm,
+                    44 * mm,
+                    23 * mm,
                     24 * mm,
-                    25 * mm,
-                    28 * mm,
-                    25 * mm,
-                    27 * mm,
-                    20 * mm,
-                    33 * mm,
-                    33 * mm,
+                    14 * mm,
+                    23 * mm,
+                    24 * mm,
                 ],
             )
 
@@ -787,6 +958,9 @@ class CustomerStatementExportService:
             "Estado",
             "Tipo",
             "Documento",
+            "Situación",
+            "OC",
+            "Obra",
             "Fecha emisión",
             "Fecha vencimiento",
             "Días en mora",
@@ -810,12 +984,51 @@ class CustomerStatementExportService:
             )
 
         for item in snapshot["documents"]:
+
+            situation_parts = []
+
+            if item.get("is_refactored"):
+                refact_reference = str(
+                    item.get(
+                        "refacturation_reference"
+                    )
+                    or ""
+                ).strip()
+
+                if refact_reference:
+                    situation_parts.append(
+                        "Refacturación de "
+                        + refact_reference
+                    )
+                else:
+                    situation_parts.append(
+                        "Refacturación"
+                    )
+
+            if item.get("is_claimed"):
+                situation_parts.append(
+                    "Reclamada"
+                )
+
+            situation_text = " · ".join(
+                situation_parts
+            )
+
             detail_sheet.append(
                 [
                     item["category_label"],
                     item.get("document_type", ""),
                     item.get(
                         "document_number",
+                        "",
+                    ),
+                    situation_text,
+                    item.get(
+                        "purchase_order",
+                        "",
+                    ),
+                    item.get(
+                        "work_reference",
                         "",
                     ),
                     item["issue_date"],
@@ -850,6 +1063,8 @@ class CustomerStatementExportService:
             16,
             20,
             18,
+            22,
+            34,
             16,
             18,
             14,
@@ -868,8 +1083,8 @@ class CustomerStatementExportService:
 
         for row in detail_sheet.iter_rows(
             min_row=2,
-            min_col=8,
-            max_col=9,
+            min_col=10,
+            max_col=11,
         ):
             for cell in row:
                 cell.number_format = '#,##0'

@@ -90,7 +90,10 @@
 </section>
 
 <section class="if-card if-portfolio-filter-card">
-  <form method="get" class="if-portfolio-filters">
+  <form
+    method="get"
+    class="if-portfolio-filters if-management-filters{% if is_supervisor and selected_scope == 'all' %} has-collector{% endif %}"
+  >
     <input type="hidden" name="scope" value="{{ selected_scope }}">
 
     <input
@@ -182,6 +185,43 @@
 >
   Requieren revisión
 </option>
+      </select>
+    </div>
+
+    <div class="if-portfolio-filter-field">
+      <label for="signal">Condición documental</label>
+      <select id="signal" name="signal">
+        <option value="">
+          Todas
+        </option>
+
+        <option
+          value="refactored"
+          {% if selected_signal == "refactored" %}selected{% endif %}
+        >
+          Refacturación
+        </option>
+
+        <option
+          value="claimed"
+          {% if selected_signal == "claimed" %}selected{% endif %}
+        >
+          Reclamada
+        </option>
+
+        <option
+          value="both"
+          {% if selected_signal == "both" %}selected{% endif %}
+        >
+          Ambas
+        </option>
+
+        <option
+          value="none"
+          {% if selected_signal == "none" %}selected{% endif %}
+        >
+          Sin condición
+        </option>
       </select>
     </div>
 
@@ -471,6 +511,24 @@
     >
       <i class="bi bi-clock-history"></i>
       Seguimiento
+    </small>
+  {% endif %}
+
+  {% if customer.has_refactored_signal %}
+    <small
+      class="if-management-document-signal is-refactored"
+      title="Cliente con documentos abiertos refacturados"
+    >
+      Refacturación
+    </small>
+  {% endif %}
+
+  {% if customer.has_claimed_signal %}
+    <small
+      class="if-management-document-signal is-claimed"
+      title="Cliente con documentos abiertos reclamados"
+    >
+      Reclamada
     </small>
   {% endif %}
   </div>

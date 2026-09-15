@@ -171,7 +171,33 @@
           {% for document in snapshot.documents %}
             <tr>
               <td>{{ document.category_label }}</td>
-              <td><strong>{{ document.document_number }}</strong></td>
+              <td>
+                <strong>{{ document.document_number }}</strong>
+
+                {% if document.is_refactored or document.is_claimed %}
+                  <div class="if-statement-document-badges">
+                    {% if document.is_refactored %}
+                      <span class="if-statement-doc-badge is-refactored">
+                        REFACTURACI&Oacute;N
+                      </span>
+                    {% endif %}
+
+                    {% if document.is_claimed %}
+                      <span class="if-statement-doc-badge is-claimed">
+                        RECLAMADA
+                      </span>
+                    {% endif %}
+                  </div>
+                {% endif %}
+
+                {% if document.is_refactored and document.refacturation_reference %}
+                  <small class="if-statement-refact-reference">
+                    Factura original:
+                    <strong>{{ document.refacturation_reference }}</strong>
+                  </small>
+                {% endif %}
+
+              </td>
               <td>{{ document.document_type }}</td>
               <td>{{ document.issue_date }}</td>
               <td>{{ document.due_date }}</td>

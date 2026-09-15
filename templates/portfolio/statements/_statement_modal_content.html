@@ -313,7 +313,7 @@
                 {% for document in group.documents %}
                   <tr
                     data-statement-row
-                    data-search-text="{{ document.document_number }} {{ document.document_type }} {{ document.trans_id }}"
+                    data-search-text="{{ document.document_number }} {{ document.document_type }} {{ document.trans_id }} {{ document.purchase_order }} {{ document.work_reference }}"
                   >
                     <td>
                       <input
@@ -329,7 +329,30 @@
 
                     <td>
                       <strong>{{ document.document_number }}</strong>
-                      <small>{{ document.document_type }}</small>
+
+                      {% if document.is_refactored or document.is_claimed %}
+                      <div class="if-statement-document-badges">
+                        {% if document.is_refactored %}
+                          <span class="if-statement-doc-badge is-refactored">
+                            REFACTURACI&Oacute;N
+                          </span>
+                        {% endif %}
+
+                        {% if document.is_claimed %}
+                          <span class="if-statement-doc-badge is-claimed">
+                            RECLAMADA
+                          </span>
+                        {% endif %}
+                      </div>
+                    {% endif %}
+
+                    {% if document.is_refactored and document.refacturation_reference %}
+                      <small class="if-statement-refact-reference">
+                        Factura original:
+                        <strong>{{ document.refacturation_reference }}</strong>
+                      </small>
+                    {% endif %}
+
                     </td>
 
                     <td>

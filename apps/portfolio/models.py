@@ -158,6 +158,8 @@ class Document(models.Model):
     payment_terms = models.CharField(max_length=100, blank=True)
     seller_name = models.CharField(max_length=150, blank=True)
     market_place = models.CharField(max_length=150, blank=True)
+    purchase_order = models.CharField(max_length=50, blank=True)
+    work_reference = models.CharField(max_length=100, blank=True)
     is_claimed = models.BooleanField(default=False)
     is_refactored = models.BooleanField(default=False)
     source_snapshot_date = models.DateTimeField(null=True, blank=True)

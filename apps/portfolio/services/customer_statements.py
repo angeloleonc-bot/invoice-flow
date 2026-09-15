@@ -52,6 +52,12 @@ class StatementDocument:
     payment_terms: str = ""
     source_snapshot_date: str | None = None
 
+    purchase_order: str = ""
+    work_reference: str = ""
+    is_claimed: bool = False
+    is_refactored: bool = False
+    refacturation_reference: str = ""
+
     def snapshot(self) -> dict:
         return {
             "selection_key": self.selection_key,
@@ -70,6 +76,13 @@ class StatementDocument:
             "days_from_due": self.days_from_due,
             "payment_terms": self.payment_terms,
             "source_snapshot_date": self.source_snapshot_date,
+            "purchase_order": self.purchase_order,
+            "work_reference": self.work_reference,
+            "is_claimed": self.is_claimed,
+            "is_refactored": self.is_refactored,
+            "refacturation_reference": (
+                self.refacturation_reference
+            ),
         }
 
 
@@ -370,6 +383,21 @@ class CustomerStatementService:
                 if document.source_snapshot_date
                 else None
             ),
+            purchase_order=str(
+                document.purchase_order or ""
+            ).strip(),
+            work_reference=str(
+                document.work_reference or ""
+            ).strip(),
+            is_claimed=bool(
+                document.is_claimed
+            ),
+            is_refactored=bool(
+                document.is_refactored
+            ),
+            refacturation_reference=str(
+                document.source_base_folio or ""
+            ).strip(),
         )
 
     @classmethod
@@ -415,6 +443,21 @@ class CustomerStatementService:
                 document.source_snapshot_date.isoformat()
                 if document.source_snapshot_date
                 else None
+            ),
+            purchase_order=(
+                document.purchase_order
+            ),
+            work_reference=(
+                document.work_reference
+            ),
+            is_claimed=(
+                document.is_claimed
+            ),
+            is_refactored=(
+                document.is_refactored
+            ),
+            refacturation_reference=(
+                document.refacturation_reference
             ),
         )
 

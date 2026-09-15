@@ -1,9 +1,447 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% load money %}
 {% load operational_ui %}
 {% block title %}Documento {{ document.document_number }} | Invoice Flow{% endblock %}
 
 {% block content %}
+
+<style>
+  .if-docv3-compact-header {
+    display: grid;
+    grid-template-columns:
+      minmax(280px, .85fr)
+      minmax(420px, 1.35fr);
+    align-items: start;
+
+    margin-bottom: 1rem;
+
+    border: 1px solid
+      var(--tblr-border-color, #dfe6ee);
+
+    border-radius: 16px;
+    background: #fff;
+    overflow: hidden;
+  }
+
+  .if-docv3-compact-client {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+
+    min-width: 0;
+    padding: 1rem 1.25rem;
+  }
+
+  .if-docv3-compact-document {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25rem;
+
+    min-width: 0;
+    padding: 1rem 1.25rem;
+
+    border-left: 1px solid
+      var(--tblr-border-color, #e3e8ef);
+
+    background: #fafbfd;
+  }
+
+  .if-docv3-compact-document-main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .if-docv3-compact-kicker {
+    margin-bottom: .18rem;
+
+    font-size: .69rem;
+    font-weight: 700;
+    letter-spacing: .055em;
+    text-transform: uppercase;
+
+    color: #64758a;
+  }
+
+  .if-docv3-compact-client-name {
+    overflow: hidden;
+
+    margin-bottom: .22rem;
+
+    font-size: 1.08rem;
+    font-weight: 700;
+
+    color: #33afa7;
+    text-decoration: none;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .if-docv3-compact-client-name:hover {
+    text-decoration: underline;
+  }
+
+  .if-docv3-compact-number {
+    margin-bottom: .18rem;
+
+    font-size: 1.35rem;
+    line-height: 1.1;
+
+    color: #182433;
+  }
+
+  .if-docv3-compact-meta {
+    font-size: .78rem;
+    color: #68788a;
+  }
+
+  .if-docv3-compact-state {
+    flex: 0 0 auto;
+  }
+
+  @media (max-width: 900px) {
+    .if-docv3-compact-header {
+      grid-template-columns: 1fr;
+    }
+
+    .if-docv3-compact-document {
+      border-top: 1px solid
+        var(--tblr-border-color, #e3e8ef);
+
+      border-left: 0;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .if-docv3-compact-document {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+  }
+</style>
+
+<style>
+  .if-docv3-financial-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1.55fr) minmax(250px, .95fr);
+    gap: 1rem;
+    margin-top: 1rem;
+    align-items: start;
+  }
+
+  .if-docv3-financial-breakdown {
+    padding: 1rem 1.1rem;
+    border: 1px solid var(--tblr-border-color, #dfe6ee);
+    border-radius: 14px;
+    background: #f8fafc;
+  }
+
+  .if-docv3-financial-breakdown-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    margin-bottom: .65rem;
+  }
+
+  .if-docv3-financial-breakdown-head strong {
+    font-size: .92rem;
+    color: #25384c;
+  }
+
+  .if-docv3-financial-breakdown-head span {
+    font-size: .74rem;
+    color: #748394;
+  }
+
+  .if-docv3-financial-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: .72rem 0;
+    border-bottom: 1px dashed #d7e0ea;
+  }
+
+  .if-docv3-financial-row:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  .if-docv3-financial-row:first-of-type {
+    padding-top: .2rem;
+  }
+
+  .if-docv3-financial-row span {
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    color: #6b7a8c;
+  }
+
+  .if-docv3-financial-row strong {
+    font-size: 1rem;
+    color: #182433;
+    text-align: right;
+  }
+
+  .if-docv3-financial-row.is-accent strong {
+    color: #206bc4;
+  }
+
+  .if-docv3-financial-balance {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 1.15rem 1.2rem;
+    border: 1px solid #bcd4f6;
+    border-radius: 16px;
+    background: linear-gradient(180deg, #f5f9ff 0%, #eef5fd 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.65);
+  }
+
+  .if-docv3-financial-balance-label {
+    margin-bottom: .35rem;
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: #4b6b94;
+  }
+
+  .if-docv3-financial-balance strong {
+    display: block;
+    font-size: 1.7rem;
+    line-height: 1.05;
+    color: #0f3d91;
+  }
+
+  .if-docv3-financial-balance p {
+    margin: .55rem 0 0 0;
+    font-size: .82rem;
+    color: #526579;
+  }
+
+  .if-docv3-financial-balance.is-closed strong {
+    color: #155b75;
+  }
+
+  .if-docv3-financial-balance.is-open strong {
+    color: #0f3d91;
+  }
+
+  @media (max-width: 900px) {
+    .if-docv3-financial-panel {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<style>
+  .if-refact-cycle {
+    margin-top: 1rem;
+    padding: 1rem 1.1rem;
+    border: 1px solid var(--tblr-border-color, #e6e8eb);
+    border-radius: 12px;
+    background: #fff;
+  }
+
+  .if-refact-cycle-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    margin-bottom: 1rem;
+  }
+
+  .if-refact-cycle-head strong {
+    font-size: .9rem;
+  }
+
+  .if-refact-cycle-head span {
+    font-size: .75rem;
+    color: #6b7280;
+  }
+
+  .if-refact-track {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    gap: .6rem;
+  }
+
+  .if-refact-node {
+    min-width: 150px;
+    padding: .75rem .85rem;
+    border: 1px solid #dfe3e8;
+    border-radius: 10px;
+    background: #f8fafc;
+  }
+
+  .if-refact-node.is-current {
+    border-color: #206bc4;
+    background: #eef5fd;
+  }
+
+  .if-refact-node-label {
+    display: block;
+    margin-bottom: .2rem;
+    font-size: .68rem;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+  }
+
+  .if-refact-node-number {
+    display: block;
+    font-size: .94rem;
+    font-weight: 700;
+    color: #182433;
+  }
+
+  .if-refact-node-meta {
+    display: block;
+    margin-top: .25rem;
+    font-size: .72rem;
+    color: #7b8794;
+  }
+
+  .if-refact-current {
+    display: inline-block;
+    margin-top: .35rem;
+    padding: .15rem .4rem;
+    border-radius: 999px;
+    background: #206bc4;
+    color: #fff;
+    font-size: .62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .if-refact-arrow {
+    flex: 0 0 auto;
+    color: #9aa4af;
+    font-size: 1.2rem;
+  }
+
+  .if-refact-branches {
+    display: flex;
+    flex-direction: column;
+    gap: .45rem;
+    min-width: 150px;
+  }
+
+  .if-refact-node a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .if-refact-node a:hover {
+    text-decoration: underline;
+  }
+
+  .if-refact-claimed {
+    display: inline-block;
+    margin-top: .35rem;
+    font-size: .68rem;
+    font-weight: 600;
+    color: #b26a00;
+  }
+
+  @media (max-width: 760px) {
+    .if-refact-track {
+      align-items: start;
+      flex-direction: column;
+    }
+
+    .if-refact-arrow {
+      transform: rotate(90deg);
+      align-self: center;
+    }
+
+    .if-refact-node,
+    .if-refact-branches {
+      width: 100%;
+      min-width: 0;
+    }
+  }
+</style>
+
+<style id="if-financial-compact-v3">
+
+  /* Card financiera completa */
+  .if-docv3-summary {
+    padding-top: .9rem;
+    padding-bottom: .85rem;
+  }
+
+  /* Menos aire antes del detalle */
+  .if-docv3-financial-panel {
+    margin-top: 0;
+    gap: .9rem;
+  }
+
+  /* Card izquierda más compacta */
+  .if-docv3-financial-breakdown {
+    padding: .68rem .95rem;
+  }
+
+  .if-docv3-financial-breakdown-head {
+    margin-bottom: .25rem;
+  }
+
+  .if-docv3-financial-breakdown-head strong {
+    font-size: .88rem;
+  }
+
+  .if-docv3-financial-breakdown-head span {
+    font-size: .7rem;
+  }
+
+  /* Filas financieras más bajas */
+  .if-docv3-financial-row {
+    padding: .34rem 0;
+  }
+
+  .if-docv3-financial-row:first-of-type {
+    padding-top: .18rem;
+  }
+
+  .if-docv3-financial-row span {
+    font-size: .72rem;
+  }
+
+  .if-docv3-financial-row strong {
+    font-size: .94rem;
+  }
+
+  /* Saldo acompaña el nuevo alto visual */
+  .if-docv3-financial-balance {
+    padding: .72rem .95rem;
+  }
+
+  /* Badges más cerca del resumen */
+  .if-docv3-signals {
+    margin-top: .65rem;
+  }
+
+</style>
+<style id="if-financial-balance-equal-height">
+
+  .if-docv3-financial-panel {
+    align-items: stretch;
+  }
+
+  .if-docv3-financial-balance {
+    align-self: stretch;
+    height: 100%;
+  }
+
+</style>
 <div class="if-docv3">
 
   <nav class="if-docv3-nav">
@@ -15,45 +453,57 @@
     <strong>Documento {{ document.document_number }}</strong>
   </nav>
 
-  <header class="if-docv3-header">
-    <div class="if-docv3-client">
-      <span>Cliente</span>
-      <h1>
-  <a
-    href="{% url 'portfolio:customer_detail' customer.id %}"
-    class="if-link"
-  >
-    {{ customer.name }}
-  </a>
-</h1>
-      <p>RUT {{ customer.rut|default:"Sin RUT" }}</p>
+  <header class="if-docv3-compact-header">
+
+    <div class="if-docv3-compact-client">
+      <span class="if-docv3-compact-kicker">
+        Cliente
+      </span>
+
+      <a
+        href="{% url 'portfolio:customer_detail' customer.id %}"
+        class="if-docv3-compact-client-name"
+      >
+        {{ customer.name }}
+      </a>
+
+      <span class="if-docv3-compact-meta">
+        RUT {{ customer.rut|default:"Sin RUT" }}
+      </span>
     </div>
 
-    <div class="if-docv3-strip">
-  <div>
-    <span>Documento</span>
-    <strong>{{ document.document_number }}</strong>
-  </div>
+    <div class="if-docv3-compact-document">
 
-  <div class="{% if document.balance_amount <= 0 %}is-success{% else %}is-warning{% endif %}">
-    <span>Estado</span>
-    <strong>{{ document.status.name|default:"Sin estado" }}</strong>
-  </div>
+      <div class="if-docv3-compact-document-main">
+        <span class="if-docv3-compact-kicker">
+          {{ document.get_document_type_display }}
+        </span>
 
-  <div class="{% if document.balance_amount <= 0 %}is-success{% else %}is-warning{% endif %}">
-    <span>Saldo</span>
-    <strong>{{ financial_summary.balance_amount|clp }}</strong>
-  </div>
+        <strong class="if-docv3-compact-number">
+          {{ document.document_number }}
+        </strong>
 
-  <div class="{% if document.balance_amount <= 0 %}is-success{% else %}is-warning{% endif %}">
-    <span>Condición</span>
-    {% if document.balance_amount <= 0 %}
-      <strong>Cerrado</strong>
-    {% else %}
-      <strong>Abierto</strong>
-    {% endif %}
-  </div>
-</div>
+        <span class="if-docv3-compact-meta">
+          Emitida {{ document.issue_date|date:"d/m/Y" }}
+          ·
+          Vence {{ document.due_date|date:"d/m/Y" }}
+        </span>
+      </div>
+
+      <div class="if-docv3-compact-state">
+        {% if document.balance_amount <= 0 %}
+          <span class="if-badge if-badge-success">
+            Documento cerrado
+          </span>
+        {% else %}
+          <span class="if-badge if-badge-warning">
+            Pendiente
+          </span>
+        {% endif %}
+      </div>
+
+    </div>
+
   </header>
 
   <div class="if-docv3-layout">
@@ -61,41 +511,63 @@
     <main class="if-docv3-main">
 
       <section class="if-docv3-summary">
-        <div class="if-docv3-summary-head">
-          <div>
-            <span>{{ document.get_document_type_display }}</span>
-            <h2>{{ document.document_number }}</h2>
-            <p>Emitida {{ document.issue_date|date:"d/m/Y" }} · Vence {{ document.due_date|date:"d/m/Y" }}</p>
+        <div class="if-docv3-financial-panel">
+
+          <div class="if-docv3-financial-breakdown">
+            <div class="if-docv3-financial-breakdown-head">
+              <strong>Detalle financiero</strong>
+              <span>Resumen de aplicaciones</span>
+            </div>
+
+            <div class="if-docv3-financial-row">
+              <span>Monto original</span>
+              <strong>{{ financial_summary.original_amount|clp }}</strong>
+            </div>
+
+            <div class="if-docv3-financial-row">
+              <span>Pagos</span>
+              <strong>{{ financial_summary.total_paid|clp }}</strong>
+            </div>
+
+            <div class="if-docv3-financial-row {% if financial_summary.total_credit_notes > 0 %}is-accent{% endif %}">
+              <span>NC aplicada</span>
+              <strong>{{ financial_summary.total_credit_notes|clp }}</strong>
+            </div>
+
+            <div class="if-docv3-financial-row {% if financial_summary.total_manual_reconciliations > 0 %}is-accent{% endif %}">
+              <span>Reconciliación manual</span>
+              <strong>{{ financial_summary.total_manual_reconciliations|clp }}</strong>
+            </div>
           </div>
 
-          {% if document.balance_amount <= 0 %}
-            <span class="if-badge if-badge-success">Documento cerrado</span>
-          {% else %}
-            <span class="if-badge if-badge-warning">Pendiente</span>
-          {% endif %}
-        </div>
+          <div class="if-docv3-financial-balance {% if financial_summary.balance_amount <= 0 %}is-closed{% else %}is-open{% endif %}">
+            <span class="if-docv3-financial-balance-label">
+              Saldo actual
+            </span>
 
-        <div class="if-docv3-money">
-          <div>
-            <span>Monto original</span>
-            <strong>{{ financial_summary.original_amount|clp }}</strong>
-          </div>
-          <div>
-            <span>Pagos</span>
-            <strong>{{ financial_summary.total_paid|clp }}</strong>
-          </div>
-          <div>
-            <span>NC aplicada</span>
-            <strong>{{ financial_summary.total_credit_notes|clp }}</strong>
-          </div>
-          <div>
-            <span>Reconciliación manual</span>
-            <strong>{{ financial_summary.total_manual_reconciliations|clp }}</strong>
-          </div>
-          <div class="is-balance">
-            <span>Saldo actual</span>
             <strong>{{ financial_summary.balance_amount|clp }}</strong>
+
+            <p>
+              {% if financial_summary.balance_amount <= 0 %}
+                {% if financial_summary.total_credit_notes > 0 %}
+                  Documento cerrado y cubierto por NC aplicada.
+                {% elif financial_summary.total_paid > 0 %}
+                  Documento cerrado mediante pago.
+                {% elif financial_summary.total_manual_reconciliations > 0 %}
+                  Documento cerrado mediante reconciliación manual.
+                {% else %}
+                  Documento sin saldo pendiente.
+                {% endif %}
+              {% else %}
+                {% if financial_summary.total_credit_notes > 0 or financial_summary.total_paid > 0 or financial_summary.total_manual_reconciliations > 0 %}
+                  Saldo pendiente luego de aplicaciones financieras.
+                {% else %}
+                  Saldo pendiente actual del documento.
+                {% endif %}
+              {% endif %}
+            </p>
           </div>
+
         </div>
 
         <div class="if-docv3-signals">
@@ -123,6 +595,169 @@
       </section>
 
 
+
+
+
+      {% if document.is_refactored or refacturation_replacements %}
+        <section class="if-refact-cycle">
+
+          <div class="if-refact-cycle-head">
+            <strong>Ciclo documental</strong>
+            <span>Refacturación</span>
+          </div>
+
+          <div class="if-refact-track">
+
+            {# ------------------------------------------------ #}
+            {# Nodo original                                     #}
+            {# ------------------------------------------------ #}
+
+            {% if document.is_refactored %}
+
+              <div
+                class="
+                  if-refact-node
+                  {% if not refacturation_original %}is-missing{% endif %}
+                "
+              >
+                <span class="if-refact-node-label">
+                  Factura original
+                </span>
+
+                {% if refacturation_original %}
+                  <a
+                    href="{% url 'management:document_detail' refacturation_original.id %}"
+                  >
+                    <span class="if-refact-node-number">
+                      N° {{ document.source_base_folio }}
+                    </span>
+                  </a>
+
+                  <span class="if-refact-node-meta">
+                    {{ refacturation_original.issue_date|date:"d/m/Y" }}
+                  </span>
+
+                  {% if refacturation_original.is_claimed %}
+                    <span class="if-refact-claimed">
+                      Reclamada
+                    </span>
+                  {% endif %}
+
+                {% else %}
+                  <span class="if-refact-node-number">
+                    N° {{ document.source_base_folio }}
+                  </span>
+
+                  <span class="if-refact-node-meta">
+                    Documento histórico no disponible
+                  </span>
+                {% endif %}
+              </div>
+
+            {% else %}
+
+              <div class="if-refact-node is-current">
+                <span class="if-refact-node-label">
+                  Factura original
+                </span>
+
+                <span class="if-refact-node-number">
+                  N° {{ document.document_number }}
+                </span>
+
+                <span class="if-refact-node-meta">
+                  {{ document.issue_date|date:"d/m/Y" }}
+                </span>
+
+                {% if document.is_claimed %}
+                  <span class="if-refact-claimed">
+                    Reclamada
+                  </span>
+                {% endif %}
+
+                <span class="if-refact-current">
+                  Actual
+                </span>
+              </div>
+
+            {% endif %}
+
+
+            <div class="if-refact-arrow">
+              <i class="bi bi-arrow-right"></i>
+            </div>
+
+
+            {# ------------------------------------------------ #}
+            {# Nodo(s) refacturación                            #}
+            {# ------------------------------------------------ #}
+
+            {% if document.is_refactored %}
+
+              <div class="if-refact-node is-current">
+                <span class="if-refact-node-label">
+                  Refacturación
+                </span>
+
+                <span class="if-refact-node-number">
+                  N° {{ document.document_number }}
+                </span>
+
+                <span class="if-refact-node-meta">
+                  {{ document.issue_date|date:"d/m/Y" }}
+                </span>
+
+                {% if document.is_claimed %}
+                  <span class="if-refact-claimed">
+                    Reclamada
+                  </span>
+                {% endif %}
+
+                <span class="if-refact-current">
+                  Actual
+                </span>
+              </div>
+
+            {% else %}
+
+              <div class="if-refact-branches">
+
+                {% for replacement in refacturation_replacements %}
+                  <div class="if-refact-node">
+
+                    <span class="if-refact-node-label">
+                      Refacturación
+                    </span>
+
+                    <a
+                      href="{% url 'management:document_detail' replacement.id %}"
+                    >
+                      <span class="if-refact-node-number">
+                        N° {{ replacement.document_number }}
+                      </span>
+                    </a>
+
+                    <span class="if-refact-node-meta">
+                      {{ replacement.issue_date|date:"d/m/Y" }}
+                    </span>
+
+                    {% if replacement.is_claimed %}
+                      <span class="if-refact-claimed">
+                        Reclamada
+                      </span>
+                    {% endif %}
+
+                  </div>
+                {% endfor %}
+
+              </div>
+
+            {% endif %}
+
+          </div>
+
+        </section>
+      {% endif %}
 
 
       <section class="if-card mt-3">

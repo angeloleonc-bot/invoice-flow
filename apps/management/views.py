@@ -1,4 +1,4 @@
-﻿from datetime import timedelta,datetime, time
+from datetime import timedelta,datetime, time
 from django.db.models import (
     Case,
     Count,
@@ -104,6 +104,25 @@ def my_work(request):
     search_customer = request.GET.get("customer", "").strip()
     search_rut = request.GET.get("rut", "").strip()
     requested_cluster = request.GET.get("cluster", "").strip()
+
+    requested_signal = request.GET.get(
+        "signal",
+        "",
+    ).strip()
+
+    allowed_signal_filters = {
+        "",
+        "refactored",
+        "claimed",
+        "both",
+        "none",
+    }
+
+    selected_signal = (
+        requested_signal
+        if requested_signal in allowed_signal_filters
+        else ""
+    )
 
     allowed_portfolio_filters = {
         "",
@@ -249,6 +268,26 @@ def my_work(request):
     open_document_filter = (
         active_assignment_filter
         & Q(documents__balance_amount__gt=0)
+    )
+
+    signal_documents = (
+        workspace_service
+        .visible_open_documents()
+        .filter(
+            customer_id=OuterRef("pk"),
+        )
+    )
+
+    refactored_signal_documents = (
+        signal_documents.filter(
+            is_refactored=True,
+        )
+    )
+
+    claimed_signal_documents = (
+        signal_documents.filter(
+            is_claimed=True,
+        )
     )
 
     current_filter = (
@@ -473,6 +512,12 @@ def my_work(request):
             has_active_promise=Exists(active_promises),
             has_active_alert=Exists(customer_active_alerts),
             is_critical=Exists(critical_customer_alerts),
+            has_refactored_signal=Exists(
+                refactored_signal_documents
+            ),
+            has_claimed_signal=Exists(
+                claimed_signal_documents
+            ),
         )
 
         .annotate(
@@ -507,6 +552,28 @@ def my_work(request):
     if selected_cluster:
         customers = customers.filter(
             cluster=selected_cluster,
+        )
+
+    if selected_signal == "refactored":
+        customers = customers.filter(
+            has_refactored_signal=True,
+        )
+
+    elif selected_signal == "claimed":
+        customers = customers.filter(
+            has_claimed_signal=True,
+        )
+
+    elif selected_signal == "both":
+        customers = customers.filter(
+            has_refactored_signal=True,
+            has_claimed_signal=True,
+        )
+
+    elif selected_signal == "none":
+        customers = customers.filter(
+            has_refactored_signal=False,
+            has_claimed_signal=False,
         )
 
     if selected_filter == "with_promises":
@@ -1061,6 +1128,7 @@ def my_work(request):
         "selected_cluster": selected_cluster,
         "selected_collector": selected_collector,
         "selected_filter": selected_filter,
+        "selected_signal": selected_signal,
         "selected_sort": selected_sort,
         "selected_direction": selected_direction,
         "sort_urls": sort_urls,
@@ -1103,6 +1171,55 @@ def document_detail(request, id):
     )
 
     document_supports = build_document_support_viewmodels(document)
+
+    # Trazabilidad documental de refacturación.
+    #
+    # source_base_folio es la referencia canónica entregada por
+    # Fact_Vta_Reg. La factura original puede no seguir presente
+    # localmente, por lo que la relación es deliberadamente opcional.
+    refacturation_original = None
+
+    if (
+        document.is_refactored
+        and document.source_base_folio
+    ):
+        refacturation_original = (
+            Document.objects
+            .filter(
+                external_source=(
+                    Document.SOURCE_FACT_VTA_REG
+                ),
+                document_type=(
+                    Document.DOCUMENT_TYPE_INVOICE
+                ),
+                document_number=(
+                    document.source_base_folio
+                ),
+            )
+            .exclude(pk=document.pk)
+            .order_by("id")
+            .first()
+        )
+
+    refacturation_replacements = list(
+        Document.objects
+        .filter(
+            external_source=(
+                Document.SOURCE_FACT_VTA_REG
+            ),
+            document_type=(
+                Document.DOCUMENT_TYPE_INVOICE
+            ),
+            is_refactored=True,
+            source_base_folio=document.document_number,
+        )
+        .exclude(pk=document.pk)
+        .order_by(
+            "issue_date",
+            "document_number",
+            "id",
+        )
+    )
 
     credit_notes = (
         CreditNoteApplication.objects
@@ -1763,6 +1880,12 @@ def document_detail(request, id):
     context = {
         "document": document,
         "document_supports": document_supports,
+        "refacturation_original": (
+            refacturation_original
+        ),
+        "refacturation_replacements": (
+            refacturation_replacements
+        ),
         "customer": document.customer,
         "form": action_form,
         "action_form": action_form,

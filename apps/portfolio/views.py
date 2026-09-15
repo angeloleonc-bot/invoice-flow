@@ -192,6 +192,25 @@ def documents_list(request):
     requested_status = request.GET.get("status", "").strip()
     selected_balance = request.GET.get("balance", "").strip()
 
+    requested_signal = request.GET.get(
+        "signal",
+        "",
+    ).strip()
+
+    allowed_signal_filters = {
+        "",
+        "refactored",
+        "claimed",
+        "both",
+        "none",
+    }
+
+    selected_signal = (
+        requested_signal
+        if requested_signal in allowed_signal_filters
+        else ""
+    )
+
     requested_due_from = request.GET.get("due_from", "").strip()
     requested_due_to = request.GET.get("due_to", "").strip()
 
@@ -305,6 +324,28 @@ def documents_list(request):
             overpayment_amount__gt=0,
         )
 
+    if selected_signal == "refactored":
+        documents = documents.filter(
+            is_refactored=True,
+        )
+
+    elif selected_signal == "claimed":
+        documents = documents.filter(
+            is_claimed=True,
+        )
+
+    elif selected_signal == "both":
+        documents = documents.filter(
+            is_refactored=True,
+            is_claimed=True,
+        )
+
+    elif selected_signal == "none":
+        documents = documents.filter(
+            is_refactored=False,
+            is_claimed=False,
+        )
+
     if due_from is not None:
         documents = documents.filter(
             due_date__gte=due_from,
@@ -412,6 +453,7 @@ def documents_list(request):
         "search_query": search_query,
         "selected_status": selected_status,
         "selected_balance": selected_balance,
+        "selected_signal": selected_signal,
         "selected_due_from": (
             requested_due_from
             if due_from is not None
@@ -446,6 +488,26 @@ def customers_list(request):
         "cluster",
         "",
     ).strip()
+
+    requested_document_condition = request.GET.get(
+        "document_condition",
+        "",
+    ).strip()
+
+    allowed_document_conditions = {
+        "",
+        "refactored",
+        "claimed",
+        "both",
+        "none",
+    }
+
+    selected_document_condition = (
+        requested_document_condition
+        if requested_document_condition
+        in allowed_document_conditions
+        else ""
+    )
 
     selected_documents = request.GET.get(
         "documents",
@@ -529,6 +591,23 @@ def customers_list(request):
         ),
     )
 
+    customers = customers.annotate(
+        refactored_documents_count=Count(
+            "documents",
+            filter=Q(
+                documents__is_refactored=True,
+            ),
+            distinct=True,
+        ),
+        claimed_documents_count=Count(
+            "documents",
+            filter=Q(
+                documents__is_claimed=True,
+            ),
+            distinct=True,
+        ),
+    )
+
     if search_query:
         customers = customers.filter(
             Q(name__icontains=search_query)
@@ -558,6 +637,28 @@ def customers_list(request):
 
         customers = customers.filter(
             cluster=selected_cluster,
+        )
+
+    if selected_document_condition == "refactored":
+        customers = customers.filter(
+            refactored_documents_count__gt=0,
+        )
+
+    elif selected_document_condition == "claimed":
+        customers = customers.filter(
+            claimed_documents_count__gt=0,
+        )
+
+    elif selected_document_condition == "both":
+        customers = customers.filter(
+            refactored_documents_count__gt=0,
+            claimed_documents_count__gt=0,
+        )
+
+    elif selected_document_condition == "none":
+        customers = customers.filter(
+            refactored_documents_count=0,
+            claimed_documents_count=0,
         )
 
     if selected_documents == "with_documents":
@@ -797,6 +898,7 @@ def customers_list(request):
         "selected_cluster": selected_cluster,
         "selected_documents": selected_documents,
         "selected_balance": selected_balance,
+        "selected_document_condition": selected_document_condition,
 
         "selected_sort": selected_sort,
         "selected_direction": selected_direction,
@@ -1098,6 +1200,102 @@ def customer_detail(request, customer_id):
 
     if not account_show_all:
         documents = documents[:10]
+
+    # Convertimos únicamente los documentos visibles a lista para
+    # enriquecer la trazabilidad de refacturación sin generar
+    # consultas por fila desde el template.
+    documents = list(documents)
+
+    refacturation_base_numbers = {
+        str(document.source_base_folio or "").strip()
+        for document in documents
+        if (
+            document.is_refactored
+            and str(
+                document.source_base_folio or ""
+            ).strip()
+        )
+    }
+
+    original_by_number = {}
+
+    if refacturation_base_numbers:
+        original_candidates = (
+            Document.objects
+            .filter(
+                external_source=(
+                    Document.SOURCE_FACT_VTA_REG
+                ),
+                document_type=(
+                    Document.DOCUMENT_TYPE_INVOICE
+                ),
+                document_number__in=(
+                    refacturation_base_numbers
+                ),
+            )
+            .order_by("id")
+        )
+
+        for original in original_candidates:
+            original_by_number.setdefault(
+                original.document_number,
+                original,
+            )
+
+    visible_document_numbers = {
+        str(document.document_number or "").strip()
+        for document in documents
+        if str(
+            document.document_number or ""
+        ).strip()
+    }
+
+    replacements_by_base = {}
+
+    if visible_document_numbers:
+        replacement_candidates = (
+            Document.objects
+            .filter(
+                external_source=(
+                    Document.SOURCE_FACT_VTA_REG
+                ),
+                document_type=(
+                    Document.DOCUMENT_TYPE_INVOICE
+                ),
+                is_refactored=True,
+                source_base_folio__in=(
+                    visible_document_numbers
+                ),
+            )
+            .order_by(
+                "issue_date",
+                "document_number",
+                "id",
+            )
+        )
+
+        for replacement in replacement_candidates:
+            replacements_by_base.setdefault(
+                replacement.source_base_folio,
+                [],
+            ).append(replacement)
+
+    for document in documents:
+        document.refacturation_original = None
+
+        if document.is_refactored:
+            document.refacturation_original = (
+                original_by_number.get(
+                    document.source_base_folio
+                )
+            )
+
+        document.refacturation_replacements = (
+            replacements_by_base.get(
+                document.document_number,
+                [],
+            )
+        )
 
     document_ids = list(documents_base.values_list("id", flat=True))
 

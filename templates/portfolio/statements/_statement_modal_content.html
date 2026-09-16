@@ -162,28 +162,38 @@
       Puedes ingresar varios correos separados por coma o punto y coma.
     </small>
 
-    {% if suggested_emails %}
-  <details class="if-statement-optional-field if-statement-suggested-details">
-    <summary class="if-statement-optional-toggle">
-      {{ suggested_emails|length }}
-      correo{% if suggested_emails|length != 1 %}s{% endif %}
-      detectado{% if suggested_emails|length != 1 %}s{% endif %}
-      · Ver sugeridos
-    </summary>
+    <details
+      class="if-statement-optional-field if-statement-suggested-details"
+      data-statement-suggestion-details
+      data-statement-default-emails="{{ default_to }}"
+      {% if not suggested_emails %}hidden{% endif %}
+    >
+      <summary class="if-statement-optional-toggle">
+        <span data-statement-suggestion-count>
+          {{ suggested_emails|length }}
+        </span>
+        <span data-statement-suggestion-word>
+          correo{% if suggested_emails|length != 1 %}s{% endif %}
+          detectado{% if suggested_emails|length != 1 %}s{% endif %}
+        </span>
+        · Ver sugeridos
+      </summary>
 
-    <div class="if-statement-recipient-suggestions">
-      {% for email in suggested_emails %}
-        <button
-          type="button"
-          class="if-statement-recipient-chip"
-          data-statement-suggested-email="{{ email }}"
-        >
-          {{ email }}
-        </button>
-      {% endfor %}
-    </div>
-  </details>
-{% endif %}
+      <div
+        class="if-statement-recipient-suggestions"
+        data-statement-suggestion-list
+      >
+        {% for email in suggested_emails %}
+          <button
+            type="button"
+            class="if-statement-recipient-chip"
+            data-statement-suggested-email="{{ email }}"
+          >
+            {{ email }}
+          </button>
+        {% endfor %}
+      </div>
+    </details>
   </div>
 
   <details class="if-statement-optional-field if-statement-cc-details">

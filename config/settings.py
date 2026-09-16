@@ -384,6 +384,36 @@ SESSION_SAVE_EVERY_REQUEST = True
 # AWS S3 — Adjuntos operacionales privados
 # ============================================================
 
+
+# ---------------------------------------------------------------------
+# SAP Business One - Service Layer
+# ---------------------------------------------------------------------
+SAP_SERVICE_LAYER_BASE_URL = config(
+    "SAP_SERVICE_LAYER_BASE_URL",
+    default="",
+).strip().rstrip("/")
+SAP_SERVICE_LAYER_COMPANY_DB = config(
+    "SAP_SERVICE_LAYER_COMPANY_DB",
+    default="",
+).strip()
+SAP_SERVICE_LAYER_USERNAME = config(
+    "SAP_SERVICE_LAYER_USERNAME",
+    default="",
+).strip()
+SAP_SERVICE_LAYER_PASSWORD = config(
+    "SAP_SERVICE_LAYER_PASSWORD",
+    default="",
+)
+SAP_SERVICE_LAYER_VERIFY_SSL = config(
+    "SAP_SERVICE_LAYER_VERIFY_SSL",
+    default=True,
+    cast=bool,
+)
+SAP_SERVICE_LAYER_TIMEOUT = config(
+    "SAP_SERVICE_LAYER_TIMEOUT",
+    default=30,
+    cast=int,
+)
 AWS_ACCESS_KEY_ID = config("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = config("AWS_SECRET_ACCESS_KEY")
 AWS_SESSION_TOKEN = config("AWS_SESSION_TOKEN", default=None)

@@ -30,6 +30,10 @@ from apps.accounts.services.delegated_graph import (
 from apps.portfolio.models import (
     Customer,
     CustomerStatement,
+    CustomerSAPProfile,
+)
+from apps.portfolio.services.customer_master import (
+    parse_billing_emails,
 )
 from apps.portfolio.services.customer_statements import (
     CATEGORY_DUE_TODAY,
@@ -189,9 +193,9 @@ def customer_statement_form(
         )
     )
 
-    suggested_emails = []
+    contact_emails = []
 
-    def add_suggested_emails(raw_value):
+    def add_unique_email(target, raw_value):
         normalized = (
             str(raw_value or "")
             .replace(";", ",")
@@ -204,21 +208,70 @@ def customer_statement_form(
 
             if (
                 email
+                and email not in target
+            ):
+                target.append(email)
+
+    for contact in contacts:
+        add_unique_email(
+            contact_emails,
+            contact.email,
+        )
+
+    customer_sap_profile = (
+        CustomerSAPProfile.objects
+        .filter(customer=customer)
+        .first()
+    )
+
+    sap_billing_emails = []
+
+    if customer_sap_profile is not None:
+        sap_billing_emails = list(
+            parse_billing_emails(
+                customer_sap_profile.billing_emails_raw
+            )
+        )
+
+    if sap_billing_emails:
+
+        # SAP U_Email_FV es la fuente principal
+        # para el destinatario automático.
+        default_emails = list(
+            sap_billing_emails
+        )
+
+        suggested_emails = []
+
+        for email in contact_emails:
+            if (
+                email not in default_emails
                 and email not in suggested_emails
             ):
                 suggested_emails.append(email)
 
-    for contact in contacts:
-        add_suggested_emails(
-            contact.email
+        recipient_source = "SAP_U_EMAIL_FV"
+
+    else:
+
+        # Fallback legacy para clientes sin Email_FV.
+        suggested_emails = list(
+            contact_emails
         )
 
-    add_suggested_emails(
-        customer.email
-    )
+        add_unique_email(
+            suggested_emails,
+            customer.email,
+        )
+
+        default_emails = list(
+            suggested_emails
+        )
+
+        recipient_source = "LEGACY_FALLBACK"
 
     default_to = ", ".join(
-        suggested_emails
+        default_emails
     )
 
     today = timezone.localdate()
@@ -236,6 +289,7 @@ def customer_statement_form(
             "suggested_emails": (
                 suggested_emails
             ),
+            "recipient_source": recipient_source,
             "default_to": default_to,
             "default_cc": "cobranzas@mosaico.cl",
             "sender_email": (
@@ -668,4 +722,3 @@ def customer_statement_send(
         "portfolio:customer_statement_preview",
         public_id=public_id,
     )
-

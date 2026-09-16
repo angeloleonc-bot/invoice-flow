@@ -9,6 +9,7 @@
 {% include "portfolio/components/_workspace_nav.html" %}
 
 {% include "portfolio/components/_workspace_header.html" %}
+{% include "portfolio/components/_customer_master_modal.html" %}
 {% include "portfolio/components/_collection_state.html" %}
 
   <div class="if-ar-layout">
@@ -1989,9 +1990,29 @@ document.addEventListener("DOMContentLoaded", function () {
     "click",
     async function () {
       modal.hidden = false;
+
+      document.body.classList.add(
+        "if-modal-open"
+      );
+
       await loadStatementForm();
     }
   );
+
+  function resetAndCloseStatementModal() {
+    modal.hidden = true;
+    loaded = false;
+
+    content.innerHTML = (
+      '<div class="if-statement-loading">'
+      + 'Preparando Estado de Cuenta...'
+      + '</div>'
+    );
+
+    document.body.classList.remove(
+      "if-modal-open"
+    );
+  }
 
   document.querySelectorAll(
     "[data-close-statement-modal]"
@@ -1999,11 +2020,21 @@ document.addEventListener("DOMContentLoaded", function () {
 
     button.addEventListener(
       "click",
-      function () {
-        modal.hidden = true;
-      }
+      resetAndCloseStatementModal
     );
   });
+
+  document.addEventListener(
+    "keydown",
+    function (event) {
+      if (
+        event.key === "Escape"
+        && !modal.hidden
+      ) {
+        resetAndCloseStatementModal();
+      }
+    }
+  );
 
 });
 
@@ -2097,6 +2128,220 @@ document.addEventListener("DOMContentLoaded", function () {
 
     return true;
   }
+
+
+  function getStatementEmailList(rawValue) {
+    return Array.from(
+      new Set(
+        String(rawValue || "")
+          .split(/[;,\s]+/)
+          .map(function (email) {
+            return email.trim().toLowerCase();
+          })
+          .filter(Boolean)
+      )
+    );
+  }
+
+
+  function syncStatementRecipientSuggestions(form) {
+    if (!form) {
+      return;
+    }
+
+    const input = form.querySelector(
+      "[data-statement-to]"
+    );
+
+    const details = form.querySelector(
+      "[data-statement-suggestion-details]"
+    );
+
+    if (!input || !details) {
+      return;
+    }
+
+    const list = details.querySelector(
+      "[data-statement-suggestion-list]"
+    );
+
+    if (!list) {
+      return;
+    }
+
+    const selected = new Set(
+      getStatementEmailList(input.value)
+    );
+
+    const candidates = new Set(
+      getStatementEmailList(
+        details.dataset.statementDefaultEmails
+      )
+    );
+
+    list.querySelectorAll(
+      "[data-statement-suggested-email]"
+    ).forEach(function (chip) {
+      const email = String(
+        chip.dataset.statementSuggestedEmail || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      if (email) {
+        candidates.add(email);
+      }
+    });
+
+    candidates.forEach(function (email) {
+      let chip = Array.from(
+        list.querySelectorAll(
+          "[data-statement-suggested-email]"
+        )
+      ).find(function (candidate) {
+        return (
+          String(
+            candidate.dataset.statementSuggestedEmail || ""
+          )
+            .trim()
+            .toLowerCase()
+          === email
+        );
+      });
+
+      if (!chip) {
+        chip = document.createElement("button");
+        chip.type = "button";
+        chip.className =
+          "if-statement-recipient-chip";
+        chip.dataset.statementSuggestedEmail =
+          email;
+        chip.textContent = email;
+
+        list.appendChild(chip);
+      }
+
+      chip.hidden = selected.has(email);
+    });
+
+    const visible = Array.from(
+      list.querySelectorAll(
+        "[data-statement-suggested-email]"
+      )
+    ).filter(function (chip) {
+      return !chip.hidden;
+    });
+
+    const count = visible.length;
+
+    details.hidden = count === 0;
+
+    const countElement = details.querySelector(
+      "[data-statement-suggestion-count]"
+    );
+
+    const wordElement = details.querySelector(
+      "[data-statement-suggestion-word]"
+    );
+
+    if (countElement) {
+      countElement.textContent = String(count);
+    }
+
+    if (wordElement) {
+      wordElement.textContent = (
+        count === 1
+          ? "correo detectado"
+          : "correos detectados"
+      );
+    }
+
+    if (count === 0) {
+      details.open = false;
+    }
+  }
+
+
+  document.addEventListener(
+    "input",
+    function (event) {
+      if (
+        !event.target.matches ||
+        !event.target.matches(
+          "[data-statement-to]"
+        )
+      ) {
+        return;
+      }
+
+      syncStatementRecipientSuggestions(
+        event.target.closest(
+          "[data-statement-form]"
+        )
+      );
+    }
+  );
+
+
+  document.addEventListener(
+    "click",
+    function (event) {
+      const chip = event.target.closest(
+        "[data-statement-suggested-email]"
+      );
+
+      if (!chip) {
+        return;
+      }
+
+      const form = chip.closest(
+        "[data-statement-form]"
+      );
+
+      if (!form) {
+        return;
+      }
+
+      const input = form.querySelector(
+        "[data-statement-to]"
+      );
+
+      if (!input) {
+        return;
+      }
+
+      const email = String(
+        chip.dataset.statementSuggestedEmail || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      if (!email) {
+        return;
+      }
+
+      const emails = getStatementEmailList(
+        input.value
+      );
+
+      if (!emails.includes(email)) {
+        emails.push(email);
+      }
+
+      input.value = emails.join(", ");
+
+      syncStatementRecipientSuggestions(form);
+
+      input.dispatchEvent(
+        new Event("input", {
+          bubbles: true
+        })
+      );
+
+      input.focus();
+    }
+  );
+
 
   function isStatementRecipientInput(element) {
     return (

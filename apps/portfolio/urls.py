@@ -12,6 +12,11 @@ urlpatterns = [
     path("assignment/workloads/", views.assignment_workloads, name="assignment_workloads"),
     path("customers/<int:customer_id>/", views.customer_detail, name="customer_detail"),
     path(
+        "customers/<int:customer_id>/sap-contact/update/",
+        views.customer_sap_contact_update,
+        name="customer_sap_contact_update",
+    ),
+    path(
         "customers/<int:customer_id>/statement/form/",
         statement_views.customer_statement_form,
         name="customer_statement_form",

@@ -8,6 +8,7 @@ from django.utils import timezone
 from apps.portfolio.models import (
     Customer,
     CustomerContact,
+    CustomerSAPProfile,
     Document,
     DocumentAssignment,
     DocumentStatus,
@@ -86,6 +87,13 @@ class Command(BaseCommand):
             )
         }
 
+        sap_profile_customer_ids = set(
+            CustomerSAPProfile.objects.values_list(
+                "customer_id",
+                flat=True,
+            )
+        )
+
         customers_to_create = []
         customers_to_update = []
 
@@ -109,12 +117,25 @@ class Command(BaseCommand):
                 created_customers += 1
                 continue
 
+            use_legacy_contact = (
+                customer.id
+                not in sap_profile_customer_ids
+            )
+
             changed = (
                 customer.rut != values["rut"]
                 or customer.name != values["name"]
                 or customer.cluster != values["cluster"]
-                or customer.email != values["email"]
-                or customer.phone != values["phone"]
+                or (
+                    use_legacy_contact
+                    and customer.email
+                    != values["email"]
+                )
+                or (
+                    use_legacy_contact
+                    and customer.phone
+                    != values["phone"]
+                )
                 or customer.is_active is not True
             )
 
@@ -125,8 +146,11 @@ class Command(BaseCommand):
             customer.rut = values["rut"]
             customer.name = values["name"]
             customer.cluster = values["cluster"]
-            customer.email = values["email"]
-            customer.phone = values["phone"]
+
+            if use_legacy_contact:
+                customer.email = values["email"]
+                customer.phone = values["phone"]
+
             customer.is_active = True
             customer.updated_at = now
 

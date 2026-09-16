@@ -354,11 +354,27 @@
 
               <td>
                 <div>
-                  {{ customer.email|default:"Sin email" }}
+                  {% if customer.contact_email_display %}
+                    {{ customer.contact_email_display }}
+
+                    {% if customer.contact_email_extra_count %}
+                      <span class="if-muted">
+                        +{{ customer.contact_email_extra_count }}
+                      </span>
+                    {% endif %}
+                  {% else %}
+                    <span class="if-muted">
+                      {% if customer.contact_source == "SAP" %}
+                        Sin email FV
+                      {% else %}
+                        Sin email
+                      {% endif %}
+                    </span>
+                  {% endif %}
                 </div>
 
                 <div class="if-muted">
-                  {{ customer.phone|default:"Sin teléfono" }}
+                  {{ customer.contact_phone_display|default:"Sin teléfono" }}
                 </div>
               </td>
 

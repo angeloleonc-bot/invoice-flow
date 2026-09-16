@@ -20,6 +20,9 @@ from apps.management.services.actions import (
 )
 
 from apps.portfolio.models import CustomerStatement
+from apps.portfolio.models import CustomerSAPProfile
+from apps.portfolio.services.customer_credit import CustomerCreditService
+from apps.portfolio.services.customer_master import parse_billing_emails
 from apps.portfolio.services.customer_statements import (
     CATEGORY_DUE_TODAY,
     CATEGORY_OVERDUE,
@@ -581,14 +584,18 @@ def customers_list(request):
     if selected_page_size not in allowed_page_sizes:
         selected_page_size = "25"
 
-    customers = Customer.objects.annotate(
-        documents_count=Count(
-            "documents",
-            distinct=True,
-        ),
-        total_balance=Sum(
-            "documents__balance_amount",
-        ),
+    customers = (
+        Customer.objects
+        .select_related("sap_profile")
+        .annotate(
+            documents_count=Count(
+                "documents",
+                distinct=True,
+            ),
+            total_balance=Sum(
+                "documents__balance_amount",
+            ),
+        )
     )
 
     customers = customers.annotate(
@@ -702,6 +709,58 @@ def customers_list(request):
     )
 
     customers = page_obj.object_list
+
+    # -------------------------------------------------------------
+    # Contacto visible en Cartera / Clientes.
+    #
+    # Fuente preferida:
+    # CustomerSAPProfile (SN_Vta_Reg / SAP).
+    #
+    # Fallback:
+    # Customer.email / Customer.phone solo cuando aún no existe
+    # CustomerSAPProfile para ese cliente.
+    # -------------------------------------------------------------
+    for customer in customers:
+        try:
+            sap_profile = customer.sap_profile
+        except CustomerSAPProfile.DoesNotExist:
+            sap_profile = None
+
+        if sap_profile is not None:
+            billing_emails = parse_billing_emails(
+                sap_profile.billing_emails_raw
+            )
+
+            customer.contact_email_display = (
+                billing_emails[0]
+                if billing_emails
+                else ""
+            )
+
+            customer.contact_email_extra_count = max(
+                len(billing_emails) - 1,
+                0,
+            )
+
+            customer.contact_phone_display = (
+                sap_profile.phone or ""
+            )
+
+            customer.contact_source = "SAP"
+
+        else:
+            customer.contact_email_display = (
+                customer.email or ""
+            )
+
+            customer.contact_email_extra_count = 0
+
+            customer.contact_phone_display = (
+                customer.phone or ""
+            )
+
+            customer.contact_source = "LEGACY"
+
 
 
     # -----------------------------------------------------------------
@@ -917,6 +976,45 @@ def customer_detail(request, customer_id):
     today = timezone.localdate()
 
     customer = get_object_or_404(Customer, id=customer_id)
+
+    customer_sap_profile = (
+        CustomerSAPProfile.objects
+        .filter(customer=customer)
+        .first()
+    )
+
+    customer_credit = None
+    customer_billing_emails = []
+    from apps.accounts.models import Role
+    from apps.accounts.services.role_service import RoleService
+    customer_master_role = (
+        RoleService.get_effective_role_code(
+            request.user
+        )
+        if request.user.is_authenticated
+        else None
+    )
+    can_edit_customer_master = (
+        customer_master_role
+        in {
+            Role.ADMINISTRADOR,
+            Role.SUPERVISOR,
+            Role.COBRADOR,
+        }
+    )
+
+    if customer_sap_profile is not None:
+        customer_credit = (
+            CustomerCreditService
+            .calculate(customer_sap_profile)
+        )
+
+        customer_billing_emails = (
+            parse_billing_emails(
+                customer_sap_profile.billing_emails_raw
+            )
+        )
+
 
     active_customer_assignments = (
         DocumentAssignment.objects
@@ -1832,6 +1930,11 @@ def customer_detail(request, customer_id):
         "portfolio/customer_detail.html",
         {
             "customer": customer,
+            "customer_sap_profile": customer_sap_profile,
+            "customer_credit": customer_credit,
+            "customer_billing_emails": customer_billing_emails,
+            "can_edit_customer_master":
+                can_edit_customer_master,
             "customer_responsibles": customer_responsibles,
             "documents": documents,
             "account_show_all": account_show_all,
@@ -2278,3 +2381,303 @@ def assign_documents(request):
     )
 
     return redirect("portfolio:unassigned_documents")
+
+
+def customer_sap_contact_update(request, customer_id):
+    """
+    Actualiza U_Email_FV y Phone1 en SAP Business One.
+    Flujo:
+      autorización
+      validación
+      GET SAP
+      PATCH sólo si existen diferencias
+      GET confirmación
+      actualización local protegida
+      auditoría
+    """
+    from django.db import transaction
+    from django.http import JsonResponse
+    from django.shortcuts import get_object_or_404
+    from django.utils import timezone
+    from apps.accounts.models import Role
+    from apps.accounts.services.role_service import (
+        RoleService,
+    )
+    from apps.audit.services.audit_service import (
+        AuditService,
+    )
+    from apps.portfolio.services.customer_master_edit import (
+        CustomerMasterValidationError,
+        validate_customer_master_contact,
+    )
+    from apps.portfolio.services.sap_business_partners import (
+        SAPBusinessPartnerService,
+        SAPServiceLayerConfigurationError,
+        SAPServiceLayerError,
+    )
+    if request.method != "POST":
+        return JsonResponse(
+            {
+                "ok": False,
+                "message": "Método no permitido.",
+            },
+            status=405,
+        )
+    if not request.user.is_authenticated:
+        return JsonResponse(
+            {
+                "ok": False,
+                "message": "Sesión no válida.",
+            },
+            status=401,
+        )
+    role_code = RoleService.get_effective_role_code(
+        request.user
+    )
+    allowed_roles = {
+        Role.ADMINISTRADOR,
+        Role.SUPERVISOR,
+        Role.COBRADOR,
+    }
+    if role_code not in allowed_roles:
+        return JsonResponse(
+            {
+                "ok": False,
+                "message": (
+                    "No tiene permisos para modificar "
+                    "datos maestros del cliente."
+                ),
+            },
+            status=403,
+        )
+    customer = get_object_or_404(
+        Customer,
+        id=customer_id,
+    )
+    profile = (
+        CustomerSAPProfile.objects
+        .filter(customer=customer)
+        .first()
+    )
+    if profile is None:
+        return JsonResponse(
+            {
+                "ok": False,
+                "message": (
+                    "El cliente no tiene información "
+                    "maestra SAP sincronizada."
+                ),
+            },
+            status=409,
+        )
+    card_code = str(
+        customer.external_id or ""
+    ).strip()
+    if not card_code:
+        return JsonResponse(
+            {
+                "ok": False,
+                "message": (
+                    "El cliente no tiene CardCode SAP."
+                ),
+            },
+            status=409,
+        )
+    try:
+        cleaned = validate_customer_master_contact(
+            billing_emails_raw=request.POST.get(
+                "billing_emails_raw",
+                "",
+            ),
+            phone=request.POST.get(
+                "phone",
+                "",
+            ),
+        )
+    except CustomerMasterValidationError as exc:
+        return JsonResponse(
+            {
+                "ok": False,
+                "message": str(exc),
+            },
+            status=400,
+        )
+    ip_address = (
+        str(
+            request.META.get(
+                "HTTP_X_FORWARDED_FOR",
+                "",
+            )
+            or ""
+        )
+        .split(",")[0]
+        .strip()
+        or request.META.get(
+            "REMOTE_ADDR"
+        )
+    )
+    user_agent = str(
+        request.META.get(
+            "HTTP_USER_AGENT",
+            "",
+        )
+        or ""
+    )
+    username = str(
+        getattr(
+            request.user,
+            "username",
+            "",
+        )
+        or ""
+    )
+    try:
+        service = SAPBusinessPartnerService()
+        before, after, changed_fields = (
+            service.update_contact(
+                card_code=card_code,
+                billing_emails_raw=(
+                    cleaned.billing_emails_raw
+                ),
+                phone=cleaned.phone,
+            )
+        )
+    except (
+        SAPServiceLayerConfigurationError,
+        SAPServiceLayerError,
+    ) as exc:
+        AuditService.register_event(
+            event_type=(
+                "CUSTOMER_SAP_MASTER_UPDATE_FAILED"
+            ),
+            user=request.user,
+            username_snapshot=username,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            metadata={
+                "customer_id": customer.id,
+                "customer_rut": customer.rut,
+                "card_code": card_code,
+                "role": role_code,
+                "error": str(exc),
+            },
+        )
+        return JsonResponse(
+            {
+                "ok": False,
+                "message": (
+                    "SAP no pudo confirmar la "
+                    "actualización del cliente."
+                ),
+            },
+            status=502,
+        )
+    now = timezone.now()
+    changed_fields = tuple(
+        changed_fields
+    )
+    email_changed = (
+        "U_Email_FV" in changed_fields
+    )
+    phone_changed = (
+        "Phone1" in changed_fields
+    )
+    with transaction.atomic():
+        locked_profile = (
+            CustomerSAPProfile.objects
+            .select_for_update()
+            .get(pk=profile.pk)
+        )
+        update_fields = []
+        if (
+            locked_profile.billing_emails_raw
+            != after.billing_emails_raw
+        ):
+            locked_profile.billing_emails_raw = (
+                after.billing_emails_raw
+            )
+            update_fields.append(
+                "billing_emails_raw"
+            )
+        if locked_profile.phone != after.phone:
+            locked_profile.phone = after.phone
+            update_fields.append(
+                "phone"
+            )
+        if email_changed:
+            locked_profile.billing_emails_sap_confirmed_at = (
+                now
+            )
+            update_fields.append(
+                "billing_emails_sap_confirmed_at"
+            )
+        if phone_changed:
+            locked_profile.phone_sap_confirmed_at = (
+                now
+            )
+            update_fields.append(
+                "phone_sap_confirmed_at"
+            )
+        if update_fields:
+            locked_profile.save(
+                update_fields=list(
+                    dict.fromkeys(
+                        update_fields
+                    )
+                )
+            )
+        AuditService.register_event(
+            event_type=(
+                "CUSTOMER_SAP_MASTER_UPDATED"
+            ),
+            user=request.user,
+            username_snapshot=username,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            metadata={
+                "customer_id": customer.id,
+                "customer_rut": customer.rut,
+                "card_code": card_code,
+                "role": role_code,
+                "changed_fields": list(
+                    changed_fields
+                ),
+                "sap_patch_executed": bool(
+                    changed_fields
+                ),
+                "before": {
+                    "billing_emails_raw":
+                        before.billing_emails_raw,
+                    "phone":
+                        before.phone,
+                },
+                "after": {
+                    "billing_emails_raw":
+                        after.billing_emails_raw,
+                    "phone":
+                        after.phone,
+                },
+            },
+        )
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": (
+                "Datos actualizados correctamente."
+                if changed_fields
+                else "Los datos ya estaban actualizados."
+            ),
+            "changed": bool(
+                changed_fields
+            ),
+            "changed_fields": list(
+                changed_fields
+            ),
+            "billing_emails_raw":
+                after.billing_emails_raw,
+            "billing_emails": list(
+                cleaned.billing_emails
+            ),
+            "phone": after.phone,
+        }
+    )

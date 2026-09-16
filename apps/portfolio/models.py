@@ -607,3 +607,132 @@ class DocumentSupport(models.Model):
 
     def __str__(self):
         return f"Respaldo {self.document_number} ({self.id})"
+
+
+class CustomerSAPProfile(models.Model):
+    """
+    Snapshot local de información comercial/maestra proveniente de SAP B1.
+
+    La fuente operacional actual es dbo.SN_Vta_Reg.
+
+    Los valores derivados, como crédito utilizado o disponible,
+    no se persisten en este modelo.
+    """
+
+    customer = models.OneToOneField(
+        Customer,
+        on_delete=models.CASCADE,
+        related_name="sap_profile",
+    )
+
+    sap_name = models.CharField(
+        max_length=255,
+        blank=True,
+    )
+
+    account_balance = models.DecimalField(
+        max_digits=19,
+        decimal_places=0,
+        null=True,
+        blank=True,
+    )
+
+    sales_order_balance = models.DecimalField(
+        max_digits=19,
+        decimal_places=0,
+        null=True,
+        blank=True,
+    )
+
+    delivery_note_balance = models.DecimalField(
+        max_digits=19,
+        decimal_places=0,
+        null=True,
+        blank=True,
+    )
+
+    credit_limit = models.DecimalField(
+        max_digits=19,
+        decimal_places=0,
+        null=True,
+        blank=True,
+    )
+
+    account_status = models.CharField(
+        max_length=20,
+        blank=True,
+    )
+
+    sap_status = models.CharField(
+        max_length=10,
+        blank=True,
+    )
+
+    inactive_comment = models.CharField(
+        max_length=200,
+        blank=True,
+    )
+
+    billing_emails_raw = models.TextField(
+        blank=True,
+    )
+
+    phone = models.CharField(
+        max_length=100,
+        blank=True,
+    )
+
+    portfolio_seller_name = models.CharField(
+        max_length=100,
+        blank=True,
+    )
+
+    portfolio_seller_email = models.CharField(
+        max_length=200,
+        blank=True,
+    )
+
+    source_created_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    source_updated_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    synced_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    billing_emails_sap_confirmed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Última confirmación directa de U_Email_FV "
+            "obtenida desde SAP Service Layer."
+        ),
+    )
+
+    phone_sap_confirmed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Última confirmación directa de Phone1 "
+            "obtenida desde SAP Service Layer."
+        ),
+    )
+
+    class Meta:
+        verbose_name = "Perfil SAP de cliente"
+        verbose_name_plural = "Perfiles SAP de clientes"
+        indexes = [
+            models.Index(fields=["account_status"]),
+            models.Index(fields=["sap_status"]),
+            models.Index(fields=["source_updated_at"]),
+        ]
+
+    def __str__(self):
+        return f"Perfil SAP - {self.customer}"

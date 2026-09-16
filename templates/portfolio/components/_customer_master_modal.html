@@ -1,0 +1,425 @@
+﻿{% load money %}
+
+{% if customer_sap_profile %}
+<div
+  class="if-modal if-customer-master-modal"
+  data-customer-master-modal
+  hidden
+>
+  <div
+    class="if-modal-backdrop"
+    data-close-customer-master-modal
+  ></div>
+
+  <section
+    class="if-modal-panel if-customer-master-modal-panel if-customer-master-v2"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="customer-master-title"
+  >
+
+    <header class="if-customer-master-v2-header">
+
+      <div class="if-customer-master-v2-identity">
+
+        <span class="if-customer-master-v2-eyebrow">
+          Detalle del cliente
+        </span>
+
+        <div class="if-customer-master-v2-title-row">
+
+          <h2 id="customer-master-title">
+            {{ customer.name }}
+          </h2>
+
+          <div class="if-customer-master-v2-badges">
+
+            <span class="
+              if-customer-master-v2-badge
+              {% if customer.is_active %}
+                is-success
+              {% else %}
+                is-danger
+              {% endif %}
+            ">
+              {% if customer.is_active %}
+                Activo
+              {% else %}
+                Inactivo
+              {% endif %}
+            </span>
+
+            {% if customer.cluster %}
+            <span class="if-customer-master-v2-badge is-neutral">
+              {{ customer.cluster }}
+            </span>
+            {% endif %}
+
+          </div>
+
+        </div>
+
+        <div class="if-customer-master-v2-meta">
+          <span>{{ customer.rut }}</span>
+
+          {% if customer.external_id %}
+          <span>·</span>
+          <span>SAP {{ customer.external_id }}</span>
+          {% endif %}
+        </div>
+
+      </div>
+
+      <button
+        type="button"
+        class="if-customer-master-v2-close"
+        data-close-customer-master-modal
+        aria-label="Cerrar"
+      >
+        ×
+      </button>
+
+    </header>
+
+
+    <div class="if-customer-master-v2-body">
+
+      <div class="if-customer-master-v2-main">
+
+        <!-- CONTACTO -->
+        <section class="if-customer-master-v2-section">
+
+          <div class="if-customer-master-v2-section-title if-customer-master-v2-section-title-action">
+            <div>
+              <span>Contacto</span>
+              <h3>Facturación y cobranza</h3>
+            </div>
+            {% if can_edit_customer_master %}
+            <button
+              type="button"
+              class="if-customer-master-edit-open"
+              data-customer-master-edit-open
+            >
+              Editar
+            </button>
+            {% endif %}
+          </div>
+
+          <div
+            class="if-customer-master-v2-contact"
+            data-customer-master-contact-readonly
+          >
+
+            <div>
+              <span class="if-customer-master-v2-label">
+                Email de facturación
+              </span>
+
+              {% if customer_billing_emails %}
+              <div
+                class="if-customer-master-v2-email-list"
+                data-customer-master-readonly-emails
+              >
+                {% for email in customer_billing_emails %}
+                <span>{{ email }}</span>
+                {% endfor %}
+              </div>
+              {% else %}
+              <strong class="if-customer-master-v2-empty">
+                Sin email de facturación
+              </strong>
+              {% endif %}
+            </div>
+
+            <div>
+              <span class="if-customer-master-v2-label">
+                Teléfono general
+              </span>
+
+              <strong
+                class="if-customer-master-v2-value"
+                data-customer-master-readonly-phone
+              >
+                {{ customer_sap_profile.phone|default:"Sin teléfono registrado" }}
+              </strong>
+            </div>
+
+          </div>
+
+          {% include "portfolio/components/_customer_master_edit.html" %}
+        </section>
+
+
+        <!-- INFORMACIÓN COMERCIAL -->
+        <section class="if-customer-master-v2-section">
+
+          <div class="if-customer-master-v2-section-title">
+            <span>Operación</span>
+            <h3>Información comercial</h3>
+          </div>
+
+          <div class="if-customer-master-v2-data-grid">
+
+            <div>
+              <span>Estado SAP</span>
+              <strong>
+                {{ customer_sap_profile.sap_status|default:"Sin información" }}
+              </strong>
+            </div>
+
+            <div>
+              <span>Estado cuenta</span>
+              <strong>
+                {{ customer_sap_profile.account_status|default:"Sin información" }}
+              </strong>
+            </div>
+
+            <div>
+              <span>Vendedor cartera</span>
+              <strong>
+                {{ customer_sap_profile.portfolio_seller_name|default:"Sin información" }}
+              </strong>
+            </div>
+
+            <div>
+              <span>Email vendedor</span>
+              <strong>
+                {{ customer_sap_profile.portfolio_seller_email|default:"Sin información" }}
+              </strong>
+            </div>
+
+          </div>
+
+          {% if customer_sap_profile.inactive_comment %}
+          <div class="if-customer-master-v2-warning">
+            {{ customer_sap_profile.inactive_comment }}
+          </div>
+          {% endif %}
+
+        </section>
+
+      </div>
+
+
+      <!-- CRÉDITO -->
+      <aside class="if-customer-master-v2-credit">
+
+        <div class="if-customer-master-v2-credit-heading">
+          <span>Crédito</span>
+
+          {% if customer_credit.status == "EXCEEDED" %}
+          <strong class="is-danger">
+            Excedido
+          </strong>
+          {% elif customer_credit.status == "AVAILABLE" %}
+          <strong class="is-success">
+            Disponible
+          </strong>
+          {% elif customer_credit.status == "NO_LINE" %}
+          <strong class="is-neutral">
+            Sin línea
+          </strong>
+          {% else %}
+          <strong class="is-warning">
+            Incompleto
+          </strong>
+          {% endif %}
+        </div>
+
+
+        {% if customer_credit.has_credit_line %}
+
+        <div class="if-customer-master-v2-credit-primary">
+
+          <span>Crédito disponible</span>
+
+          <strong class="
+            {% if customer_credit.status == 'EXCEEDED' %}
+              is-danger
+            {% endif %}
+          ">
+            {% if customer_credit.available_amount != None %}
+              {{ customer_credit.available_amount|clp }}
+            {% else %}
+              -
+            {% endif %}
+          </strong>
+
+          {% if customer_credit.status == "EXCEEDED" %}
+          <small>
+            Excedido {{ customer_credit.exceeded_amount|clp }}
+          </small>
+          {% endif %}
+
+        </div>
+
+
+        <div class="if-customer-master-v2-credit-summary">
+
+          <div>
+            <span>Línea de crédito</span>
+            <strong>{{ customer_credit.credit_limit|clp }}</strong>
+          </div>
+
+          <div>
+            <span>Utilizado</span>
+            <strong>
+              {% if customer_credit.used_amount != None %}
+                {{ customer_credit.used_amount|clp }}
+              {% else %}
+                -
+              {% endif %}
+            </strong>
+          </div>
+
+        </div>
+
+
+        <div class="if-customer-master-v2-credit-breakdown">
+
+          <div>
+            <span>Saldo cuenta</span>
+            <strong>
+              {% if customer_sap_profile.account_balance != None %}
+                {{ customer_sap_profile.account_balance|clp }}
+              {% else %}
+                -
+              {% endif %}
+            </strong>
+          </div>
+
+          <div>
+            <span>Notas de venta</span>
+            <strong>
+              {% if customer_sap_profile.sales_order_balance != None %}
+                {{ customer_sap_profile.sales_order_balance|clp }}
+              {% else %}
+                -
+              {% endif %}
+            </strong>
+          </div>
+
+          <div>
+            <span>Guías despacho</span>
+            <strong>
+              {% if customer_sap_profile.delivery_note_balance != None %}
+                {{ customer_sap_profile.delivery_note_balance|clp }}
+              {% else %}
+                -
+              {% endif %}
+            </strong>
+          </div>
+
+        </div>
+
+        <div class="if-customer-master-v2-formula">
+          Disponible = Línea − (SC + NV + GD)
+        </div>
+
+        {% else %}
+
+        <div class="if-customer-master-v2-no-credit">
+          <strong>Sin línea de crédito</strong>
+          <span>
+            Este cliente no tiene línea configurada.
+          </span>
+        </div>
+
+        {% endif %}
+
+      </aside>
+
+    </div>
+
+
+    <footer class="if-customer-master-v2-footer">
+
+      <div>
+        {% if customer_sap_profile.source_updated_at %}
+        <span>
+          Origen actualizado
+          {{ customer_sap_profile.source_updated_at|date:"d/m/Y H:i" }}
+        </span>
+        {% endif %}
+      </div>
+
+      <button
+        type="button"
+        class="if-button-secondary"
+        data-close-customer-master-modal
+      >
+        Cerrar
+      </button>
+
+    </footer>
+
+  </section>
+</div>
+
+
+<script>
+(function () {
+  const modal = document.querySelector(
+    '[data-customer-master-modal]'
+  );
+
+  if (!modal) {
+    return;
+  }
+
+  const openButton = document.querySelector(
+    '[data-open-customer-master-modal]'
+  );
+
+  const closeButtons = modal.querySelectorAll(
+    '[data-close-customer-master-modal]'
+  );
+
+  function openModal() {
+    modal.hidden = false;
+    document.body.classList.add('if-modal-open');
+  }
+
+  function closeModal() {
+    if (
+      typeof window.invoiceFlowResetCustomerMasterEditor
+      === 'function'
+    ) {
+      window.invoiceFlowResetCustomerMasterEditor();
+    }
+
+    modal.hidden = true;
+
+    document.body.classList.remove(
+      'if-modal-open'
+    );
+  }
+
+  if (openButton) {
+    openButton.addEventListener(
+      'click',
+      openModal
+    );
+  }
+
+  closeButtons.forEach(function (button) {
+    button.addEventListener(
+      'click',
+      closeModal
+    );
+  });
+
+  document.addEventListener(
+    'keydown',
+    function (event) {
+      if (
+        event.key === 'Escape'
+        && !modal.hidden
+      ) {
+        closeModal();
+      }
+    }
+  );
+})();
+</script>
+{% endif %}

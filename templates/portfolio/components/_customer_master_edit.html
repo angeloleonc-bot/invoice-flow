@@ -1,0 +1,367 @@
+﻿{% if can_edit_customer_master %}
+<div
+  class="if-customer-master-edit"
+  data-customer-master-edit
+  hidden
+>
+  <form
+    method="post"
+    action="{% url 'portfolio:customer_sap_contact_update' customer.id %}"
+    data-customer-master-edit-form
+  >
+    {% csrf_token %}
+    <div class="if-customer-master-edit-field">
+      <label for="customer-master-billing-emails">
+        Email de facturación
+      </label>
+      <textarea
+        id="customer-master-billing-emails"
+        name="billing_emails_raw"
+        rows="3"
+        autocomplete="off"
+      >{{ customer_sap_profile.billing_emails_raw }}</textarea>
+      <small>
+        Puedes separar varios correos con coma,
+        punto y coma o espacios.
+      </small>
+    </div>
+    <div class="if-customer-master-edit-field">
+      <label for="customer-master-phone">
+        Teléfono general
+      </label>
+      <input
+        id="customer-master-phone"
+        type="text"
+        name="phone"
+        maxlength="100"
+        value="{{ customer_sap_profile.phone }}"
+        autocomplete="off"
+      >
+    </div>
+    <div
+      class="if-customer-master-edit-message"
+      data-customer-master-edit-message
+      hidden
+    ></div>
+    <div class="if-customer-master-edit-actions">
+      <button
+        type="button"
+        class="if-customer-master-edit-cancel"
+        data-customer-master-edit-cancel
+      >
+        Cancelar
+      </button>
+      <button
+        type="submit"
+        class="if-customer-master-edit-save"
+        data-customer-master-edit-save
+      >
+        Guardar en SAP
+      </button>
+    </div>
+  </form>
+</div>
+<script>
+(function () {
+  const root = document.querySelector(
+    '[data-customer-master-edit]'
+  );
+  const form = document.querySelector(
+    '[data-customer-master-edit-form]'
+  );
+  const open = document.querySelector(
+    '[data-customer-master-edit-open]'
+  );
+  if (!root || !form || !open) {
+    return;
+  }
+  const cancel = root.querySelector(
+    '[data-customer-master-edit-cancel]'
+  );
+  const save = root.querySelector(
+    '[data-customer-master-edit-save]'
+  );
+  const message = root.querySelector(
+    '[data-customer-master-edit-message]'
+  );
+  const readOnly = document.querySelector(
+    '[data-customer-master-contact-readonly]'
+  );
+
+  const readOnlyEmails = document.querySelector(
+    '[data-customer-master-readonly-emails]'
+  );
+
+  const readOnlyPhone = document.querySelector(
+    '[data-customer-master-readonly-phone]'
+  );
+
+  const headerEmailCount = document.querySelector(
+    '[data-customer-header-email-count]'
+  );
+
+  const headerPhone = document.querySelector(
+    '[data-customer-header-phone]'
+  );
+
+
+  const emailInput = form.querySelector(
+    '[name="billing_emails_raw"]'
+  );
+
+  const phoneInput = form.querySelector(
+    '[name="phone"]'
+  );
+
+  let confirmedEmail = (
+    emailInput ? emailInput.value : ''
+  );
+
+  let confirmedPhone = (
+    phoneInput ? phoneInput.value : ''
+  );
+  function clearEditorMessage() {
+    message.hidden = true;
+    message.textContent = '';
+    message.className =
+      'if-customer-master-edit-message';
+
+    save.disabled = false;
+    save.textContent = 'Guardar en SAP';
+  }
+
+  function restoreConfirmedValues() {
+    if (emailInput) {
+      emailInput.value = confirmedEmail;
+    }
+
+    if (phoneInput) {
+      phoneInput.value = confirmedPhone;
+    }
+
+    clearEditorMessage();
+  }
+
+  function showEditor() {
+    restoreConfirmedValues();
+
+    root.hidden = false;
+
+    if (readOnly) {
+      readOnly.hidden = true;
+    }
+
+    open.hidden = true;
+  }
+
+  function hideEditor() {
+    restoreConfirmedValues();
+
+    root.hidden = true;
+
+    if (readOnly) {
+      readOnly.hidden = false;
+    }
+
+    open.hidden = false;
+  }
+
+  window.invoiceFlowResetCustomerMasterEditor =
+    function () {
+      hideEditor();
+    };
+  open.addEventListener(
+    'click',
+    showEditor
+  );
+  if (cancel) {
+    cancel.addEventListener(
+      'click',
+      hideEditor
+    );
+  }
+  form.addEventListener(
+    'submit',
+    async function (event) {
+      event.preventDefault();
+      save.disabled = true;
+      save.textContent = 'Guardando...';
+      message.hidden = true;
+      message.textContent = '';
+      try {
+        const response = await fetch(
+          form.action,
+          {
+            method: 'POST',
+            body: new FormData(form),
+            credentials: 'same-origin',
+            headers: {
+              'X-Requested-With':
+                'XMLHttpRequest'
+            }
+          }
+        );
+        const data = await response.json();
+        if (!response.ok || !data.ok) {
+          throw new Error(
+            data.message
+            || 'No fue posible actualizar el cliente.'
+          );
+        }
+        message.textContent = data.message;
+        message.className =
+          'if-customer-master-edit-message is-success';
+        message.hidden = false;
+
+        const returnedFields =
+          data.fields || {};
+
+        if (emailInput) {
+          const savedEmail = (
+            returnedFields.billing_emails_raw
+            ?? data.billing_emails_raw
+            ?? emailInput.value
+          );
+
+          emailInput.value = String(
+            savedEmail || ''
+          );
+
+          confirmedEmail = emailInput.value;
+        }
+
+        if (phoneInput) {
+          const savedPhone = (
+            returnedFields.phone
+            ?? data.phone
+            ?? phoneInput.value
+          );
+
+          phoneInput.value = String(
+            savedPhone || ''
+          );
+
+          confirmedPhone = phoneInput.value;
+        }
+
+        if (readOnlyPhone) {
+          readOnlyPhone.textContent = (
+            confirmedPhone
+            || 'Sin teléfono registrado'
+          );
+        }
+
+        if (headerPhone) {
+          headerPhone.textContent = (
+            confirmedPhone
+            || 'Sin teléfono'
+          );
+        }
+
+        const sidebarPhone =
+          document.querySelector(
+            '[data-customer-sidebar-phone]'
+          );
+
+        if (sidebarPhone) {
+          sidebarPhone.textContent = (
+            confirmedPhone
+            || 'Sin teléfono registrado'
+          );
+        }
+
+        if (readOnlyEmails) {
+          const emails = String(
+            confirmedEmail || ''
+          )
+            .split(/[;,\s]+/)
+            .map(function (email) {
+              return email.trim();
+            })
+            .filter(Boolean);
+
+          readOnlyEmails.innerHTML = '';
+
+          emails.forEach(function (email) {
+            const item =
+              document.createElement('span');
+
+            item.textContent = email;
+
+            readOnlyEmails.appendChild(item);
+          });
+
+          if (headerEmailCount) {
+            headerEmailCount.textContent = (
+              emails.length === 0
+                ? 'Sin email FV'
+                : (
+                    String(emails.length)
+                    + ' correo'
+                    + (emails.length === 1 ? '' : 's')
+                  )
+            );
+          }
+
+          const sidebarEmails =
+            document.querySelector(
+              '[data-customer-sidebar-emails]'
+            );
+
+          if (sidebarEmails) {
+            sidebarEmails.innerHTML = '';
+
+            if (emails.length === 0) {
+              const empty =
+                document.createElement('strong');
+
+              empty.className = 'is-empty';
+              empty.textContent =
+                'Sin email de facturación';
+
+              sidebarEmails.appendChild(empty);
+
+            } else {
+              emails
+                .slice(0, 2)
+                .forEach(function (email) {
+                  const item =
+                    document.createElement('strong');
+
+                  item.textContent = email;
+
+                  sidebarEmails.appendChild(item);
+                });
+
+              if (emails.length > 2) {
+                const more =
+                  document.createElement('small');
+
+                more.textContent =
+                  String(emails.length)
+                  + ' correos registrados';
+
+                sidebarEmails.appendChild(more);
+              }
+            }
+          }
+        }
+
+        save.disabled = false;
+        save.textContent = 'Guardar en SAP';
+}
+      catch (error) {
+        message.textContent =
+          error.message
+          || 'No fue posible actualizar el cliente.';
+        message.className =
+          'if-customer-master-edit-message is-error';
+        message.hidden = false;
+        save.disabled = false;
+        save.textContent = 'Guardar en SAP';
+      }
+    }
+  );
+})();
+</script>
+{% endif %}

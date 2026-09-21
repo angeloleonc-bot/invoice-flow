@@ -344,10 +344,16 @@ class Command(BaseCommand):
         documents_to_create = []
         documents_to_update = []
 
-        for row in rows:
-            trans_id = str(
-                row["TransId"]
-            )
+        # Fact_Vta_Reg puede contener filas físicamente repetidas.
+        # Para documentos trabajamos una sola vez por TransId.
+        # Si el mismo TransId aparece varias veces, prevalece la
+        # última fila, consistente con la lógica de asignaciones.
+        (
+            desired_document_rows,
+            duplicate_document_rows,
+        ) = self._deduplicate_document_rows(rows)
+
+        for trans_id, row in desired_document_rows.items():
 
             customer = customers[
                 self._clean(row["Id"])
@@ -802,6 +808,11 @@ class Command(BaseCommand):
         )
 
         self.stdout.write(
+            "Filas duplicadas de documentos omitidas por TransId: "
+            f"{duplicate_document_rows}"
+        )
+
+        self.stdout.write(
             "Documentos actualizados realmente: "
             f"{updated_documents}"
         )
@@ -892,6 +903,24 @@ class Command(BaseCommand):
                 dict(zip(columns, row))
                 for row in cursor.fetchall()
             ]
+
+    @staticmethod
+    def _deduplicate_document_rows(rows):
+        desired_document_rows = {}
+
+        for row in rows:
+            desired_document_rows[
+                str(row["TransId"])
+            ] = row
+
+        duplicate_document_rows = (
+            len(rows) - len(desired_document_rows)
+        )
+
+        return (
+            desired_document_rows,
+            duplicate_document_rows,
+        )
 
     def _split_emails(self, value):
         value = self._clean(value)
